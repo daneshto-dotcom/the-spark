@@ -25,7 +25,7 @@
 import { Application, Container, Graphics } from 'pixi.js';
 import { isConcealed } from './concealment.ts';
 import type { Primitive } from '../game/primitive.ts';
-import { isAnchorCombo, isFilamentCombo, isMagical } from '../combos.ts';
+import { comboView } from './comboView.ts';
 import { KEYSTONE_INCOME_MAX_NEIGHBORS } from '../constants.ts';
 import type { World } from '../state/world.ts';
 import { graphicsTier } from './graphicsTier.ts';
@@ -73,17 +73,23 @@ export function computeKeystonePulses(world: World): KeystonePulse[] {
      * same cast `structureRenderer.drawBonds` makes, with the same justification recorded there:
      * *"the cast is safe: bond.a / bond.b are always Primitives at runtime."*
      */
-    const ka = hub.a as unknown as Primitive;
-    const kb = hub.b as unknown as Primitive;
-    if (isConcealed(ka.pos.x, ka.pos.y, ka.placedBy)
-      || isConcealed(kb.pos.x, kb.pos.y, kb.placedBy)) continue;
+    /*
+     * ⭐ S196 (joiner-lag) — the cheap test first. Almost no connector is a keystone hub, so asking "is this an
+     * Anchor/Filament?" (a memoised array read, `comboView`) before the two vision tests skips them for nearly
+     * every bond. Every condition below is a `continue`, so the order changes the cost and never the result.
+     */
     const ha = world.primitives.get(hub.aId);
     if (ha === undefined) continue;
     const hb = world.primitives.get(hub.bId);
     if (hb === undefined) continue;
-    const rigidity = isAnchorCombo(ha.type, hb.type);
-    const income = isFilamentCombo(ha.type, hb.type);
+    const hubCombo = comboView(ha.type, hb.type);
+    const rigidity = hubCombo.isAnchor;
+    const income = hubCombo.isFilament;
     if (!rigidity && !income) continue; // not a keystone hub
+    const ka = hub.a as unknown as Primitive;
+    const kb = hub.b as unknown as Primitive;
+    if (isConcealed(ka.pos.x, ka.pos.y, ka.placedBy)
+      || isConcealed(kb.pos.x, kb.pos.y, kb.placedBy)) continue;
     // A fouled hub stops conferring (parity with keystoneAnchor.ts + the "fouled structure earns zero" rule).
     if (fouled.has(hub.aId) || fouled.has(hub.bId)) continue;
     const color = rigidity ? KEYSTONE_RIGIDITY_PULSE_COLOR : KEYSTONE_INCOME_PULSE_COLOR;
@@ -105,7 +111,7 @@ export function computeKeystonePulses(world: World): KeystonePulse[] {
         if (na === undefined) continue;
         const nbEnd = world.primitives.get(nb.bId);
         if (nbEnd === undefined) continue;
-        if (!isMagical(na.type, nbEnd.type)) continue; // only magic neighbors are blessed
+        if (!comboView(na.type, nbEnd.type).isMagical) continue; // only magic neighbors are blessed
         // A fouled magic neighbor receives nothing (foul-skip parity).
         if (fouled.has(nb.aId) || fouled.has(nb.bId)) continue;
         if (incomeBudget <= 0) continue; // income cap reached — remaining neighbors unpaid, unlit
@@ -165,10 +171,13 @@ export class KeystoneTelegraphRenderer {
     if (graphicsTier() === 'MINIMAL') {
       const pulses = computeKeystonePulses(world);
       let h = 0x811c9dc5;
+      // S196 — folded inline: the old `for (const v of [ … ])` built a five-element array per pulse per frame.
       for (const p of pulses) {
-        for (const v of [Math.round(p.fromX), Math.round(p.fromY), Math.round(p.toX), Math.round(p.toY), p.color]) {
-          h = Math.imul(h ^ v, 0x01000193) >>> 0;
-        }
+        h = Math.imul(h ^ Math.round(p.fromX), 0x01000193) >>> 0;
+        h = Math.imul(h ^ Math.round(p.fromY), 0x01000193) >>> 0;
+        h = Math.imul(h ^ Math.round(p.toX), 0x01000193) >>> 0;
+        h = Math.imul(h ^ Math.round(p.toY), 0x01000193) >>> 0;
+        h = Math.imul(h ^ p.color, 0x01000193) >>> 0;
       }
       h = Math.imul(h ^ pulses.length, 0x01000193) >>> 0 || 1;
       if (h === this.staticHash) return;

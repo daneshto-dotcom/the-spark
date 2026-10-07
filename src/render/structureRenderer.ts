@@ -24,7 +24,7 @@
  */
 
 import { Application, Container, Graphics, Sprite } from 'pixi.js';
-import { lookupCombo } from '../combos.ts';
+import { comboView } from './comboView.ts';
 import {
   POOP_FOUL_TINT,
   POOP_FOUL_TINT_STRENGTH,
@@ -436,7 +436,7 @@ export function forEachBondDraw(world: World, knobs: BondCacheKnobs | null, emit
       : 'none';
     emit({
       ax: snap(a.pos.x), ay: snap(a.pos.y), bx: snap(b.pos.x), by: snap(b.pos.y),
-      visualEffectId: lookupCombo(a.type, b.type).visualEffectId,
+      visualEffectId: comboView(a.type, b.type).visualEffectId, // S196 — memoised, no per-frame string key
       colorA: stressedA, colorB: stressedB,
       alpha: 0.85 * coverAlpha, width, tick, pulseAlpha, pattern,
     });
