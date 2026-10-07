@@ -1,6 +1,6 @@
 # S196 PROGRESS — s196/risen-check
 
-**NEXT STEP:** gates running detached (.tmp-gates/{typecheck,vitest,build,e2e}.{log,exit}); then final report.
+**NEXT STEP:** typecheck 0, build 0 (1263.3 KiB, my delta 0 — tests only). vitest + e2e running detached (.tmp-gates); then final report.
 
 ## VERDICT (draft): NO SIM DEFECT. THE RISEN fires through the real host tick in every shape tested.
 - Static: the ONLY production `damageCreature` caller is `damageEntity` (damage.ts:308), which resolves ONE `KillCredit` at the blow
