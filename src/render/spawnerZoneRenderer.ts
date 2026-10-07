@@ -50,8 +50,11 @@ import { towerFixSparkleFx, type FixEdge } from './fx/towerSparkleFx.ts';
 import { fxHighQuality } from './fx/fxRuntime.ts';
 import type { Primitive } from '../game/primitive.ts';
 import type { World } from '../state/world.ts';
-import type { PlayerId } from '../types.ts';
-import { fxActive, fxGround, fxTop, fxTopShade } from './fx/fxState.ts';
+import type { PlayerId, PrimitiveId } from '../types.ts';
+import { fxActive, fxGround, fxShock, fxTop, fxTopShade } from './fx/fxState.ts';
+// ⭐ S196 `s196/boss-release` (owner R196-T2) — the tier-9 tower's release + crumble, derived on every peer.
+import { BOSS_RELEASE_DEV, BossReleaseTracker, sameTimeline } from './fx/bossReleaseTrack.ts';
+import { BOSS_CRUMBLE_FX_TICKS, bossCrumbleFx, bossReleaseFx, type BossReleaseSinks } from './fx/bossReleaseFx.ts';
 import {
   TOWER_SPARKLE_EPSILON, towerSparkleFx, towerSparkleStrength, type SparkleBond, type SparklePrim,
 } from './fx/towerSparkleFx.ts';
@@ -113,6 +116,7 @@ export class SpawnerZoneRenderer {
       this.syncSparkles(world);
       this.syncFixSparkles(world);
       this.syncTowerSignatures(world);
+      this.syncBossReleases(world);
       return;
     }
     if (world.creatureSpawners.size === 0) return;
@@ -366,13 +370,22 @@ export class SpawnerZoneRenderer {
   private readonly lastBirth = new Map<number, number>();
   /** The tick of the last tracked frame; NaN = never (not primed). */
   private birthTrackTick = Number.NaN;
+  /** ⛔ S196 audit HIGH-1 — a belt only: the shipped client keeps one World; a new match is the title `clear()` + not PLAYING. */
+  private birthTrackWorld: World | null = null;
 
   /** One tracking pass: fills `lastBirth`. */
   private trackBirths(world: World): void {
     const tick = world.tick;
     const gap = tick - this.birthTrackTick;
-    // primed only by a recent previous frame: never-seen (NaN), a new match (clock back), or a gap → re-prime
-    const primed = gap >= 0 && gap <= TOWER_SIG_BIRTH_PRIME_GAP_TICKS;
+    /*
+     * ⛔ S196 audit HIGH-1 — primed by a recent previous frame of the SAME match. It used to require `gap >= 0`, but a
+     * joiner's clock steps BACK a few ticks whenever a snapshot lands (`save.ts` sets `world.tick = snap.tick` after the
+     * client ran ahead), so every snapshot re-primed it and a joiner missed every birth that arrived on a step-back
+     * frame. Now: not PLAYING (and the title `clear()`), a forward gap or a backwards jump past `PEER_CLOCK_STEP_BACK_TICKS`
+     * (60 — a one-second stall) re-primes; a smaller step back does not. A different World object also re-primes (a belt).
+     */
+    const primed = sameTimeline(world === this.birthTrackWorld, world.gameState === 'PLAYING', gap, TOWER_SIG_BIRTH_PRIME_GAP_TICKS);
+    this.birthTrackWorld = world;
     if (!primed) this.lastBirth.clear();
     const now = this.birthNow;
     now.clear();
@@ -418,7 +431,8 @@ export class SpawnerZoneRenderer {
       if (foot === null) continue;
       if (isConcealed(foot.x, foot.y, anchor.placedBy)) continue;
       const born = births.get(sp.id as unknown as number);
-      const actAge = born === undefined ? TOWER_SIG_NO_ACT : world.tick - born;
+      // ⛔ audit HIGH-1 — clamped: a joiner's clock may step back below the tick the birth was seen on
+      const actAge = born === undefined ? TOWER_SIG_NO_ACT : Math.max(0, world.tick - born);
       const race = raceForTowerId(sp.recipeId) ?? raceForT9TowerId(sp.recipeId);
       towerSignatureFx(sinks, kind, anchor.id as unknown as number, foot.x, foot.y, foot.w, foot.h, world.tick, low, actAge, 0, race);
     }
@@ -436,12 +450,45 @@ export class SpawnerZoneRenderer {
     }
   }
 
+  /** ⭐ S196 (R196-T2) — the tier-9 towers falling right now, and whether each let its boss out. */
+  private readonly bossFalls = new BossReleaseTracker();
+
+  /**
+   * ⭐⭐ S196 `s196/boss-release` (owner R196-T2) — **THE BOSS TOWER'S RELEASE AND CRUMBLE** (`fx/bossReleaseFx.ts`):
+   * *"when a boss tower releases his boss and it crumbles, there should be a flash that's appropriate to … the
+   * player's race … make it look like sick with a nice release effect."*
+   *
+   * ⛔ DERIVED, NEVER PUSHED, AND NEVER FROM `spawnedAtTick` (not on the wire): `bossReleaseTrack.ts` notices a
+   * tier-9 spawner VANISH from the synced `creatureSpawners` (→ the crumble) and a boss of its race + owner first
+   * seen at its anchor in the same window (→ the release). Every peer sees both in the same snapshot.
+   *
+   * ⚠ OBSERVED EVERY FX FRAME, AND ABOVE `syncTowerSignatures`' EMPTY-MAP RETURN ON PURPOSE: the frame a seat's
+   * only boss tower releases is exactly the frame `creatureSpawners` can become empty. Fogged with the tower: an
+   * enemy tower that falls in fog shows nothing (`isConcealed` at its foot, as the signature is).
+   */
+  private syncBossReleases(world: World): void {
+    this.bossFalls.observe(world, (anchor) => towerFootForPrim(anchor as unknown as PrimitiveId));
+    const falls = this.bossFalls.current();
+    if (falls.length === 0 || BOSS_RELEASE_DEV.off) return;
+    const s: BossReleaseSinks = { ground: fxGround(), top: fxTop(), shade: fxTopShade(), shock: fxShock() };
+    const low = !fxHighQuality();
+    for (const f of falls) {
+      if (isConcealed(f.foot.x, f.foot.y, f.owner as unknown as PlayerId)) continue;
+      const raw = Math.max(0, world.tick - f.startTick); // ⛔ audit HIGH-1 — a joiner's clock step-back
+      const age = BOSS_RELEASE_DEV.loop ? raw % BOSS_CRUMBLE_FX_TICKS : raw; // DEV seam only
+      bossCrumbleFx(s, f.race, f.seed, f.foot.x, f.foot.y, f.foot.w, f.foot.h, age, low, f.released);
+      if (f.released) bossReleaseFx(s, f.race, f.seed, f.foot.x, f.foot.y, f.foot.w, f.foot.h, age, low);
+    }
+  }
+
   /** Drop the aura graphic (title-return; closes the one-frame orphan window). */
   clear(): void {
     // ⭐ S194 audit M1 — the title return clears the shapes; forget every tower group and owner with them.
     this.groupOwner.clear();
     this.birthTrackTick = Number.NaN; // ⭐ S196 — re-prime: the next match's first frame flares nothing
+    this.birthTrackWorld = null;
     this.lastBirth.clear();
+    this.bossFalls.reset(); // ⭐ S196 (R196-T2) — re-prime: no release replays behind the title or into the next match
     resetTowerCoverGroups();
     this.graphics.clear();
   }
