@@ -1,7 +1,7 @@
 # S196 PROGRESS — render-perf (branch s196/render-perf)
 
 ## NEXT STEP (top, always current)
-diag v2 (before-fix cycles) running → .tmp-gates/census-diag2-before.jsonl. Next: (a) census fix in main.ts renderCensus (non-null textures + fx pooled split via fxRuntime.fxPoolSizes) — minimal hunk, flag as seam; (b) render-heap cycle assertion; (c) F3 bench.
+Census done (renderCensus.ts + main.ts getter hunk). Next: render-heap.spec cycle assertions (residual = displayObjects−pooled; pooled ≤ poolCap; match→title→match returns to baseline) then run diag v2 on a STABLE tree (no edits while it runs — HMR reloads the page).
 
 ## Log
 - boot: merged master 7a596837 (fast-forward of plans/session-state only).
@@ -12,3 +12,5 @@ diag v2 (before-fix cycles) running → .tmp-gates/census-diag2-before.jsonl. Ne
 - diag v1 RESULT (m1 6300 ticks): census flat ~1870 until the FIGHT starts (tick ~5600), then +270: fxTopLight +141, fxGround +60, fxTopShade +15 (= +216 FxLayer pool HIGH-WATER; pools never shrink, cap 2400/layer) + ~30 entity sprites. Textures +24 at the same step = lazily-loaded race atlases (t3 units/towers, ra-strike) — S169 design.
 - ⭐ FINDING: Pixi 8.19 `managedTextures` = Object.values(GCManagedHash.items) and a REMOVED texture is set to NULL, not deleted (compacted only at 10 000 nulls). So the census `textures` = .length is an EVER-UPLOADED counter that can never go down — a released texture still counts. Diag v1 crashed on such a null.
 - L1 FIXED (uncommitted→this commit): ZoneBackgroundRenderer.releaseLoaded (plan change) + releaseAll (TITLE); lobby-held textures never unloaded (new src/render/backdropTextureShare.ts; lobbyBackdrop registers). Tests src/render/zoneBackdropRelease.test.ts 7/7; 4 mutations each caught (onSprite guard, lobby guard, title call, plan-change call). Related suites 9 files/122 pass.
+- diag v2 run KILLED by me (benign verdict: my own edits to main.ts/zoneBackgroundRenderer mid-run HMR-reloaded the page under it; data invalid, not a finding). Lesson: no edits while an e2e runs on this worktree.
+- Census: src/render/renderCensus.ts {displayObjects, pooled, poolCap, textures(LIVE), textureSlots}; FxLayer registers in a WeakMap (fxPoolOf) + poolSize getter; main.ts renderCensus getter delegates (MERGE SEAM: main.ts DEV block, 5 lines). Test renderCensus.test.ts 4/4; mutations (null count, pooled sum) caught.
