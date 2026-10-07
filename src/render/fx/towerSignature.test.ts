@@ -247,38 +247,54 @@ describe('S196 REACH — `SpawnerZoneRenderer.sync` draws every tower\'s signatu
     expect(all(frame(w2)).length).toBeGreaterThan(3);
   });
 
+  /** The goblin forge's sprites as the drawer makes them for the fixture tower at `tick` with `actAge`. */
+  const forge = (tick: number, actAge: number): string[] => {
+    const e = sinks();
+    towerSignatureFx(e, 'goblinForge', ANCHOR as unknown as number, 400, 510, 120, 120, tick, false, actAge, 0, null);
+    return all(e).map((x) => JSON.stringify(x));
+  };
+  /** Did this frame draw the forge FLARING (`actAge` = age) — or exactly idle? */
+  const flaring = (out: Sinks, tick: number, age: number): boolean => {
+    const have = new Set(all(out).map((x) => JSON.stringify(x)));
+    const lit = forge(tick, age);
+    const idle = new Set(forge(tick, TOWER_SIG_NO_ACT));
+    const flareOnly = lit.filter((k) => !idle.has(k));
+    expect(flareOnly.length, 'fixture: the flare adds sprites').toBeGreaterThan(3);
+    const hit = flareOnly.filter((k) => have.has(k)).length;
+    if (hit === flareOnly.length) return true;
+    expect(hit, 'a frame is either fully flaring at that age or not at all').toBe(0);
+    for (const k of idle) expect(have.has(k), 'the idle signature still drew').toBe(true);
+    return false;
+  };
+
   it('⭐ the SPAWNER flare is the first frame one of its creatures is SEEN (not `spawnedAtTick`, which a peer reads as 0)', () => {
-    const base = lum(all(frame(towerWorld('goblinTower'))));
     const r = new SpawnerZoneRenderer({} as never, new Container());
     const w = towerWorld('goblinTower');
-    frame(w, { r, tick: 3994 }); // primes: no creature yet
+    expect(flaring(frame(w, { r, tick: 3994 }), 3994, 0)).toBe(false); // primes: no creature yet
     w.creatures.set(77, { id: 77, sourceSpawnerId: 1, spawnedAtTick: 0 }); // a peer's view: the birth tick is 0
-    const lit = lum(all(frame(w, { r, tick: 4000 })));
-    expect(lit).toBeGreaterThan(base * 1.15);
-    // still flaring a few ticks later, back to idle once the flare is over
-    expect(lum(all(frame(w, { r, tick: 4006 })))).toBeGreaterThan(base * 1.05);
+    expect(flaring(frame(w, { r, tick: 4000 }), 4000, 0)).toBe(true);
+    expect(flaring(frame(w, { r, tick: 4006 }), 4006, 6)).toBe(true); // still flaring, aged from FIRST SIGHT
     frame(w, { r, tick: 4030 });
-    expect(lum(all(frame(w, { r, tick: 4040 })))).toBeCloseTo(base, 6);
+    expect(flaring(frame(w, { r, tick: 4040 }), 4040, 0)).toBe(false); // over (36 ticks): idle again
     // ⛔ another spawner's creature does not flare this one
     const r2 = new SpawnerZoneRenderer({} as never, new Container());
     const w2 = towerWorld('goblinTower');
     frame(w2, { r: r2, tick: 3994 });
     w2.creatures.set(78, { id: 78, sourceSpawnerId: 9, spawnedAtTick: 0 });
-    expect(lum(all(frame(w2, { r: r2, tick: 4000 })))).toBeCloseTo(base, 6);
+    expect(flaring(frame(w2, { r: r2, tick: 4000 }), 4000, 0)).toBe(false);
   });
 
   it('⛔ NEGATIVE — the FIRST frame (a mid-match join) flares nothing, however many creatures stand there; so does the first frame after a gap', () => {
-    const base = lum(all(frame(towerWorld('goblinTower'))));
     const r = new SpawnerZoneRenderer({} as never, new Container());
     const w = towerWorld('goblinTower');
     for (let i = 0; i < 5; i++) w.creatures.set(100 + i, { id: 100 + i, sourceSpawnerId: 1, spawnedAtTick: 0 });
-    expect(lum(all(frame(w, { r, tick: 4000 })))).toBeCloseTo(base, 6);
+    expect(flaring(frame(w, { r, tick: 4000 }), 4000, 0)).toBe(false);
     // a long gap (legacy/MINIMAL stretch, a stall) re-primes: creatures that appeared meanwhile do not flare
     w.creatures.set(200, { id: 200, sourceSpawnerId: 1, spawnedAtTick: 0 });
-    expect(lum(all(frame(w, { r, tick: 4500 })))).toBeCloseTo(base, 6);
+    expect(flaring(frame(w, { r, tick: 4500 }), 4500, 0)).toBe(false);
     // a new match (the clock went back) re-primes too
     w.creatures.set(201, { id: 201, sourceSpawnerId: 1, spawnedAtTick: 0 });
-    expect(lum(all(frame(w, { r, tick: 100 })))).toBeCloseTo(base, 6);
+    expect(flaring(frame(w, { r, tick: 100 }), 100, 0)).toBe(false);
   });
 
   it('⭐ LOW reaches the drawer through the real renderer: fewer sprites than HIGH for the same towers', () => {
