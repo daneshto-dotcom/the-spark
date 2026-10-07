@@ -338,6 +338,19 @@
           "needle": "S196"
         }
       ]
+    },
+    {
+      "id": "WINBAR",
+      "title": "win bar +20% every band (R196-W2)",
+      "branch": "s196/win-bar",
+      "tier": "Full",
+      "plan_file": ".claude/plans/2026-10-07_S196_BATCH_PDR.md",
+      "status": "in_progress",
+      "priority_state": "in_progress",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "check_completed": false
     }
   ],
   "owner_approval_wave2_verbatim": "so far everything I read until, until the decisions, I approve. Including what I just said.",
