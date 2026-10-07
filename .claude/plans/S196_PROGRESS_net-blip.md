@@ -1,9 +1,14 @@
 # S196 PROGRESS — net-blip (branch s196/net-blip)
 
 ## NEXT STEP (top, always current)
-- NOW: SLOW_CLOSE runs WITH fix (TAG=SFh SLOW_CLOSE=host x3, TAG=SFj SLOW_CLOSE=join x3). THEN: revert fix in WORKING TREE, RESTART vite (watcher is unreliable), curl-verify NO, SLOW_CLOSE pre-fix x2 each (TAG=SBh/SBj); restore + restart vite + curl YES; mutation test; merge master; gates; spec header; RELAY_HEALTH.
+- NOW: pre-fix SLOW_CLOSE comparison: transport.ts reverted in WORKING TREE ONLY (git checkout 52559381 -- src/net/transport.ts && git restore --staged src/net/transport.ts), vite restarted, curl NO; runs TAG=SBh/SBj x2. THEN restore (git checkout HEAD -- src/net/transport.ts), RESTART vite, curl YES; mutation test; merge master; gates; spec header; RELAY_HEALTH.
 
 ## Log
+- SLOW_CLOSE WITH FIX (SFh = host's close stretched to 9 s, SFj = joiner's), 6 runs, no split; recovered 22.0/25.3/30.3 (h),
+  29.7/31.8/52.2 (j). The rescue is visible: SFh#1/#2 — joiner dropped first and CLOSED its pc; the host's ICE then never
+  came back (conn stayed disconnected: the orphan it would have reconnected to is gone) and its stretched close fired
+  3.7/3.9 s later -> both sides fresh -> recovered. SFh#3, SFj#1-3 — the second side dropped 0.2-0.3 s after the first's
+  close (the stretched timer cannot be what fired; consistent with the close's SCTP abort over the restored path).
 - ⚠ STALE-SERVER FINDING: the first "F" sweep served PRE-fix code (vite's watcher missed the edit on this OneDrive path;
   `curl /src/net/transport.ts` had no fix). Those 6 runs are renamed F0stale-* and count as PRE-fix: no split, recovered
   23.5/31.6/50.7/29.2/32.7/51.5 s. Pre-fix LIGHT_ON_FIRST_DROP total: 16 runs, 3 splits (~19 %), + the s-12000 split.
