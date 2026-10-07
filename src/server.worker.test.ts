@@ -13,9 +13,9 @@
  * validation, the status codes, the CORS posture, the ordering rule and the fold arithmetic.
  */
 
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
-import worker, { isAllowedOrigin, normaliseName, parseRuns, rankRows } from '../server/leaderboard/worker.js';
+import worker, { dailyBoardAcceptable, isAllowedOrigin, normaliseName, parseRuns, rankRows } from '../server/leaderboard/worker.js';
 
 const ORIGIN = 'https://spark-online.space';
 const SALT = 'x'.repeat(32);
@@ -64,6 +64,8 @@ function makeDb(seed: Array<{ name: string; runs: number; total_ms: number }> = 
         else if (sql.startsWith('DELETE FROM writes')) {
           const cutoff = Number(args[0]);
           for (let i = writes.length - 1; i >= 0; i--) if (writes[i].created <= cutoff) writes.splice(i, 1);
+        } else if (sql.startsWith('INSERT OR IGNORE INTO boards')) {
+          boards.add(String(args[0])); // S196 — a daily board registering itself
         } else if (sql.startsWith('INSERT OR IGNORE INTO seen_runs')) {
           seenRuns.add(String(args[0]));
         } else if (sql.startsWith('DELETE FROM seen_runs')) {
@@ -90,6 +92,7 @@ function makeDb(seed: Array<{ name: string; runs: number; total_ms: number }> = 
     _players: players,
     _writes: writes,
     _seenRuns: seenRuns,
+    _boards: boards,
   };
 }
 
@@ -372,5 +375,46 @@ describe('N5 — the rate limit must not extend itself', () => {
     const runsBefore = db._players.get('DAN')?.runs;
     await call({ origin: ORIGIN, body: { runs: [{ name: 'DAN', ms: 60_000, id: 'nope' }] } }, db);
     expect(db._players.get('DAN')?.runs).toBe(runsBefore);
+  });
+});
+
+describe('S196 #16 — the daily NONET board registers itself, only around today', () => {
+  const NOW = Date.UTC(2026, 9, 7, 12);
+
+  it('dailyBoardAcceptable: today and ±1 day yes; ±2 days, impossible dates, other shapes no', () => {
+    expect(dailyBoardAcceptable('nonet:d20261007', NOW)).toBe(true);
+    expect(dailyBoardAcceptable('nonet:d20261006', NOW)).toBe(true);
+    expect(dailyBoardAcceptable('nonet:d20261008', NOW)).toBe(true);
+    expect(dailyBoardAcceptable('nonet:d20261005', NOW)).toBe(false);
+    expect(dailyBoardAcceptable('nonet:d20261009', NOW)).toBe(false);
+    expect(dailyBoardAcceptable('nonet:d20261131', Date.UTC(2026, 10, 30))).toBe(false); // 31 Nov
+    expect(dailyBoardAcceptable('nonet', NOW)).toBe(false);
+    expect(dailyBoardAcceptable('nonet:s07', NOW)).toBe(false);
+    expect(dailyBoardAcceptable('other:d20261007', NOW)).toBe(false);
+  });
+
+  it('a POST to today\'s daily board registers it and folds the run', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(NOW);
+    try {
+      const { res, db } = await call({ origin: ORIGIN, path: '/board/nonet:d20261007', body: { runs: [{ name: 'DAN', ms: 60_000, id: 'r1' }] } });
+      expect(res.status).toBe(200);
+      expect(db._boards.has('nonet:d20261007')).toBe(true);
+      expect(db._players.get('DAN')?.runs).toBe(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('negative: a daily board a week out is still 404 and registers nothing', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(NOW);
+    try {
+      const { res, db } = await call({ origin: ORIGIN, path: '/board/nonet:d20261014', body: { runs: [{ name: 'DAN', ms: 60_000 }] } });
+      expect(res.status).toBe(404);
+      expect(db._boards.has('nonet:d20261014')).toBe(false);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

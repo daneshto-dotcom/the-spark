@@ -100,6 +100,34 @@ const MAX_RUNS_PER_REQUEST = 21;
 /** Board ids: `nonet` today, `nonet:s07` if a ladder ever lands. */
 const BOARD_RE = /^[a-z0-9]+(?::[a-z0-9]+)?$/;
 
+/**
+ * ⭐ S196 #16 — THE DAILY NONET'S BOARDS REGISTER THEMSELVES, BUT ONLY AROUND TODAY.
+ *
+ * `nonet:dYYYYMMDD` is one board per UTC day (`src/nonet/dailySeed.ts`). Inserting a row into `boards`
+ * by hand every day is not a plan, so a POST to a daily board that is not registered yet registers it —
+ * IF its date is a real calendar date within ONE day of the server's own UTC date (the slack covers a
+ * player who launched at 23:59 and a device clock a little off). The registry's purpose — bounding how
+ * many boards exist — still holds: at most three new boards a day, and a forged far-past or far-future
+ * date is the same 404 as an invented board. ADDITIVE: every other board id behaves exactly as before.
+ */
+export const DAILY_BOARD_RE = /^nonet:d(\d{4})(\d{2})(\d{2})$/;
+const DAY_MS = 86_400_000;
+
+/** PURE — may this daily board be auto-registered at `nowMs`? Exported so it is executably tested. */
+export function dailyBoardAcceptable(board, nowMs) {
+  const m = DAILY_BOARD_RE.exec(String(board));
+  if (m === null) return false;
+  const y = Number(m[1]);
+  const mo = Number(m[2]) - 1;
+  const d = Number(m[3]);
+  const t = Date.UTC(y, mo, d);
+  const back = new Date(t);
+  if (back.getUTCFullYear() !== y || back.getUTCMonth() !== mo || back.getUTCDate() !== d) return false;
+  const now = new Date(nowMs);
+  const today = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+  return Math.abs(t - today) <= DAY_MS;
+}
+
 /** ⚠ Byte-identical to `NAME_ALPHABET` in `src/render/arcadeScores.ts`. */
 const NAME_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 ';
 const NAME_LEN = 3;
@@ -322,7 +350,11 @@ async function handle(request, env, origin) {
   // ⛔ ONLY A REGISTERED BOARD MAY BE WRITTEN TO. `BOARD_RE` bounds the SHAPE of an id, not how many
   // exist, so unlimited invented boards would be unlimited storage.
   const known = await env.DB.prepare('SELECT 1 AS ok FROM boards WHERE board = ?1').bind(board).first();
-  if (known === null || known === undefined) return json({ error: 'unknown board' }, 404, origin);
+  if (known === null || known === undefined) {
+    // ⭐ S196 — the one exception: today's daily board (± one day) registers itself. See DAILY_BOARD_RE.
+    if (!dailyBoardAcceptable(board, Date.now())) return json({ error: 'unknown board' }, 404, origin);
+    await env.DB.prepare('INSERT OR IGNORE INTO boards (board) VALUES (?1)').bind(board).run();
+  }
 
   const now = Date.now();
   const ip = request.headers.get('CF-Connecting-IP') ?? '0.0.0.0';
