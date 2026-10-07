@@ -1,9 +1,23 @@
 # S196 PROGRESS — boss-release (branch s196/boss-release)
 
 ## NEXT STEP (exact)
-- Gates running detached (.tmp-gates/g1-*.exit). Next: capture tooling — a Playwright script under .tmp-gates/cap/ that boots
-  vite on $SESSION_PORT-like own port, starts a solo match via __SPARK__, builds a t9 tower per race (dev seam), captures
-  BEFORE (git stash/master build) + per-race 16-frame strips -> GIFs into C:/Users/onesh/OneDrive/Desktop/SPARK_S196_BossRelease/.
+- PAUSED by owner order (usage limit). Code + tests DONE and committed (typecheck 0; bossRelease.test 23 + reach 7 green; M1-M4 RED).
+  A detached gate chain (vitest --maxWorkers=3 then build -> .tmp-gates/g1-vt.exit / g1-build.exit) was started BEFORE the
+  typing fix; its vitest result may be stale -> RE-RUN all gates on resume.
+- NEXT (capture, nothing written yet): write `.tmp-gates/cap/capture.spec.ts` + `.tmp-gates/cap/pw.config.ts`
+  (testDir .tmp-gates/cap, viewport 1920x1080, webServer `npx vite --port 27196 --strictPort`, reuseExistingServer:false so
+  vite is fresh). In the spec: `page.clock.install()` before goto; bootSolo (copy from e2e/tower-art.spec.ts); per race:
+  set `w.players.get(0).raceId = race`, seedBank(shape,9), click 9 chip + card, place at canvas (420,400), wait ~4 s for
+  the sprite; `page.clock.pauseAt(fakeNow+50)`; trigger release: `w.matchPhase='FIGHT'; sp.nextSpawnTick=w.tick`;
+  `clock.runFor(17)`; `w.matchPhase='BUILD'`; then 16 screenshots with `clock.runFor(150)` between (9 ticks each);
+  `w.creatures.clear()` before the next race. Crop around the tower + assemble GIFs with Pillow (python) into
+  C:/Users/onesh/OneDrive/Desktop/SPARK_S196_BossRelease/. BEFORE = same run with `this.syncBossReleases(world);` line
+  commented out in src/render/spawnerZoneRenderer.ts (restore with git checkout after).
+- Bench: `__SPARK__.fx.benchRender(frames)` + `__SPARK__.frameMs` exist (src/dev/fxLab.ts). For interleaved on/off add a
+  dev knob object in bossReleaseTrack.ts (e.g. `export const BOSS_RELEASE_DEV = { off: false }`, checked in
+  syncBossReleases), toggled via `await import('/src/render/fx/bossReleaseTrack.ts')` in the page; add a test that it
+  defaults false and nothing in src writes it. Then gates: typecheck, vitest, build (entry KiB), e2e:gating, e2e:render
+  (own port), git merge master first. Then README + final report.
 
 ## Log
 - boot: worktree on b35368c6 + master merged; progress file created.
