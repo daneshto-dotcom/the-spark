@@ -354,7 +354,30 @@ test.describe('@visual S149 P5 — arcade mode on screen', () => {
     const row = menu.rows.find((r) => r.id === 'nonet')!;
     const rowCss = await canvasToCss(page, row.x + row.w / 2, row.y + row.h / 2);
     await page.mouse.click(rowCss.x, rowCss.y);
+
+    // ⭐ S196 #16 — the NONET row now opens the NONET HOME (not a puzzle). Its PLAY door is the old launch.
+    await expect.poll(async () => page.evaluate(() => {
+      const s = (window as unknown as { __SPARK__: { nonetHome: { getUiPoints: () => { open: boolean } } | null } }).__SPARK__;
+      return s.nonetHome?.getUiPoints().open ?? false;
+    }), { timeout: 10_000 }).toBe(true);
+    const homeRows = await page.evaluate(() => {
+      const s = (window as unknown as {
+        __SPARK__: {
+          nonetHome: { getUiPoints: () => { rows: Array<{ id: string; x: number; y: number; w: number; h: number }> } };
+          arcadeRunInfo: unknown;
+          titleScreen: { isVisible: () => boolean };
+        };
+      }).__SPARK__;
+      return { rows: s.nonetHome.getUiPoints().rows, run: s.arcadeRunInfo, titleVisible: s.titleScreen.isVisible() };
+    });
+    expect(homeRows.run, 'the home mints no puzzle and starts no clock').toBeNull();
+    expect(homeRows.titleVisible, 'the main menu must not show through the NONET home').toBe(false);
+    const play = homeRows.rows.find((r) => r.id === 'play')!;
+    const playCss = await canvasToCss(page, play.x + play.w / 2, play.y + play.h / 2);
+    await page.mouse.click(playCss.x, playCss.y);
     await page.waitForTimeout(1500);
+    const runInfo = await page.evaluate(() => (window as unknown as { __SPARK__: { arcadeRunInfo: unknown } }).__SPARK__.arcadeRunInfo);
+    expect(runInfo).toEqual({ mode: 'PLAY', boardId: 'nonet', phase: 'RUNNING' });
 
     // ⭐ THE ASSERTION THAT MATTERS: the board is up, and `world.sudoku` is still null.
     const after = await page.evaluate(() => {
