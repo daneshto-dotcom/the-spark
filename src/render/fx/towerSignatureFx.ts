@@ -231,8 +231,8 @@ function goblinForge(s: TowerSigSinks, id: number, x: number, fy: number, w: num
     const px = mx + vx * age;
     const py = my - vy * age + 0.5 * g * age * age;
     const pvy = -vy + g * age;
-    const len = (6 + Math.min(10, Math.hypot(vx, pvy) * 2.5)) * U;
-    s.top.emit('core', px, py, len, 3.2 * U, Math.atan2(pvy, vx), envelope(t, 0.08), mixColor(FORGE_HOT, FORGE_RED, t), 'add');
+    const len = (8 + Math.min(12, Math.hypot(vx, pvy) * 3)) * U;
+    s.top.emit('core', px, py, len, 5 * U, Math.atan2(pvy, vx), envelope(t, 0.08), mixColor(0xfff4c8, FORGE_RED, t), 'add');
   });
   // The top of the tower throws embers and smokes (smoke is HIGH only — the first thing LOW drops).
   const cx = x + w * 0.05;
@@ -512,8 +512,19 @@ function tvStatic(s: TowerSigSinks, id: number, x: number, fy: number, w: number
 
 /* ── the six race towers: each race's MOTIF at the crown ─────────────────────────────────────── */
 
-/** The motif's centre sits this fraction of the art height above the foot. MINE. */
-export const RACE_CROWN_FRAC = 0.86;
+/**
+ * Where each race tower's motif sits: this fraction of the art height above the foot, [tier-3, tier-9] —
+ * measured off the shipped art (a low zombie house and a demon crater have their crown far lower than a
+ * pyramid or a coffin). MINE.
+ */
+export const RACE_CROWN_FRAC: Readonly<Record<RaceId, readonly [number, number]>> = {
+  vampires: [0.78, 0.86],
+  nagas: [0.62, 0.68],
+  mummies: [0.86, 0.74],
+  zombies: [0.52, 0.88],
+  orcs: [0.72, 0.76],
+  demons: [0.9, 0.46],
+};
 
 function raceMotif(
   s: TowerSigSinks, race: RaceId, id: number, x: number, fy: number, w: number, h: number,
@@ -521,7 +532,7 @@ function raceMotif(
 ): void {
   const base = RACE_COLORS[race];
   const seed = fxSeed(id, 0x3ace + RACE_SALT[race]);
-  const cy = fy - h * RACE_CROWN_FRAC;
+  const cy = fy - h * RACE_CROWN_FRAC[race][scale > 1 ? 1 : 0];
   const U = sigUnit(h) * scale;
   switch (race) {
     case 'vampires': vampires(s, seed, id, x, cy, w, h, tick, low, flare, base, U); break;
@@ -586,8 +597,11 @@ function nagas(s: TowerSigSinks, seed: number, id: number, x: number, cy: number
     const px = x + Math.sin(a) * v * age * 1.2;
     const py = cy - Math.cos(a) * v * age + 0.5 * g * age * age;
     if (py > fy) return;
-    s.top.emit('core', px, py, 6 * U, 8 * U, 0, envelope(t, 0.12), t < 0.5 ? foam : water, 'add');
+    s.top.emit('soft', px, py, 10 * U, 13 * U, 0, envelope(t, 0.12) * 0.95, t < 0.5 ? foam : water, 'add');
   });
+  // The spout itself: a column of water standing up out of the crown, breathing.
+  const jet = h * (0.32 + 0.08 * wave(tick, 40, id * 3)) * (1 + 0.5 * flare);
+  s.top.emit('soft', x, cy - jet * 0.5, 9 * U, jet, 0, 0.6, foam, 'add');
   // Ripples running out at the foot.
   const rn = low ? 1 : 2;
   for (let k = 0; k < rn; k++) {
