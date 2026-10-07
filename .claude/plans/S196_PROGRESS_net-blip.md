@@ -1,9 +1,50 @@
 # S196 PROGRESS — net-blip (branch s196/net-blip)
 
 ## NEXT STEP (top, always current)
-- NOW: e2e:lobby then hard-blip --repeat-each 3 running (exit files .tmp-gates/e2e-lobby.exit, e2e-hardblip.exit). THEN final report.
+- DONE — final report below; nothing in flight. (Merge owner: audit, then merge.)
+
+## FINAL REPORT (S196 · s196/net-blip)
+- **Tip**: see `git log -1` (this commit). Merge of master 7e9d241c = 528ce10d, CLEAN (no conflicts; it brought board-look render files only).
+- **Reproduction verdict: REPRODUCED.** Mechanism: `scripts/live-mp/udp-blackhole.mjs` — the joiner's ICE is forced through a local
+  UDP relay (init-script RTCPeerConnection wrapper: remote candidates rewritten to the relay, local candidates stripped; mDNS off),
+  the relay goes DARK (drops every packet, closes nothing). Faithful: pcs stayed `connected` / channels `open` until ICE consent
+  noticed (`disconnected` +5.5..8.6 s), no SCTP abort, no leave before Trystero's own 5 s close. Driver: `live-silent-blip.mjs`
+  (local Nostr relay, nostr only, own port 49915). `npm run probe-relays` on the desktop: exit 0, 6/6.
+  · dark < close (8/12.5/13 s): self-heals, back +10..14 s. dark > both closes (20/40 s): both leave, back +37.7/+52.8 s.
+  · ⛔ dark ending BETWEEN the two sides' 5 s closes = PERMANENT SPLIT. Pre-fix: 4 natural splits (12 s sweep, r1, B2#1, B2#3 —
+    ~19 % of 16 runs lit at the first side's drop) + 4/4 in the deterministic SLOW_CLOSE model; both directions; never recovers
+    (joiner-side: reconnects every 35 s then TERMINAL at 3 min while the host never notices; host-side: host terminal, joiner on a
+    dead board with NO overlay).
+  · CAUSE (code + trace): Trystero 0.25.2's disconnected-close only DETACHES the peer (`shared-peer.mjs` clear `destroyPeer:false`,
+    `room.mjs` exitPeer → proxy destroy); the RTCPeerConnection lives, reconnects ICE when the network returns, answers consent and
+    keeps the far side's channel `open` → the far side's `getConnectedPeerHealth` = live → `signal-handler.mjs:393-398` drops every
+    announce/offer of the rejoin. Relay trace r1: 24 offers from the rejoiner DELIVERED to the host, ZERO answers. (T8's suspect,
+    confirmed — made permanent by the orphan.) Upstream Trystero defect; worked around in our transport.
+- **Fix** (`src/net/transport.ts`, ~25 code lines): `shouldCloseDroppedPeerConnection(conn, ice)` (pure) + `closeDroppedPeerConnection`
+  on `onPeerLeave`: when Trystero drops a peer whose connection reads dead (`network-died`), close it (pc captured at join in
+  `peerPcs`). NOT on a healthy leave (keeps the ~0.2 s clean-rejoin re-bind), not on our own `disconnect()`, not on `unknown`.
+  Host-migration and B-13 code paths untouched (same onPeerLeave events; only the dead pc is now closed).
+  Live after the fix: 12 runs, 0 splits (F x6 lit-at-first-drop: 20.7–50.9 s; SLOW_CLOSE x6: 22.0–52.2 s) vs pre-fix SLOW_CLOSE 4/4 split.
+  Tests `src/net/droppedPeerClose.test.ts` 11: decision table, REACH through the real transport onPeerLeave seam (×3), negatives
+  (healthy leave, re-announce/duplicate join, replaced pc, own disconnect, already-closed/throwing close). Mutation: close removed →
+  3 RED; guard removed → 3 RED.
+- **Gates** (merged tree): typecheck **0** · vitest --maxWorkers=3 **0** (616 files / 7 skipped, 9231 tests / 14 skipped) · build **0**
+  entry **1235.9 KiB** (boot 1235.5 → +0.4 incl. master's board-look merge; headroom 114.1) · e2e:gating **0** 67 passed ·
+  e2e:lobby **0** 5 passed · hard-blip `--repeat-each 3` **1** (11.3 / 11.1 / 15.5 s — 2/3 inside the 15 s grace) → STAYS quarantined.
+- **Bump verdict: NO.** Nothing on the wire changed — a transport-local connection lifecycle decision. A fixed and an unfixed v70
+  build compute identical worlds; the fixed side closing its dead pc only helps the unfixed peer converge.
+- **MINE** (one line each): (1) close only on `network-died` (dead state), never `unknown` — recommend accept. (2) SLOW_CLOSE (stretching
+  one page's 5000 ms timeouts) as the deterministic model of the two machines' clock asymmetry — harness only; recommend accept.
+- **Seams / notes for the merge owner**: (a) ⚠ vite's watcher MISSED a source edit on this OneDrive path and served stale code for 6 runs
+  (caught by curl; the driver now logs which transport is served) — any tree measuring live behaviour should restart vite after edits.
+  (b) The host shows terminal CONNECTION LOST from ~+28 s during any outage > ~15 s (host grace) and restores on rejoin — existing
+  behaviour, unchanged, worth an owner look. (c) A real drop (dark > both closes) recovers only ~10–14 s after the network returns.
+- **NOT DONE**: torrent-on runs (all measurements BLOCK_TORRENT=1, nostr only — the fix is per strategy, but a mixed-strategy split was
+  not measured); a signalling-dark variant (relay WebSocket also silenced) was not built; no CI e2e for the silent drop (needs the
+  UDP relay + launch flags — the harness is `scripts/live-mp/live-silent-blip.mjs`).
 
 ## Log
+- e2e:lobby 0 — 5 passed (4.3 m). hard-blip x3: exit 1 — 11.3/11.1/15.5 s (one 0.5 s past the grace) → stays quarantined (header updated).
 - e2e:gating 0 — 67 passed (8.3 m), Playwright's own hashed port (not 5173, not 49915).
 - GATES on merged tree 528ce10d: typecheck 0 · vitest --maxWorkers=3 0 — 616 files passed / 7 skipped, 9231 tests passed /
   14 skipped · build 0 — entry 1235.9 KiB (boot 1235.5; +0.4 incl. master's board-look merge), headroom 114.1.

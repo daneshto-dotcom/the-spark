@@ -64,6 +64,9 @@
  *   the transport closes it — the far side then leaves too (abort, or consent failure + its own close). After the fix:
  *   12 runs, 0 splits (6 lit at the first drop + 6 with one side's close stretched to 9 s, which pre-fix splits — see
  *   the S196 progress file for the per-run numbers).
+ *   THIS spec on the S196 desktop (public relays, own port, `--repeat-each 3`, with the fix): recovered 11.3 / 11.1 /
+ *   15.5 s — 2/3 inside the 15 s grace, so it STAYS quarantined (the `pc.close()` blip is a timing budget, not the
+ *   orphan defect: an aborted connection reads `closed`, never a live orphan).
  */
 import { test, expect } from '@playwright/test';
 import { canvasToCss, hostNewRoom, joinRoom, readWorldState, waitForWorld } from './helpers.ts';
