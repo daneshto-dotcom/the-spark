@@ -377,7 +377,7 @@ test.describe('@visual S149 P5 — arcade mode on screen', () => {
     await page.mouse.click(playCss.x, playCss.y);
     await page.waitForTimeout(1500);
     const runInfo = await page.evaluate(() => (window as unknown as { __SPARK__: { arcadeRunInfo: unknown } }).__SPARK__.arcadeRunInfo);
-    expect(runInfo).toEqual({ mode: 'PLAY', boardId: 'nonet', phase: 'RUNNING' });
+    expect(runInfo).toMatchObject({ mode: 'PLAY', boardId: 'nonet', phase: 'RUNNING', stage: null });
 
     // ⭐ THE ASSERTION THAT MATTERS: the board is up, and `world.sudoku` is still null.
     const after = await page.evaluate(() => {
