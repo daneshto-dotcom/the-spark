@@ -1,4 +1,3 @@
-#!/usr/bin/env node
 /**
  * SPARK — verify a deploy ACTUALLY landed (S133 P3).
  *

@@ -1,4 +1,3 @@
-#!/usr/bin/env node
 /**
  * SPARK — ⭐ S196 (s196/ci) — THE CI WATCHDOG: a run GitHub never started is re-run, or it is LOUD.
  *

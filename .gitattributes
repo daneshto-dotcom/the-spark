@@ -4,3 +4,9 @@
 # dirty (`git status` M, `git diff` empty). Pinning them to LF in the working copy makes vitest's
 # write a byte-for-byte no-op. Index content is unchanged (it was already LF).
 *.snap text eol=lf
+
+# S196 (s196/ci HIGH-1) - every .mjs is checked out LF. A `#!` shebang line followed by CRLF is a
+# SyntaxError when vitest dynamically imports the file (`src/ci.watchdog.test.ts`, `src/ci.verifyDeploy.test.ts`
+# import ci-watchdog.mjs / verify-deploy.mjs): 24 of 25 red on every core.autocrlf=true checkout. The
+# shebangs are gone too (both files are only run as `node <file>`); this rule is the second wall.
+*.mjs text eol=lf

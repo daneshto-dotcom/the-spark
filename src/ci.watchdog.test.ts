@@ -9,7 +9,8 @@
  * path actually POSTs the re-run / the issue (a decision nobody acts on is a source-text guard).
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { readFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 type Job = { id?: number; name?: string; conclusion: string | null; steps: unknown[] | null; runner_name: string | null };
@@ -164,5 +165,30 @@ describe('S196 F6 — REACH through the real I/O path (fetch stubbed with the Gi
     expect(posts()).toEqual(['/issues']);
     const body = JSON.parse(calls.find((c) => c.method === 'POST')!.body!) as { title: string };
     expect(body.title).toBe(w.alertTitle('Deploy to GitHub Pages', 37368664339));
+  });
+});
+
+describe('S196 audit HIGH-1 — the imported .mjs scripts survive a CRLF (core.autocrlf=true) checkout', () => {
+  // A `#!` line ending in CRLF is a SyntaxError on dynamic import: 24 of these 25 tests went red on every
+  // Windows checkout while this worktree's LF copies stayed green. Two walls: no shebang, and LF pinned.
+  const SCRIPTS = ['../.github/workflows/ci-watchdog.mjs', '../scripts/verify-deploy.mjs'];
+  it('neither script carries a shebang, and .gitattributes pins *.mjs to LF', () => {
+    for (const s of SCRIPTS) expect(readFileSync(path(s), 'utf8').startsWith('#!'), s).toBe(false);
+    expect(read('../.gitattributes')).toMatch(/^\*\.mjs text eol=lf$/m);
+  });
+  it('REACH: a CRLF copy of each script still imports (what a Windows checkout hands vitest)', async () => {
+    // inside the repo (node_modules is gitignored and present wherever vitest runs): Vite's loader will not
+    // resolve a module under the OS temp dir
+    const dir = mkdtempSync(join(path('../node_modules'), '.spark-crlf-'));
+    try {
+      for (const s of SCRIPTS) {
+        const crlf = readFileSync(path(s), 'utf8').replace(/\r\n/g, '\n').replace(/\n/g, '\r\n');
+        const copy = join(dir, s.split('/').pop()!);
+        writeFileSync(copy, crlf);
+        await expect(import(/* @vite-ignore */ pathToFileURL(copy).href), s).resolves.toBeTruthy();
+      }
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 });
