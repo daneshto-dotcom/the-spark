@@ -42,3 +42,4 @@
 - ⭐ net-cpu EVIDENCE (d3ffd543): joiner decode queue unbounded below ~20 fps — transport.ts onSnapFrame serial chain + async inflate hops, no latest-wins; 60 ms frames → 245 ms → 2,827 ms latency growing ~0.19 s/s ≈ 45 s after ~4 min = Mark's symptom. Relayed to joiner-desync (fix shape: coalesce on receive). Weaker: ack outside 32-frame txRing → keyframe storm. team-art pushed (deploy + verify running). boss-release builder DONE f89e8057 (+11.6 KiB, entry 1273.1/1350) → audit.
 - **DEPLOY S196-#6 `c78f5c58`** — s196/team-art (27 trio backdrops, seam blend ON). verify-deploy 4/4. Owner R196-O1: workstation 2 is HIS machine — no consent step.
 - R196-W2 win bar +20 % → s196/win-bar opened (bump expected).
+- s196/risen-check DONE: NO DEFECT (50/64 zombie-seat kills raised in a 4-seat HARD match; rest castle-gun/tower by ruling). Merged tests-only. Owner question: a visible 'risen' cue.
