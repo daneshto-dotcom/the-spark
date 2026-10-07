@@ -28,12 +28,12 @@ const key = (r: Row): string => `${r.file} :: ${r.match}`;
  * ⛔ NOT DONE on `s195/ui-4` — SKINNED rows whose file another tree owns (S195_CLOUD_AGENT_RULES: no REACH
  * test may drive an off-limits file from here), or that no node test can reach. Stale-checked: a marker
  * for any of these fails until the row is removed.
+ *
+ * ⭐ S196 (ui-5) — EMPTY: the last four (lobby Connect chip + grammar buttons → `uiSkinReach.lobby.test.ts`,
+ * through a real Pixi `EventBoundary`; settings ✕ + pointer controls → `uiSkinReach.settings.test.ts`, a
+ * minimal fake DOM, no new package) now have REACH tests. A future NOT_DONE row must name its tree again.
  */
 const NOT_DONE: ReadonlyArray<Row & { why: string }> = [
-  { file: 'src/render/lobbyScreen.ts', match: 'this.joinButton.', why: 'teams tree owns lobby*.ts (S195 off-limits) — Connect chip: drive LobbyScreen, chip inside/outside + sheen' },
-  { file: 'src/render/lobbyScreen.ts', match: 'attachButtonFeedback(', why: 'teams tree owns lobby*.ts — Host/Join/Begin/Back/Quick/Test/READY: sheen rect = hitArea, sweep inside' },
-  { file: 'src/render/settingsOverlay.ts', match: "createElement('button')", why: 'lag tree owns settings*.ts; and a DOM REACH needs jsdom (no new npm packages without the merge owner)' },
-  { file: 'src/render/settingsOverlay.ts', match: "style.cursor = 'pointer'", why: 'lag tree owns settings*.ts; DOM REACH needs jsdom' },
 ];
 
 /** The SKINNED rows + the Controls-driven files, read out of the census test's own source. */
