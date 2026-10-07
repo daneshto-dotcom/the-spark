@@ -7,3 +7,5 @@
 - NONET tree: owner answered 6a–6j as recommended (R196-D2) → told s196/nonet-home to extend to Option B campaign after Option A.
 - Blender 5.2.2 install started via winget (R196-D1). Team-tile COMPARE sheets were moved by his desktop cleaner to `The Spark/_from-desktop/SPARK_S195_TeamTiles/` — path given to him.
 - Blender 5.2.2 LTS installed (winget exit 0; `C:\Program Files\Blender Foundation\Blender 5.2\blender.exe --version` verified). Voltkin pilot deferred (R196-D1).
+- board-look builder DONE (tip 9b6cd789: portraits verified live, SCORE RACE label-overlap fix, gates green, +0.0 KiB) → independent audit dispatched (detached worktree audit-board-look).
+- NEW tree queued (R196-A2): s196/team-art. Slot order when the next tree lands: #12 ui-5 → team-art → #3 ci → #4 net-cpu → #11 render-perf. (Cap stays 4: the owner is generating trios first, so the 12-prompt sheet is not blocking him yet.)
