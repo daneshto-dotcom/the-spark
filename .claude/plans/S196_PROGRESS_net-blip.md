@@ -1,9 +1,11 @@
 # S196 PROGRESS — net-blip (branch s196/net-blip)
 
 ## NEXT STEP (top, always current)
-- Merged master 7e9d241c -> 528ce10d (clean). NOW: gates — typecheck, vitest full (.tmp-gates/vitest-full.{log,exit}), build; then e2e gating + lobby on Playwright's hashed port; hard-blip x3.
+- NOW: e2e:gating detached (.tmp-gates/e2e-gating.{log,exit}), then e2e:lobby, then hard-blip --repeat-each 3. THEN final report.
 
 ## Log
+- GATES on merged tree 528ce10d: typecheck 0 · vitest --maxWorkers=3 0 — 616 files passed / 7 skipped, 9231 tests passed /
+  14 skipped · build 0 — entry 1235.9 KiB (boot 1235.5; +0.4 incl. master's board-look merge), headroom 114.1.
 - MUTATION: (1) `pc.close()` removed -> droppedPeerClose.test 3 REACH tests RED (exit 1, .tmp-gates/vt-mutant.log);
   (2) the `shouldCloseDroppedPeerConnection` guard removed (always close) -> 3 NEGATIVE tests RED (exit 1, vt-mutant2.log).
   Source restored byte-identical (git status clean).
