@@ -58,6 +58,7 @@ import {
   newRunId,
   normaliseName,
   parseRankingRows,
+  pendingBoardIds,
   placeOfName,
   prunePending,
   rankRows,
@@ -121,6 +122,11 @@ export interface LeaderboardClient {
   readonly kind: 'local' | 'remote';
   /** Fold a completed run in and return the ranking. Never throws; never loses the run. */
   submit(boardId: string, name: string, ms: number): Promise<RankingUpdate>;
+  /**
+   * ⭐ S196 MED-1 — deliver every board's queued runs NOW (not only on the next submit to that same
+   * board). Resolves to the number of runs the server accepted. Never throws. Local: nothing to send.
+   */
+  flushAllPending?(): Promise<number>;
 }
 
 /** PURE — build the update a caller sees, from a set of entries and the focus player. */
@@ -310,6 +316,10 @@ export class RemoteLeaderboard implements LeaderboardClient {
     saveRanking(withOwnRow(answer.entries, name, answer.mine, loadRanking(boardId)), boardId);
     // Drop exactly what was accepted, keeping anything that arrived while the request was in flight.
     savePending(pendingBefore.slice(queued.length), boardId);
+    // ⭐ S196 MED-1 — the network is up: deliver the OTHER boards' queues too. A daily is ranked once
+    // and a stage board is re-submitted only after failing it, so "the next submit to the same board"
+    // may never come — and an undelivered run skews that average forever.
+    void this.flushAllPending(boardId);
     /*
      * ⭐ PREFER THE SERVER'S "previous average" OVER THE LOCAL ONE.
      *
@@ -333,6 +343,39 @@ export class RemoteLeaderboard implements LeaderboardClient {
       answer.place,
       answer.mine,
     );
+  }
+
+  private flushing = false;
+
+  /**
+   * ⭐ S196 MED-1 — flush the pending queue of EVERY board (except `skip`, just flushed by its own
+   * submit). Expired runs (`PENDING_MAX_AGE_MS`) are pruned, never sent. One flush at a time.
+   * ⚠ Removes exactly the ids it sent from a FRESH read, so a run queued while the request was in
+   * flight is kept; a run sent twice by a racing submit is folded once (the server's idempotency key).
+   */
+  async flushAllPending(skip: string | null = null): Promise<number> {
+    if (this.flushing) return 0;
+    this.flushing = true;
+    let accepted = 0;
+    try {
+      for (const boardId of pendingBoardIds()) {
+        if (boardId === skip) continue;
+        const live = prunePending(loadPending(boardId));
+        savePending(live, boardId); // expired runs leave storage, unsent
+        const batch = live.slice(0, FLUSH_BATCH);
+        if (batch.length === 0) continue;
+        const focus = batch[batch.length - 1]!.name;
+        const answer = await this.post(boardId, batch, focus);
+        if (answer === null) continue; // still offline for this board — try again next time
+        const sent = new Set(batch.map((r) => r.id));
+        savePending(loadPending(boardId).filter((r) => !sent.has(r.id)), boardId);
+        saveRanking(withOwnRow(answer.entries, focus, answer.mine, loadRanking(boardId)), boardId);
+        accepted += batch.length;
+      }
+    } finally {
+      this.flushing = false;
+    }
+    return accepted;
   }
 
   /** POST a batch of runs. `null` means "the network did not answer" — never "an empty board". */
@@ -498,6 +541,14 @@ export function selectLeaderboard(base: string): LeaderboardClient {
 export function getLeaderboard(): LeaderboardClient {
   if (client === null) client = selectLeaderboard(REMOTE_BASE);
   return client;
+}
+
+/**
+ * ⭐ S196 MED-1 — deliver every board's queued runs now (the NONET home calls this when it opens).
+ * Never throws; a local client has nothing to send.
+ */
+export function flushAllPendingRuns(): Promise<number> {
+  return getLeaderboard().flushAllPending?.() ?? Promise.resolve(0);
 }
 
 /** TEST SEAM — override the client, or pass `null` to restore the configured default. */

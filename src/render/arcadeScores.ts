@@ -76,6 +76,25 @@ function pendingKeyFor(boardId: string): string {
   return `spark.arcade.${boardId}.pending.v1`;
 }
 
+/**
+ * ⭐ S196 MED-1 — every board that has a pending-queue key in storage (the daily `nonet:d…` and
+ * campaign `nonet:s…` boards included). Total: a blocked store answers `[]`.
+ */
+export function pendingBoardIds(): string[] {
+  const out: string[] = [];
+  try {
+    const ls = globalThis.localStorage;
+    if (ls === undefined || ls === null) return out;
+    for (let i = 0; i < ls.length; i++) {
+      const m = /^spark\.arcade\.(.+)\.pending\.v1$/.exec(ls.key(i) ?? '');
+      if (m !== null) out.push(m[1]!);
+    }
+  } catch {
+    /* blocked storage — nothing to flush */
+  }
+  return out.sort();
+}
+
 /** One player's stored standing. ⛔ The average is NOT stored — see the docblock. */
 export interface RankingEntry {
   /** Exactly three characters, upper case. THE identity. */
