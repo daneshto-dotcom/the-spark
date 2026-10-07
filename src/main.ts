@@ -284,6 +284,8 @@ import { applyNetSnapshot, netSnapshot, restore, snapshot, type WorldSnapshot } 
 import { makeGameStateExtras, softReset, tickGameState } from './state/gameState.ts';
 import { mintNonetSeed, startSudoku, submitSudokuSolve, tickSudoku } from './state/sudokuEvent.ts';
 import { asPlayerId } from './types.ts';
+import { installLetterboxPointerMapping } from './input/pointerMapping.ts';
+import { drawHoverHighlight, hoverHighlightEnabled } from './render/hoverHighlight.ts';
 // S143 P1 — the ONE sim-worker flag predicate. Shared with probeHarness so a default-on flip
 // moves both together; see workerFlag.ts for why two independent `=== '1'` reads was a bug.
 import { isSimWorkerRequestedHere } from './workerFlag.ts';
@@ -323,6 +325,9 @@ async function bootstrap(): Promise<void> {
   const root = document.getElementById('app');
   if (!root) throw new Error('No #app element in DOM');
   root.appendChild(app.canvas);
+  // ⭐ S196 (ui-5) — every Pixi pointer event through the ONE letterbox-aware mapping (input/pointerMapping.ts).
+  installLetterboxPointerMapping(app);
+  const HOVER_HIGHLIGHT_ON = hoverHighlightEnabled(window.location.search); // ⭐ S196 ui-5 — ships OFF
 
   /*
    * ⭐⭐ S170 P1 (owner) — **THE GROUND LAYER, AND IT IS INDEX 0 OF THE STAGE FOR A REASON.**
@@ -4508,6 +4513,7 @@ Network routes: ${v.detail}`;
     // method, one call site, both on this side of the wipe, so there is no half to misplace.
     severToastRenderer.drainSeverToast(world);
     effectsRenderer.sync(world);
+    drawHoverHighlight(world, controls.cursor, HOVER_HIGHLIGHT_ON); // ⭐ S196 ui-5 — PROTOTYPE, OFF unless ?hover=1
     fxEndFrame(); // ⭐ S192 — after the last fx writer (the detonations, inside effectsRenderer.sync)
     avatarRenderer.sync(world, controls);
     // S98 P3 — pulsating preview of the bond(s) the dragged spark would form.
