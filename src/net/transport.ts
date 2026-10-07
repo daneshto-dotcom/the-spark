@@ -347,6 +347,9 @@ export function classifyPeerDrop(conn: string | null, ice: string | null): PeerD
  * ⚠ NOT on a peer that LEFT (its connection still healthy): Trystero shares one connection per remote peer across
  * rooms, and the clean-leave rejoin (`e2e/reconnect.spec.ts`) re-binds that still-open connection in ~0.2 s —
  * closing it would turn every clean rejoin into a full handshake. `unknown` (no observed state) is left alone too.
+ * ⚠ Accepted (S196 audit LOW-2): a CLEAN leave that happens to arrive while ICE reads `disconnected` is closed
+ * too — it costs that rejoin a full handshake instead of the ~0.2 s re-bind, never a split, and is rare (a leave
+ * arriving at all means the path works). The upstream facts this rests on are pinned in `trysteroPolyfill.test.ts`.
  */
 export function shouldCloseDroppedPeerConnection(conn: string | null, ice: string | null): boolean {
   if (conn === 'closed') return false; // already gone — nothing to close
