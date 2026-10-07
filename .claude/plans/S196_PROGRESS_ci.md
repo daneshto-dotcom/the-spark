@@ -1,7 +1,7 @@
 # S196 PROGRESS — s196/ci
 
 ## NEXT STEP (top, always current)
-- T1: edit endgameAudit.test.ts loops (R194-27 3000 ticks, MED-1 stop W/2+600) then re-run mutants A/B/AB/C on the real test.
+- T1: re-run mutant matrix (bash .tmp-gates/mut.sh) on new file; then before/after timings alone + full-suite maxWorkers=3. R194-27 cut REVERTED (mutants C@3121, D@3840 need 4000).
 
 ## Log
 - boot: merged master; progress file created.
