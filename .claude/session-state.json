@@ -24,7 +24,8 @@
     "#s196-fix-rounds-chain: NONET took three fix rounds and EVERY one introduced a new MED (lost retries -> concurrent double-send -> claim-before-fold loss); only re-auditing each delta caught them. The final shape (one atomic batch) was the fix the auditor sketched, not the builder — when a round adds a defect, hand the next round the auditor's fix shape verbatim.",
     "#s196-accounts-reuse: the owner's 'reuse what Legacy and CNC already built' turned a from-scratch design into a survey — and the survey surfaced two live security defects in OTHER projects (shared JWT key, open redirect). A read-only look at sibling projects is worth doing for its own sake; route what it finds to those projects, never fix across the boundary.",
     "#s196-hosting-question: the owner's 'pay for a stronger server' was a reasonable guess from outside; the useful answer separated WHERE the game runs (host browser) from what was slow (a joiner backlog), and a measuring tree found the backlog before the research tree finished — evidence beat speculation by an hour.",
-    "#s196-team-art: a composed-art feature only pays off if the seating matches the art; the builder surfaced that a trio picture shows in ~1 of 6 lobbies — the kind of consequence that must reach the owner as a question, not be buried in a MINE list."
+    "#s196-team-art: a composed-art feature only pays off if the seating matches the art; the builder surfaced that a trio picture shows in ~1 of 6 lobbies — the kind of consequence that must reach the owner as a question, not be buried in a MINE list.",
+    "#s196-risen: a reported 'X doesn't work' turned out to be 'X works silently far from where he was looking' — the measured match (50 of 64 kills raised) settled it; the real gap is feedback, not mechanics."
   ],
   "budget_total": 1000000,
   "totals": {
@@ -310,12 +311,21 @@
       "branch": "s196/risen-check",
       "tier": "Full",
       "plan_file": ".claude/plans/2026-10-07_S196_BATCH_PDR.md",
-      "status": "in_progress",
-      "priority_state": "in_progress",
+      "status": "completed",
+      "priority_state": "completed",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
-      "check_completed": false
+      "check_completed": true,
+      "deploy": "tests only (no production change)",
+      "check_method": "Verify-first: enumerated every production enemy-kill path (one caller of damageCreature; credit computed once at the blow) — no zombie racial kill reaches the death sweep without a typed credit. Real host tick: castle soldier / hound / boss kills raise; 2v2 enemy-team only; draft deadline auto-takes the perk for host and joiner seats; risen soldier + perk survive a host snapshot to a joiner. 4-seat HARD bots 8 waves: 64 zombie-seat kills, 50 raised, 14 castle-gun/tower kills raised nobody by ruling. Verdict: NO DEFECT; most likely he did not notice the silent rise at the keep (no visual cue exists) or the seat picked HP at the wave-1 draft. Mutations red. Merged tests-only; theRisenS196 11/11 on master.",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/state/racial/theRisenS196.test.ts",
+          "needle": "S196"
+        }
+      ]
     },
     {
       "id": "DEDHOST",
@@ -343,6 +353,19 @@
       "id": "WINBAR",
       "title": "win bar +20% every band (R196-W2)",
       "branch": "s196/win-bar",
+      "tier": "Full",
+      "plan_file": ".claude/plans/2026-10-07_S196_BATCH_PDR.md",
+      "status": "in_progress",
+      "priority_state": "in_progress",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "check_completed": false
+    },
+    {
+      "id": "QUEUE",
+      "title": "shape queue: drag-reorder + right-click removes a whole stack (R196-Q1)",
+      "branch": "s196/queue-edit",
       "tier": "Full",
       "plan_file": ".claude/plans/2026-10-07_S196_BATCH_PDR.md",
       "status": "in_progress",
