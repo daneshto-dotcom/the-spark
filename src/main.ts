@@ -284,6 +284,7 @@ import { applyNetSnapshot, netSnapshot, restore, snapshot, type WorldSnapshot } 
 import { makeGameStateExtras, softReset, tickGameState } from './state/gameState.ts';
 import { mintNonetSeed, startSudoku, submitSudokuSolve, tickSudoku } from './state/sudokuEvent.ts';
 import { asPlayerId } from './types.ts';
+import { installLetterboxPointerMapping } from './input/pointerMapping.ts';
 // S143 P1 — the ONE sim-worker flag predicate. Shared with probeHarness so a default-on flip
 // moves both together; see workerFlag.ts for why two independent `=== '1'` reads was a bug.
 import { isSimWorkerRequestedHere } from './workerFlag.ts';
@@ -323,6 +324,8 @@ async function bootstrap(): Promise<void> {
   const root = document.getElementById('app');
   if (!root) throw new Error('No #app element in DOM');
   root.appendChild(app.canvas);
+  // ⭐ S196 (ui-5) — every Pixi pointer event through the ONE letterbox-aware mapping (input/pointerMapping.ts).
+  installLetterboxPointerMapping(app);
 
   /*
    * ⭐⭐ S170 P1 (owner) — **THE GROUND LAYER, AND IT IS INDEX 0 OF THE STAGE FOR A REASON.**

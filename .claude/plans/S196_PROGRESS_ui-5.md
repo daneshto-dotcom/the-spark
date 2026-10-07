@@ -1,7 +1,7 @@
 # S196 PROGRESS — tree ui-5 (branch s196/ui-5)
 
 ## NEXT STEP (top, always current)
-TASK 1 — write e2e/click-offset.spec.ts (matrix repro, BEFORE table), then override app.renderer.events.mapPositionToPoint with cssToCanvasCoords.
+TASK 1 — fix landed (pointerMapping.ts + main.ts install + controls). NEXT: run gating click-offset spec + AFTER matrix; then unit test + census test.
 
 ROOT CAUSE (found): index.html canvas CSS = max-width/max-height 100% + object-fit: contain. Whenever the
 window aspect != 16:9 (half-screen, any browser with a toolbar, other monitors), the canvas CSS box is
