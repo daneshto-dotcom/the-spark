@@ -1,7 +1,7 @@
 # S196 PROGRESS — tower-fx (branch s196/tower-fx)
 
 ## NEXT STEP (exact)
-- write `src/render/fx/towerSignatureFx.ts` (pure drawers, one per kind, `TOWER_SIGNATURE: Record<GodlyId, kind>`),
+- DONE drawer file. NOW: wire `SpawnerZoneRenderer.syncTowerSignatures` (fx path; replaces syncHubArcs) + TV idle static in voltkinTowerRenderer; then tests.
   then wire `SpawnerZoneRenderer.syncTowerSignatures` (fx path; replaces syncHubArcs) + the TV idle static in
   `voltkinTowerRenderer` fx block; then tests `towerSignature.test.ts`.
 
