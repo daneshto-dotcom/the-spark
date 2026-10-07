@@ -237,9 +237,10 @@ test('S195 N9 — joiner cost of a wave-N board, replayed at 10 Hz', async ({ br
             const ab = await joiner.evaluate(async ([src, period, total]) => {
               const toggle = (0, eval)(src) as (on: boolean) => void;
               const g = window as unknown as { __SPARK__: { frameMs: readonly number[]; app: { ticker: { add(f: () => void, c?: unknown, p?: number): void; remove(f: () => void): void } } } };
-              const A: number[] = []; const B: number[] = [];
+              const A: number[] = []; const B: number[] = []; const SA = { sum: 0 }; const SB = { sum: 0 }; let lastStat = NaN;
+              const stat = (): number => { const f = (window as unknown as { __abStat?: () => number }).__abStat; return f === undefined ? 0 : f(); };
               let on = false; let skip = 0;
-              const tap = (): void => { const fm = g.__SPARK__.frameMs; const v = fm[fm.length - 1]; if (v === undefined) return; if (skip > 0) { skip--; return; } (on ? B : A).push(v); };
+              const tap = (): void => { const fm = g.__SPARK__.frameMs; const v = fm[fm.length - 1]; const sv = stat(); const ds = Number.isNaN(lastStat) ? 0 : sv - lastStat; lastStat = sv; if (v === undefined) return; if (skip > 0) { skip--; return; } (on ? B : A).push(v); (on ? SB : SA).sum += ds; };
               g.__SPARK__.app.ticker.add(tap, undefined, -60);
               toggle(false);
               const t0 = performance.now();
@@ -249,10 +250,10 @@ test('S195 N9 — joiner cost of a wave-N board, replayed at 10 Hz', async ({ br
               }
               toggle(false);
               g.__SPARK__.app.ticker.remove(tap);
-              return { A, B };
+              return { A, B, statA: SA.sum / Math.max(1, A.length), statB: SB.sum / Math.max(1, B.length) };
             }, [AB_JS, AB_PERIOD_MS, MEASURE_MS] as [string, number, number]);
             const q = (xs: number[], p: number): string => pct(xs, p).toFixed(2);
-            console.log(`AB w${wave} ${fx} ${thr}x  OFF n=${ab.A.length} med ${q(ab.A, 0.5)} p75 ${q(ab.A, 0.75)} p95 ${q(ab.A, 0.95)} | ON n=${ab.B.length} med ${q(ab.B, 0.5)} p75 ${q(ab.B, 0.75)} p95 ${q(ab.B, 0.95)} | med delta ${((100 * (pct(ab.B, 0.5) - pct(ab.A, 0.5))) / pct(ab.A, 0.5)).toFixed(1)} %`);
+            console.log(`AB w${wave} ${fx} ${thr}x  OFF n=${ab.A.length} med ${q(ab.A, 0.5)} p75 ${q(ab.A, 0.75)} p95 ${q(ab.A, 0.95)} | ON n=${ab.B.length} med ${q(ab.B, 0.5)} p75 ${q(ab.B, 0.75)} p95 ${q(ab.B, 0.95)} | med delta ${((100 * (pct(ab.B, 0.5) - pct(ab.A, 0.5))) / pct(ab.A, 0.5)).toFixed(1)} % | stat/frame OFF ${ab.statA.toFixed(2)} ON ${ab.statB.toFixed(2)}`);
           }
           if (PROFILE) { await cdp.send('Profiler.enable'); await cdp.send('Profiler.setSamplingInterval', { interval: 500 }); await cdp.send('Profiler.start'); }
           await joiner.waitForTimeout(MEASURE_MS);
