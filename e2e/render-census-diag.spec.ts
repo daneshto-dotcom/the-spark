@@ -46,6 +46,7 @@ async function breakdown(page: Page, tag: string): Promise<void> {
     if (r && r.texture && r.texture.managedTextures) {
       texN = r.texture.managedTextures.length;
       for (const src of r.texture.managedTextures) {
+        if (src === null) { tex['<null: removed, still counted by .length>'] = (tex['<null: removed, still counted by .length>'] ?? 0) + 1; continue; }
         const res = src.resource;
         let k = src.label || '';
         if (res && typeof res.src === 'string') k = 'img:' + res.src.split('/').slice(-2).join('/');
@@ -64,6 +65,7 @@ async function breakdown(page: Page, tag: string): Promise<void> {
       bonds: sp.world.bonds.size,
       buckets,
       tex,
+      pools: sp.fx?.pools?.() ?? null,
       texN,
     };
   });
@@ -111,21 +113,14 @@ test('S196 F1 census attribution @diag', async ({ page }) => {
     const w = window as any;
     w.__SPARK_DIAG_RENDERER__ = w.__SPARK__.fogRenderer.renderer ?? null;
   });
+  await page.waitForTimeout(4000);
   await breakdown(page, 'title0');
-  await startBots(page);
-  await runTicks(page, 1200, 240_000);
-  await breakdown(page, 'm1-warm');
-  for (let i = 1; i <= 8; i++) {
-    await runTicks(page, 600, 120_000);
-    await breakdown(page, `m1-${i}`);
+  for (let m = 1; m <= Number(process.env.DIAG_MATCHES ?? 3); m++) {
+    await startBots(page);
+    await runTicks(page, Number(process.env.DIAG_TICKS ?? 6000), 600_000);
+    await breakdown(page, `m${m}-end`);
+    await toTitle(page);
+    await page.waitForTimeout(3000);
+    await breakdown(page, `title${m}`);
   }
-  await toTitle(page);
-  await breakdown(page, 'title1');
-  await startBots(page);
-  await runTicks(page, 1200, 240_000);
-  await breakdown(page, 'm2-warm');
-  await runTicks(page, 2400, 400_000);
-  await breakdown(page, 'm2-end');
-  await toTitle(page);
-  await breakdown(page, 'title2');
 });
