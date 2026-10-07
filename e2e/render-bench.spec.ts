@@ -24,6 +24,20 @@ import { test, type Page } from '@playwright/test';
 import { canvasToCss, titleButtonCss, waitForWorld } from './helpers';
 import * as fs from 'node:fs';
 
+/*
+ * ⚠ THE REAL GPU, NOT SWIFTSHADER. The project config forces `--use-gl=swiftshader` (CI has no GPU), which
+ * rasterises on the CPU and holds the frame rate at a few fps on this board — not the machine a player has.
+ * The bench therefore asks Chrome for the hardware path (ANGLE/D3D11 on Windows). `BENCH_GL=swiftshader`
+ * restores the CI renderer for a like-for-like CI comparison.
+ */
+test.use({
+  launchOptions: {
+    args: process.env.BENCH_GL === 'swiftshader'
+      ? ['--use-gl=swiftshader', '--enable-webgl', '--ignore-gpu-blocklist']
+      : ['--use-angle=d3d11', '--enable-gpu', '--ignore-gpu-blocklist', '--enable-webgl'],
+  },
+});
+
 const ROUNDS = Number(process.env.BENCH_ROUNDS ?? 6);
 const FRAMES = Number(process.env.BENCH_FRAMES ?? 150);
 const SETTLE = 15;
@@ -96,6 +110,12 @@ test.describe('S196 F3 — visual stack per tier, interleaved @perf-measure', ()
       }
       return out;
     }, stress);
+    const gl = await page.evaluate(() => {
+      const c = document.createElement('canvas').getContext('webgl2');
+      const ext = c?.getExtension('WEBGL_debug_renderer_info');
+      return ext ? String(c!.getParameter(ext.UNMASKED_RENDERER_WEBGL)) : 'unknown';
+    });
+    console.log(`[bench] GL renderer: ${gl}`);
     console.log(`[bench] board=${stress ? 'stress' : 'realistic'} built ${built.length} blueprints: ${built.join(' ')}`);
     await page.waitForTimeout(3000);
 
@@ -173,7 +193,7 @@ test.describe('S196 F3 — visual stack per tier, interleaved @perf-measure', ()
         spritesAvg: Math.round(d.sprites.reduce((p, c) => p + c, 0) / d.sprites.length),
         creaturesAvg: Math.round(d.creatures.reduce((p, c) => p + c, 0) / d.creatures.length) };
     }
-    fs.writeFileSync(OUT, JSON.stringify({ board: stress ? 'stress' : 'realistic', rounds: ROUNDS, frames: FRAMES, built, summary }, null, 1));
+    fs.writeFileSync(OUT, JSON.stringify({ gl, board: stress ? 'stress' : 'realistic', rounds: ROUNDS, frames: FRAMES, built, summary }, null, 1));
     console.log(`[bench] ${JSON.stringify(summary)}`);
   });
 });
