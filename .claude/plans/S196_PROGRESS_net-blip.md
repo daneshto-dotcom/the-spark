@@ -4,6 +4,16 @@
 - Read S195_PROGRESS_net-mp.md, reconnect-hard-blip.spec.ts, reconnectPolicy.ts, transport.ts, scripts/live-mp/*; npm install running.
 
 ## Log
+- SWEEP (nostr only, local relay; logs .tmp-gates/blip/s-<ms>.log):
+  · 12 s  — ⛔ REPRODUCED, PERMANENT SPLIT. host ICE disc +5.9, joiner +6.9; LIGHT +12.0; host's Trystero 5 s close fired
+    at +12.5 (`PEER DROPPED cause=network-died`) — the SAME instant its orphan pc's ICE went back to connected (+12.5/+13.1).
+    Joiner's close never fired (ICE back at +12.1): joiner kept peers=1, pc connected/connected, NO reconnect attempt, no
+    overlay; host RECONNECTING +14.9 -> terminal CONNECTION LOST +27.7 and stayed so to +476 s (end: host peers 0, joiner
+    peers 1). Two worlds ticking apart. Never recovers.
+  · 12.5 s / 13 s — self-healed (+14.0 / +14.0): detection was later (+8.0..8.6) so neither 5 s timer expired.
+  · 20 s — both sides closed (+12.4 joiner, +13.3 host), reconnect +13.7, new pcs after LIGHT, RECOVERED +37.7 s (host
+    showed terminal CONNECTION LOST +28.5..+34.4 — host grace, existing behaviour).
+  · 40 s — both closed (+13.7/+14.0), reconnect +15.6, recovered +52.8 s (12.8 s after LIGHT).
 - probe-relays exit 0: 6/6 configured relays answered (desktop has public reach).
 - RUN 1 (DARK 8 s, nostr only via local relay): harness VALID — joiner ICE crossed the relay (fwd 36/27 pkts pre-blip,
   20 dropped in the dark, 88 local candidates suppressed); both pcs stayed connected/open until ICE `disconnected` at
