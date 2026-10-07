@@ -127,6 +127,125 @@ def refs(c):
     return out
 
 
+# =====================================================================================================
+# S196 (owner R196-A1 / R196-A2) — THE 12 SINGLE-RACE PROMPTS: each race's 4-player QUADRANT image and its
+# 2-player HALF image, in the same Grok family as the pair and trio sets, replacing the original Gemini art
+# (`public/art/race-zones/zone-<race>-4p.png` 480x270 and `-2p.png` 480x540, measured S196 with PIL).
+# Geometry measured S196: board 1920x1080 (constants.ts:95-96); a 4-player quadrant = 960x540 (16:9), a
+# 2-player half = 960x1080 (8:9) (zoneBackgroundRenderer.ts `zoneRect`); castles: 4p outer corners
+# (130,130)(1790,130)(1790,950)(130,950), 2p goalmouths (120,540)(1800,540) (zones.ts ANCHORS); quarry
+# (960,540) r 125, cut r 127; footer y 996-1080. The SAME race image is drawn in every seat's place and is
+# NEVER mirrored (zoneArtUrl ignores the zone), so every corner / both side edges must work as castle or portal.
+# Grok returns about 1168x784 for a landscape request and 784x1168 for a portrait one (his trio and pair files,
+# measured) — so the 4p crop loses ~8% top+bottom and the 2p crop (2:3 -> 8:9) loses ~12% top+bottom.
+# =====================================================================================================
+SINGLE_STYLE = (
+    "A DARK, MOODY, LOW-CONTRAST environment backdrop for a game board, with no characters and no foreground "
+    "clutter. Painted in a stylised cartoon-illustration style with soft ink linework and flat shading, a "
+    "little more realistic and less saturated than a poster - muted, near-monochrome, atmospheric. IT MUST "
+    "STAY DARK AND QUIET. Overall value is deep and shadowed, like ground lit only by moonlight or distant "
+    "embers. NO bright passages, no white or near-white areas, no strong highlights, no hard focal point, no "
+    "busy detail, nothing that would compete with brightly coloured game pieces drawn on top of it. Think of "
+    "it as a faded mural seen through darkness. No characters, no people, no creatures, no animals, no "
+    "vehicles. No text, no lettering, no words, no logo, no border, no frame, no vignette, no UI, no map "
+    "markers. Fills the entire frame edge to edge with no margin and no letterboxing. An original world, not "
+    "the look of any existing game, film or franchise. ")
+SINGLE_AVOID = (
+    "Avoid: sky, horizon, moon, sun, clouds, mountains seen from the side, a side or isometric view, "
+    "perspective receding into the distance; characters, people, creatures, animals, monsters, skeletons, "
+    "vehicles, units; standing buildings or castles seen from the side; text, letters, numbers, runes that "
+    "read as writing, logos, signature, watermark, border, frame, vignette, UI, icons, grid, hex tiles, map "
+    "markers; bright highlights, white or near-white areas, neon saturation, high contrast, a sharp focal "
+    "point, busy fine detail; a second race's world or any colour accent other than this world's own; a wall, "
+    "road, river, fence, shoreline or straight line running along or into an edge of the picture; landmarks "
+    "in the corners{extra}; a symmetrical or mirrored composition; {frame_avoid}; the recognisable style, "
+    "characters or locations of any existing game, film or franchise.")
+
+
+def single4(r):
+    return (
+        f"One patch of {CAP[r].upper()} battlefield ground for a game board, seen from HIGH ABOVE, almost straight "
+        f"down, like a painted map of the ground - the same camera as a top-down strategy map. THE WORLD: {W[r]} "
+        "WHERE IT GOES: in the game this picture fills ONE QUARTER of a four-player board, and the SAME picture "
+        "is used for whichever quarter this race's player sits in - top-left, top-right, bottom-right or "
+        "bottom-left - without being flipped. So: CORNERS - all four corners of the picture are the quietest, "
+        "plainest, darkest ground in it, because the player's castle stands in the OUTER corner (any of the "
+        "four, depending on the seat) and the shared spawn portal sits in the INNER corner (the opposite one). "
+        "EDGES: the outer band of the picture on every side (about the outer eighth of the width and of the "
+        "height) is calm, low-detail ground that gets slowly darker and flatter toward the edge - next to an "
+        "enemy there is a wall line, next to a teammate the game fades this world softly into his, so nothing "
+        "may touch or run along an edge: no landmark, ruin, road, river, wall, fence, shoreline or tree line "
+        "at an edge. The edges must not look like a frame either: no border, no vignette ring - just ground "
+        "that calmly runs out of detail. CENTRE: put the world's two or three landmarks in the middle area of "
+        "the picture, inside the central half, spread out a little so it does not read as one bullseye. "
+        "CAMERA AND FRAME - EXACT: a WIDE LANDSCAPE image, aspect ratio 16:9 (a wide frame such as 1168 x 784 "
+        "is fine; it is centre-cropped to 16:9, so keep anything important out of the top and bottom 8%). Seen "
+        "from HIGH ABOVE, almost straight down: ruins and objects show only a slight three-quarter tilt, and "
+        "there is NO sky, NO horizon, NO moon, NO side view and no perspective receding into the distance. The "
+        "only light is the faint glow coming from the ground itself. "
+        + SINGLE_STYLE
+        + SINGLE_AVOID.format(extra=", along the edges or touching the frame", frame_avoid="portrait or square framing"))
+
+
+def single2(r):
+    return (
+        f"One HALF of a two-player battlefield, all of it {CAP[r].upper()} ground, seen from HIGH ABOVE, almost "
+        f"straight down, like a painted map of the ground - the same camera as a top-down strategy map. THE "
+        f"WORLD: {W[r]} WHERE IT GOES: in the game this picture fills one whole HALF of the board, the left half "
+        "or the right half, and the SAME picture is used for both without being flipped. The player's castle "
+        "stands at the middle of the OUTER side edge and the shared spawn portal sits at the middle of the "
+        "INNER side edge - so the castle can be at the middle of either the left or the right edge, and the "
+        "portal at the middle of the other one. In a three-player team game the same picture also covers one "
+        "player's whole side with his castle in the TOP-LEFT corner. So: QUIET ZONES - a wide plain, dark, "
+        "low-detail band down the middle of BOTH the left edge and the right edge (most of all at mid-height, "
+        "about a third of the frame tall), and all four corners, stay empty ground with no landmarks. EDGES: "
+        "every edge is calm ground that gets slowly darker and flatter toward the frame - nothing touches or "
+        "runs along an edge (no ruin, road, river, wall, fence, shoreline or tree line at an edge), and no "
+        "border or vignette ring either. LANDMARKS: two or three of the world's landmarks spread through the "
+        "central column of the picture - one in the upper-middle, one in the lower-middle, perhaps a smaller "
+        "one between - never at the dead centre of an edge. "
+        "CAMERA AND FRAME - EXACT: a TALL PORTRAIT image, aspect ratio 2:3 (a tall frame such as 784 x 1168 is "
+        "fine). It will be centre-cropped to 8:9, almost square, so keep anything important out of the top and "
+        "bottom 13% of the frame. Seen from HIGH ABOVE, almost straight down: ruins and objects show only a "
+        "slight three-quarter tilt, and there is NO sky, NO horizon, NO moon, NO side view and no perspective "
+        "receding into the distance. The only light is the faint glow coming from the ground itself. "
+        + SINGLE_STYLE
+        + SINGLE_AVOID.format(extra=" or at the middle of the left or right edge",
+                              frame_avoid="landscape or square framing"))
+
+
+SINGLE_KINDS = [
+    ('4p', '4-player quadrant', 'wide 16:9 landscape', single4, 'Single4P', 'zone-{r}-4p.png', '480 x 270'),
+    ('2p', '2-player half', 'tall 2:3 portrait', single2, 'Single2P', 'zone-{r}-2p.png', '480 x 540'),
+]
+
+
+def single_fname(prefix, r):
+    return f'{prefix}_{CAP[r]}.jpg'
+
+
+def single_refs(r):
+    """His own finished Grok files of this race: the same-race pair (always present) + a same-race trio."""
+    return [f'{DL}\\{CAP[r]}X{CAP[r]}.jpg', f'{DL}\\Team3_{CAP[r]}_{CAP[r]}_{CAP[r]}.jpg (if you have it)']
+
+
+SINGLE_SPEC = [
+    ("Why", "Owner R196-A1/A2: your Grok images are far better than the original Gemini single-race art, so the "
+     "six races get the same top-down Grok look in both single-race shapes. These <b>replace</b> today's "
+     "<code>zone-&lt;race&gt;-4p.png</code> / <code>zone-&lt;race&gt;-2p.png</code>."),
+    ("4-player quadrant", "Fills one quarter of the 4-player board: <b>960 x 540 world px, 16:9</b>. Used in every "
+     "seat's quarter, never flipped: castle in the OUTER corner (any of the four), the portal in the INNER corner. "
+     "Also used for a 1v1v2 solo and, until your trio image exists, each 3v1 teammate. Shipped at <b>480 x 270</b>."),
+    ("2-player half", "Fills one half of the 1v1 board: <b>960 x 1080 world px, 8:9</b>, left or right, never "
+     "flipped: castle at the middle of the outer side edge, the portal at the middle of the inner one. Also the "
+     "2v1 solo's whole side (castle top-left). Shipped at <b>480 x 540</b>."),
+    ("What to ask Grok for", "4-player: <b>landscape 16:9</b> (expect ~1168 x 784, as your trio files). 2-player: "
+     "<b>portrait 2:3</b> (expect ~784 x 1168, as your pair files). The session cover-crops: the 4-player loses ~8% "
+     "top and bottom, the 2-player ~12%."),
+    ("Where files go", f"Download full size into <code>{DL}</code> as <code>Single4P_&lt;Race&gt;.jpg</code> and "
+     "<code>Single2P_&lt;Race&gt;.jpg</code>, e.g. <code>Single4P_Demons.jpg</code>. A session transcodes and swaps them in."),
+]
+
 ROWS = [(i + 1, c) for i, c in enumerate(combos)]
 COUNTS = {k: sum(1 for _, c in ROWS if kind(c) == k) for k in ('three races', 'pair + one', 'same race')}
 assert COUNTS == {'three races': 20, 'pair + one': 30, 'same race': 6}, COUNTS
@@ -244,6 +363,15 @@ for n, c in ROWS:
     md.append(f"### #{n:02d} NE {CAP[c[0]]} + SE {CAP[c[1]]} + SW {CAP[c[2]]} -> `{fname(c)}`\n")
     md.append("Style refs: " + ", ".join(f"`{r}`" for r in refs(c)) + "\n")
     md.append("```text\n" + prompt(*c) + "\n```\n")
+md.append("\n## 8. S196 - the 12 single-race prompts (6 races x 4-player quadrant + 2-player half)\n")
+for k, v in SINGLE_SPEC:
+    md.append(f"- **{k}:** " + v.replace('<b>', '**').replace('</b>', '**').replace('<code>', '`').replace('</code>', '`').replace('&lt;', '<').replace('&gt;', '>'))
+md.append("")
+for key, label, shape, fn, prefix, shipped_t, size in SINGLE_KINDS:
+    for r in RACES:
+        md.append(f"### {CAP[r]} - {label} ({shape}) -> `{single_fname(prefix, r)}` -> `public/art/race-zones/{shipped_t.format(r=r)}` ({size})\n")
+        md.append("Style refs: " + ", ".join(f"`{x}`" for x in single_refs(r)) + "\n")
+        md.append("```text\n" + fn(r) + "\n```\n")
 open(os.path.join(OUT, 'S195_TEAM3_BACKDROP_PROMPTS.md'), 'w', encoding='utf-8', newline='\n').write("\n".join(md))
 
 # ------------------------------------------------------------------ html
@@ -258,7 +386,8 @@ H.append('<header class="top"><h1>SPARK <b>3-Player Team Backdrops</b></h1>\n'
          '<p class="lede">Grok prompts for the 3v1 team backdrops. The solo player always sits top-left (north-west, where player one is). '
          'The team of three holds the other three quarters - top-right, bottom-right, bottom-left - as one continuous L with no walls. '
          'Each image is the <b>whole board</b>, wide 16:9, and its top-left quarter must stay plain because the solo player\'s own art covers it. '
-         'Recommended: <b>56 images</b>, one per race trio, with the seat rule below. None are needed for v1 - teammates keep their own quadrant art until these exist.</p></header>\n')
+         'Recommended: <b>56 images</b>, one per race trio, with the seat rule below. None are needed for v1 - teammates keep their own quadrant art until these exist.</p>'
+         '<p class="lede" style="margin-top:10px"><b>NEW (S196):</b> <a href="#singles">the 12 single-race prompts</a> - each race\'s 4-player quadrant and 2-player half, in this same Grok style - are at the bottom of this page.</p></header>\n')
 # diagram
 H.append('<h2>The layout - the important technicality</h2>\n<div class="diagram">'
          '<svg viewBox="0 0 330 200" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Board layout: top-left is the solo opponent, the other three quarters are the team">'
@@ -299,18 +428,36 @@ for n, c in ROWS:
 H.append('</div><p class="legend">Chips read NE / SE / SW. Green = done (saved in this browser).</p>\n')
 H.append('<h2>How to generate in Grok</h2>\n<div class="cols"><div class="box"><h4>Steps</h4><ol>' + ''.join(f'<li>{s}</li>' for s in GEN_STEPS) + '</ol></div>'
          '<div class="box"><h4>Reject if</h4><ul>' + ''.join(f'<li>{e(r)}</li>' for r in REJECT) + '</ul></div></div>\n')
-H.append('<h2>Prompts</h2>\n<div class="progress"><span id="pcount">0 / 56 done</span><div class="bar"><i id="pbar"></i></div></div>\n')
+H.append('<h2>Prompts</h2>\n<div class="progress" data-group="t3"><span class="pcount">0 / 56 done</span><div class="bar"><i class="pbar"></i></div></div>\n')
 for n, c in ROWS:
     cid = '-'.join(c)
     ne, se, sw = c
     H.append(f'<article class="card" id="card-{cid}" style="--a:{COL[ne]};--b:{COL[se]};--c:{COL[sw]}">\n'
-             f'  <header><label class="tick" title="Mark done"><input type="checkbox" data-id="{cid}" aria-label="Mark #{n:02d} done"><span></span></label>'
+             f'  <header><label class="tick" title="Mark done"><input type="checkbox" data-group="t3" data-id="{cid}" aria-label="Mark #{n:02d} done"><span></span></label>'
              f'<span class="swatch"><i></i><i></i><i></i></span><div class="ttl"><div class="row1"><span class="num">#{n:02d}</span>'
              f'<h3>NE {CAP[ne]} &middot; SE {CAP[se]} &middot; SW {CAP[sw]}</h3><span class="badge">{kind(c)}</span></div>'
              f'<div class="sub">Top-left stays empty (solo opponent). Top-right {CAP[ne]}, bottom-right {CAP[se]}, bottom-left {CAP[sw]}.</div>'
              f'<div class="file">Save as <code>{e(fname(c))}</code> &middot; style refs: ' + ', '.join(f'<code>{e(r)}</code>' for r in refs(c)) + '</div></div></header>\n'
              f'  <pre class="prompt" id="p-{cid}">{e(prompt(*c))}</pre>\n'
              f'  <div class="actions"><button class="copy" data-target="p-{cid}">Copy prompt</button><span class="ok" aria-live="polite"></span></div>\n</article>\n')
+# ---- S196: the 12 single-race prompts (owner R196-A2) ----
+H.append('<h2 id="singles">S196 - the 12 single-race images (6 races x 4-player quadrant + 2-player half)</h2>\n'
+         '<p class="lede">The same Grok style, camera and dark palette as your pair and trio images, one world per picture. '
+         'Each race needs two: a wide one for the 4-player board and a tall one for the 1v1 board.</p>\n')
+H.append('<div class="spec">' + ''.join(f'<div>{k}</div><div>{v}</div>' for k, v in SINGLE_SPEC) + '</div>\n')
+H.append('<div class="progress" data-group="single"><span class="pcount">0 / 12 done</span><div class="bar"><i class="pbar"></i></div></div>\n')
+for key, label, shape, fn, prefix, shipped_t, size in SINGLE_KINDS:
+    H.append(f'<h3 style="margin:22px 0 12px;font:600 20px \'Space Grotesk\',sans-serif">{label} - {shape}</h3>\n')
+    for r in RACES:
+        sid = f'single-{key}-{r}'
+        H.append(f'<article class="card" id="card-{sid}" style="--a:{COL[r]};--b:{COL[r]};--c:{COL[r]}">\n'
+                 f'  <header><label class="tick" title="Mark done"><input type="checkbox" data-group="single" data-id="{sid}" aria-label="Mark {CAP[r]} {label} done"><span></span></label>'
+                 f'<span class="swatch"><i></i><i></i><i></i></span><div class="ttl"><div class="row1"><span class="num">{key.upper()}</span>'
+                 f'<h3>{CAP[r]} &middot; {label}</h3><span class="badge">{shape}</span></div>'
+                 f'<div class="sub">One race, one world. Replaces <code>public/art/race-zones/{shipped_t.format(r=r)}</code> ({size}).</div>'
+                 f'<div class="file">Save as <code>{e(single_fname(prefix, r))}</code> &middot; style refs: ' + ', '.join(f'<code>{e(x)}</code>' for x in single_refs(r)) + '</div></div></header>\n'
+                 f'  <pre class="prompt" id="p-{sid}">{e(fn(r))}</pre>\n'
+                 f'  <div class="actions"><button class="copy" data-target="p-{sid}">Copy prompt</button><span class="ok" aria-live="polite"></span></div>\n</article>\n')
 H.append('<details class="box" style="margin-top:24px"><summary><b>For the wiring session (not you)</b></summary><ul>' + ''.join(f'<li>{w}</li>' for w in WIRING) + '</ul>'
          f'<pre class="neg">{e(PROC)}</pre></details>\n')
 H.append('<footer>S195 ART tree &middot; worlds and seams verbatim from the S192 2v2 sheet; geometry measured from <code>src/constants.ts</code>, '

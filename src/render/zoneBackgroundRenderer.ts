@@ -300,18 +300,59 @@ export function teamPairArtUrl(top: RaceId, bottom: RaceId): string {
 }
 
 /**
- * ⭐ S195 (R195-T5) — THE SEAM FOR THE DEFERRED THREE-PLAYER BACKDROPS. The owner will generate 56 images
- * (`SPARK_Team3_Backdrop_Prompts.html`); until then the trio shows each member's own quadrant art, so this
- * returns `null`. The day they land: return `/art/race-zones/teams/zone-team3-<ne>-<se>-<sw>.png` here,
- * route it through `zoneBackdropPlan`'s trio arm, and ⚠ ERASE THE IMAGE'S NW QUARTER at texture prep (it
- * belongs to the solo; backdrops draw at 0.55 alpha, so a covered quarter would still show through).
+ * ⭐⭐ S196 (owner R196-A1 / R196-A2) — **THE 3v1 TRIO ART: HIS COMPOSED GROK PICTURES.** R196-A1: his Grok
+ * images are far higher quality than the original single-race art, and a composed pair/trio picture beats
+ * single-race art side by side even with the seam cross-fade — the N19 six-tile plan is SUPERSEDED. R196-A2:
+ * *"we can already wire in the images we already have."*
  *
- * ⚠ S195 N19 — PROBABLY SUPERSEDED: the owner proposed six blendable race tiles instead of 56 trio images
- * (`TEAM_TILE_RACES` below). He generated 27 of the 56 before asking (identified in
- * `.claude/plans/S195_PROGRESS_team-tiles.md`); this seam stays `null` and unrouted until he picks one path.
+ * THE MANIFEST, keyed POSITIONALLY `<NE race>-<SE race>-<SW race>` — exactly the card on his prompt sheet
+ * (`SPARK_Team3_Backdrop_Prompts.html`, races in the fixed order Demons < Mummies < Nagas < Orcs < Vampires <
+ * Zombies; card N = the Nth multiset). Each file is the WHOLE board at half resolution, 960×540, its NW quarter
+ * painted black (`public/art/race-zones/teams/README.md` — adding a new one is ONE LINE here).
+ *
+ * ⛔ POSITIONAL, NEVER A SET: a trio picture puts each race in ONE corner. `arrangeTeamZones` seats the trio
+ * NE → SE → SW by LOBBY SLOT (seat order unless the host moved someone, N16), not by race, so a trio whose races
+ * do not stand in the card's order has no picture yet (the 16:9 frame has no symmetry that keeps NW fixed and
+ * swaps two corners) — it falls back to today's single-race art with the seam cross-fade.
+ *
+ * 27 of the 56 cards (S196): cards 1–13 and 15–28 (card 14, demons-nagas-vampires, downloaded EMPTY).
  */
-export function trioBackdropUrl(_ne: RaceId, _se: RaceId, _sw: RaceId): string | null {
-  return null;
+export const TEAM_TRIO_ART: readonly string[] = [
+  'demons-demons-demons', 'demons-demons-mummies', 'demons-demons-nagas', 'demons-demons-orcs',
+  'demons-demons-vampires', 'demons-demons-zombies', 'demons-mummies-mummies', 'demons-mummies-nagas',
+  'demons-mummies-orcs', 'demons-mummies-vampires', 'demons-mummies-zombies', 'demons-nagas-nagas',
+  'demons-nagas-orcs', 'demons-nagas-zombies', 'demons-orcs-orcs', 'demons-orcs-vampires',
+  'demons-orcs-zombies', 'demons-vampires-vampires', 'demons-vampires-zombies', 'demons-zombies-zombies',
+  'mummies-mummies-mummies', 'mummies-mummies-nagas', 'mummies-mummies-orcs', 'mummies-mummies-vampires',
+  'mummies-mummies-zombies', 'mummies-nagas-nagas', 'mummies-nagas-orcs',
+];
+
+/** Where a trio picture lives — the pair art's folder and naming, one race per corner (NE, SE, SW). */
+export function teamTrioArtUrl(ne: RaceId, se: RaceId, sw: RaceId): string {
+  return `/art/race-zones/teams/${ne}-${se}-${sw}.webp`;
+}
+
+/** ⭐ S196 — the three quarters of a trio picture the board ever draws. There is deliberately no `nw`. */
+export type TrioQuarter = 'ne' | 'se' | 'sw';
+
+/** The trio quarter a QUADRANTS_4P zone shows (clock order 1 NE, 2 SE, 3 SW); zone 0 (the solo's NW) has none. */
+export function trioQuarterOfZone(zone: number): TrioQuarter | null {
+  return zone === 1 ? 'ne' : zone === 2 ? 'se' : zone === 3 ? 'sw' : null;
+}
+
+/**
+ * PURE — the source rectangle of a trio picture's quarter, in its own pixels (a 960×540 picture → 480×270). The
+ * NW quarter (x < w/2, y < h/2) is never inside any of them: that is the R195-T5 mask, by construction.
+ */
+export function trioQuarterRect(w: number, h: number, q: TrioQuarter): { x: number; y: number; w: number; h: number } {
+  const hw = Math.trunc(w / 2);
+  const hh = Math.trunc(h / 2);
+  return { x: q === 'sw' ? 0 : w - hw, y: q === 'ne' ? 0 : h - hh, w: hw, h: hh };
+}
+
+/** ⭐ S196 — the shipped trio resolver: the picture for exactly this NE/SE/SW, or `null` (none generated yet). */
+export function trioBackdropUrl(ne: RaceId, se: RaceId, sw: RaceId): string | null {
+  return TEAM_TRIO_ART.includes(`${ne}-${se}-${sw}`) ? teamTrioArtUrl(ne, se, sw) : null;
 }
 
 /**
@@ -350,14 +391,13 @@ export const TEAM_TILES_FOR_PAIRS = false;
 export const TEAM_SEAM_FEATHER = 0.22;
 
 /**
- * ⚠ MINE (N19) — cross-fade an open seam even when both sides are TODAY'S 4-player art (the 3v1 trio before
- * tiles land). ⛔ OFF until the owner approves the Desktop screenshots (`SPARK_S195_TeamTiles\COMPARE_*`) —
- * one line to flip. N19 says he sees the screenshots BEFORE anything visible is wired, and R195-T5 ruled plain
- * single-race art for the 3v1, so the deploy that carries this code changes nothing on the board. On, the hard
- * step between two teammates' quadrants becomes a soft fade; it cannot hide that today's art is horizon-view
- * (a sky band mid-trio) — that is what the six top-down tiles fix. Tiles always blend; this governs today's art.
+ * ⭐ S196 — HIS RULING (R196-A1, after the Desktop `SPARK_S195_TeamTiles\COMPARE_*` sheets): *today's art +
+ * cross-fade beats the hard edge.* So an open seam between TEAMMATES on today's single-quadrant art is
+ * cross-faded — the 3v1 trio whose picture is not generated yet (`TEAM_TRIO_ART`). It cannot hide that today's
+ * art is horizon-view; his single-race Grok replacements (the sheet's S196 section) fix that. Tiles always
+ * blend; this governs today's art. (S195 shipped it OFF pending his look; N19's tiles are superseded.)
  */
-export const TEAM_SEAM_BLEND_LEGACY_ART = false;
+export const TEAM_SEAM_BLEND_LEGACY_ART = true;
 
 /** What the plan needs to know about tiles: which races have one, where, and whether pairs use them. */
 export interface TileAvailability {
@@ -366,14 +406,20 @@ export interface TileAvailability {
   readonly forPairs: boolean;
   /** Blend an open seam between two pieces of today's art too (`TEAM_SEAM_BLEND_LEGACY_ART`). */
   readonly blendLegacy: boolean;
+  /**
+   * ⭐ S196 — the 3v1 trio picture for exactly this NE / SE / SW, or `null`. Absent = no trio art (every pre-S196
+   * caller). The renderer wraps it so a picture whose load FAILED resolves to `null` (today's art + blend).
+   */
+  readonly trio?: (ne: RaceId, se: RaceId, sw: RaceId) => string | null;
 }
 
-/** The shipped availability: the manifest above, nothing failed. */
+/** The shipped availability: the manifests above, nothing failed. */
 export const MANIFEST_TILES: TileAvailability = {
   has: (race) => TEAM_TILE_RACES.includes(race),
   url: teamTileUrl,
   forPairs: TEAM_TILES_FOR_PAIRS,
   blendLegacy: TEAM_SEAM_BLEND_LEGACY_ART,
+  trio: trioBackdropUrl,
 };
 
 /** A teammate's art across one seam of a quadrant, for the cross-fade. */
@@ -390,8 +436,12 @@ export interface ZoneBackdrop {
   /** The zone's owner — whose scorch tint the quadrant takes. */
   readonly seat: PlayerId;
   readonly url: string;
-  /** `full` = the whole image fills the quadrant; `top` / `bottom` = that half of a HALF-board image. */
-  readonly part: 'full' | 'top' | 'bottom';
+  /**
+   * `full` = the whole image fills the quadrant; `top` / `bottom` = that half of a HALF-board image;
+   * ⭐ S196 `ne` / `se` / `sw` = that QUARTER of a WHOLE-board trio picture. ⛔ There is no `nw`: the solo owns
+   * NW, so a trio picture's NW quarter is never drawn (R195-T5's wiring note — at 0.55 alpha it would show).
+   */
+  readonly part: 'full' | 'top' | 'bottom' | TrioQuarter;
   /** EAST half of a pair image: mirrored on the VERTICAL axis (left ↔ right), never rotated 180°. */
   readonly mirror: boolean;
   /** The race grade baked into it, or `null` (the pair art keeps its own two-race palette — ⚠ MINE). */
@@ -426,8 +476,12 @@ function quadNeighbours(zone: number): ReadonlyArray<{ side: SeamNeighbour['side
  *   · the 2v1 SOLO (one seat owning a whole side): the current 1v1 race art (`zone-<race>-2p`) across his
  *     half — ⛔ NOT `{Race}X{Race}`: *"we want the two v two to look a little different … that's made for
  *     two players that are sharing"* (R195-T2);
- *   · everyone else — a 1v1v2 solo, every member of a 3v1 trio (R195-T5 *"single race art for each player
- *     in the 3v1"*): his own single-quadrant race art, as in the 4-player all-v-all.
+ *   · ⭐ S196 (R196-A1/A2) — a 3v1 TRIO whose NE/SE/SW races are a card he generated (`TEAM_TRIO_ART`): his
+ *     composed picture, one quarter per trio zone (`ne`/`se`/`sw`, ungraded); the solo's NW is never drawn
+ *     from it;
+ *   · everyone else — a 1v1v2 solo, every member of a 3v1 trio WITHOUT a picture (R195-T5 *"single race art for
+ *     each player in the 3v1"*): his own single-quadrant race art, as in the 4-player all-v-all (and, S196, the
+ *     trio's open seams cross-faded — `TEAM_SEAM_BLEND_LEGACY_ART`).
  *
  * Each half-board image is drawn as TWO quadrant sprites (its top and bottom halves), so the per-seat ember
  * wash (SCORCHED GROUND) and the fog stay per quadrant on top of it, exactly as before.
@@ -470,10 +524,29 @@ function zoneBackdropPieces(world: Pick<World, 'layout' | 'teams' | 'players'>, 
     return isRaceId(r) ? r : defaultRaceForSeat(seat);
   };
   const present = (seat: number | null): seat is number => seat !== null && world.players.has(seat as unknown as PlayerId);
-  const teamSize = (seat: number): number => {
-    let n = 0;
-    for (const pid of world.players.keys()) if (sameTeam(world, pid, seat)) n++;
-    return n;
+  // The seats on `seat`'s team (itself included). One predicate call site serves the size and the trio check.
+  const teamOf = (seat: number): number[] => {
+    const out: number[] = [];
+    for (const pid of world.players.keys()) if (sameTeam(world, pid, seat)) out.push(pid as unknown as number);
+    return out;
+  };
+  const teamSize = (seat: number): number => teamOf(seat).length;
+  /*
+   * ⭐ S196 (R196-A2) — the 3v1 trio's own composed picture for THIS zone, or `null`. Only when the board really
+   * is the 3v1 the picture was painted for: `owner` on a team of exactly three that stands on NE, SE and SW (so
+   * the solo is NW), and the races in those corners are a card he generated (`tiles.trio`). Never zone 0.
+   */
+  const trioArt = (zone: number, owner: number): { url: string; part: TrioQuarter } | null => {
+    const part = trioQuarterOfZone(zone);
+    if (part === null || tiles.trio === undefined) return null;
+    const team = teamOf(owner);
+    const ne = seatOfZone(1, layout);
+    const se = seatOfZone(2, layout);
+    const sw = seatOfZone(3, layout);
+    if (team.length !== 3 || !present(ne) || !present(se) || !present(sw)) return null;
+    if (!team.includes(ne) || !team.includes(se) || !team.includes(sw) || ne === se || se === sw || ne === sw) return null;
+    const url = tiles.trio(raceOf(ne), raceOf(se), raceOf(sw));
+    return url === null ? null : { url, part };
   };
   // ⭐ N19 — every race on `seat`'s team has a tile (⚠ MINE: all or none, so one open region is one style).
   const trioHasTiles = (seat: number): boolean => {
@@ -497,6 +570,7 @@ function zoneBackdropPieces(world: Pick<World, 'layout' | 'teams' | 'players'>, 
     const part = zone === topZone ? 'top' : 'bottom';
     const top = seatOfZone(topZone, layout);
     const bottom = seatOfZone(bottomZone, layout);
+    const trio = trioArt(zone, owner);
     if (top === bottom) {
       // The 2v1 solo's whole side: his 1v1 race art across it (never mirrored — it is one race's world).
       out.push({ zone, seat, url: zoneArtUrl(race, 'PITCH_2P'), part, mirror: false, grade: race });
@@ -506,6 +580,9 @@ function zoneBackdropPieces(world: Pick<World, 'layout' | 'teams' | 'players'>, 
       } else {
         out.push({ zone, seat, url: teamPairArtUrl(raceOf(top), raceOf(bottom)), part, mirror: !west, grade: null });
       }
+    } else if (trio !== null) {
+      // ⭐ S196 — his composed trio picture, this zone's quarter of it (its own palette, ungraded — like the pairs).
+      out.push({ zone, seat, url: trio.url, part: trio.part, mirror: false, grade: null });
     } else if (teamSize(owner) === 3 && trioHasTiles(owner)) {
       out.push({ ...single, url: tiles.url(race) }); // ⭐ N19 — a trio member's blendable tile
     } else {
@@ -539,6 +616,30 @@ function cropHalfTexture(tex: Texture, part: 'top' | 'bottom', mirror: boolean):
       ctx.scale(-1, 1); // ⛔ the VERTICAL axis only: left ↔ right, top stays top (R194-19, not 180°)
     }
     ctx.drawImage(resource as CanvasImageSource, 0, part === 'top' ? 0 : h - hh, w, hh, 0, 0, w, hh);
+  } catch {
+    return tex;
+  }
+  return Texture.from(canvas);
+}
+
+/**
+ * ⭐ S196 — one QUARTER (NE / SE / SW) of a whole-board trio picture as its own texture: a 480×270 quadrant out of
+ * a 960×540 picture, so `punchPortal`'s cover-scale fits it exactly to the quadrant and the four quadrant sprites
+ * meet edge to edge into his one composed picture. Never mirrored (each corner is painted for its own place).
+ * Baked once per (url, quarter); degrades to the whole texture without a DOM (the suite), like `cropHalfTexture`.
+ */
+function cropQuarterTexture(tex: Texture, q: TrioQuarter): Texture {
+  const resource = (tex.source as unknown as { resource?: unknown }).resource;
+  if (typeof document === 'undefined' || resource === undefined || resource === null) return tex;
+  const r = trioQuarterRect(Math.trunc(tex.width), Math.trunc(tex.height), q);
+  if (r.w <= 0 || r.h <= 0) return tex;
+  const canvas = document.createElement('canvas');
+  canvas.width = r.w;
+  canvas.height = r.h;
+  const ctx = canvas.getContext('2d');
+  if (ctx === null) return tex;
+  try {
+    ctx.drawImage(resource as CanvasImageSource, r.x, r.y, r.w, r.h, 0, 0, r.w, r.h);
   } catch {
     return tex;
   }
@@ -1028,6 +1129,11 @@ export class ZoneBackgroundRenderer {
       url: base.url,
       forPairs: base.forPairs,
       blendLegacy: base.blendLegacy,
+      // ⭐ S196 — a trio picture whose load FAILED resolves to null: the trio falls back to today's art + blend.
+      trio: (ne, se, sw) => {
+        const u = base.trio?.(ne, se, sw) ?? null;
+        return u !== null && !this.failed.has(u) ? u : null;
+      },
     };
     const plan = zoneBackdropPlan(world, tiles);
     const usedKeys = new Set<string>();
@@ -1058,7 +1164,10 @@ export class ZoneBackgroundRenderer {
       usedKeys.add(bakeKey);
       let tex = this.baked.get(bakeKey);
       if (tex === undefined) {
-        const src = piece.part === 'full' ? raw : cropHalfTexture(raw, piece.part, piece.mirror);
+        // ⭐ S196 — a trio picture's quarter (`ne`/`se`/`sw`; there is no `nw` — the solo's corner is never drawn).
+        const src = piece.part === 'full' ? raw
+          : piece.part === 'top' || piece.part === 'bottom' ? cropHalfTexture(raw, piece.part, piece.mirror)
+            : cropQuarterTexture(raw, piece.part);
         // ⭐ N19 — the seam cross-fade (single-quadrant art only), each race's grade baked inside it, so the
         // portal pass must not grade again. `null` (no DOM, a draw failure) = the unblended bake, as before.
         const blended = blendIn.length === 0 ? null
