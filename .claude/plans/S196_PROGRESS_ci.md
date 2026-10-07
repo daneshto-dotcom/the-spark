@@ -1,7 +1,7 @@
 # S196 PROGRESS — s196/ci
 
 ## NEXT STEP (top, always current)
-- T5: quarantine Sym F / Sym I — find specs (grep "Sym F"/"Sym I" e2e), run each --repeat-each=3, verdict.
+- T5: Sym F x3 running (.tmp-gates/symF.log/.exit); then Sym I x3 (.tmp-gates/symI.log). CI: Sym F red 3/3 recent runs (240 s test timeout), Sym I green 3/3.
 
 ## Log
 - boot: merged master; progress file created.
