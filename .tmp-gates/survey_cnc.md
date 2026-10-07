@@ -1,0 +1,9 @@
+# CNC auth survey (agent, read-only, 2026-10-07) — key facts, paths relative to CNC/app/
+- Next.js 16 / Drizzle / Neon Postgres / Vercel. No Cloudflare.
+- LIVE: email+password (bcryptjs cost 12, passwords.ts; service.ts:175/243); magic link via Resend (magic-link.ts: 32B token, HMAC-SHA256 w/ HKDF-derived key 'magic-link-token-v1', 15min TTL clamp 5-60, atomic single-use UPDATE…RETURNING filtered on purpose :188-230; per-email 3/h DB limit :236). NO OAuth, no passkeys, no reset route, no 2FA, no captcha. Telegram designed only.
+- Sessions: HS256 JWT 7d iss/aud pinned (jwt.ts) + server session row (jti, sha256 token_hash, surface, expires_at, revoked_at) checked every request → instant revocation (sessions.ts:75-126, middleware.ts:44-119). Cookie cnc-token httpOnly, Secure prod, SameSite=Lax, host-only. No refresh/rotation.
+- Tables: users, sessions, auth_events(ip_hash, details jsonb, fail-open), magic_link_tokens(purpose, consumed_at, created_ip_hash). No identities table, no email_verified.
+- Weak: in-memory per-instance rate limits (lib/rate-limit.ts:155); Redis lockout silently no-op without Redis (lockout.ts:15; Upstash removed S302); XFF spoofable IP (security.ts:95); register leaks existing email (service.ts:185); magic-link consumed on GET (scanner prefetch); consent checkbox client-only; Stripe checkout returnUrl unvalidated (open redirect, create-checkout-session/route.ts:23); Stripe never provisioned in prod (S30); no automatic_tax.
+- Good: Stripe webhook signature + atomic idempotent claim/release (webhook/stripe/route.ts:59-80); CSRF = custom header + Origin/Referer (lib/security.ts:15-29); generic login errors.
+- Incidents: S273/S274 Neon cold start >15s auth timeouts; S302 register no AbortController; S297 trailing-newline env flags.
+- Tests ~100 vitest cases (auth 23, jwt 6, magic-link 24+5, integration 8, stripe 18...). No e2e auth.
