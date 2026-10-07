@@ -84,6 +84,11 @@ export function decide(r) {
     return { action: 'alert', reason: `starved on all ${MAX_ATTEMPTS} attempts: ${r.starvedJobs.join(', ')} — GitHub's hosted pool is down or this repo is blocked from it` };
   }
   if (isDeploy && (r.conclusion === 'cancelled' || r.conclusion === 'timed_out')) {
+    // ⭐ S196 audit LOW-1 — a queued deploy cancelled because a NEWER push took the `pages-deploy` group is
+    // routine, not a silent death: the newer run is the one that matters (and gets its own look).
+    if (r.newerDeployRun) {
+      return { action: 'superseded', reason: `deploy ended ${r.conclusion}, but a newer deploy run exists — that run is the one to judge` };
+    }
     return { action: 'alert', reason: `deploy ended ${r.conclusion} (not starved) — a cancelled run sends no mail, so the site may be stale` };
   }
   return { action: 'none', reason: `conclusion ${r.conclusion} — an ordinary red, GitHub's own failure mail covers it` };
@@ -131,9 +136,12 @@ async function newerDeployRunExists(run) {
 
 async function openAlert(run, reason) {
   const title = alertTitle(run.name, run.id);
-  const open = await gh('/issues?state=open&per_page=100');
-  if (open.ok && open.body.some((i) => i.title === title)) {
-    console.log(`alert already open: ${title}`);
+  // ⭐ S196 audit LOW-3 — dedupe against CLOSED alerts too (state=all, most recently updated first): one alert
+  // per run id, ever. Open-only meant a human closing it was undone by the next 30-min sweep for ~3 h.
+  const seen = await gh('/issues?state=all&sort=updated&direction=desc&per_page=100');
+  const prior = seen.ok ? seen.body.find((i) => i.title === title) : undefined;
+  if (prior !== undefined) {
+    console.log(`alert already filed (${prior.state}): ${title}`);
     return;
   }
   const body = [
@@ -157,13 +165,23 @@ export async function handleRun(runId) {
   if (run.status !== 'completed') return { action: 'none', reason: `status ${run.status}` };
   const isDeploy = run.name === DEPLOY_WORKFLOW;
   const starved = WATCHED_WORKFLOWS.includes(run.name) && run.conclusion !== 'success' ? await starvedJobsOf(run) : [];
-  const newer = isDeploy && starved.length > 0 ? await newerDeployRunExists(run) : false;
+  const cancelledDeploy = isDeploy && (run.conclusion === 'cancelled' || run.conclusion === 'timed_out');
+  const newer = isDeploy && (starved.length > 0 || cancelledDeploy) ? await newerDeployRunExists(run) : false;
   const verdict = decide({ workflowName: run.name, conclusion: run.conclusion, attempt: run.run_attempt, starvedJobs: starved, newerDeployRun: newer });
   console.log(`run ${run.id} (${run.name}, attempt ${run.run_attempt}, ${run.conclusion}): ${verdict.action} — ${verdict.reason}`);
   if (verdict.action === 'rerun') {
     const res = await gh(`/actions/runs/${run.id}/rerun`, { method: 'POST' });
-    console.log(`::warning::ci-watchdog re-ran ${run.name} run ${run.id}: ${verdict.reason} (HTTP ${res.status})`);
-    if (!res.ok && res.status !== 403) await openAlert(run, `${verdict.reason} — and the automatic re-run was refused (HTTP ${res.status})`);
+    if (res.ok) {
+      console.log(`::warning::ci-watchdog re-ran ${run.name} run ${run.id}: ${verdict.reason} (HTTP ${res.status})`);
+    } else {
+      // ⭐ S196 audit LOW-2 — a refused re-run is reported with its real status, and ALERTS — unless the run is
+      // already going again (a sweep and a workflow_run event racing to re-run it: one wins, one gets 403).
+      const now = await gh(`/actions/runs/${run.id}`);
+      const rerunning = now.ok && now.body.status !== 'completed';
+      console.log(`::error::ci-watchdog could NOT re-run ${run.name} run ${run.id} (HTTP ${res.status})${rerunning ? ' — it is already running again, so no alert' : ''}`);
+      if (!rerunning) await openAlert(run, `${verdict.reason} — and the automatic re-run was refused (HTTP ${res.status})`);
+      return { action: rerunning ? 'rerun' : 'alert', reason: `re-run refused (HTTP ${res.status})${rerunning ? ', already re-running' : ''}` };
+    }
   } else if (verdict.action === 'alert') {
     console.log(`::error::ci-watchdog: ${run.name} run ${run.id}: ${verdict.reason}`);
     await openAlert(run, verdict.reason);
