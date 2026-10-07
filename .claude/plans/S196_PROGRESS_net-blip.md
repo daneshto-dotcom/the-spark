@@ -1,7 +1,7 @@
 # S196 PROGRESS — net-blip (branch s196/net-blip)
 
 ## NEXT STEP (top, always current)
-- Fix in transport.ts (84f678d9; working tree clean). NOW: fixed runs F x6 (TAG=F, .tmp-gates/blip/F-*.log) running; typecheck 0; droppedPeerClose.test 11/11. THEN: mutation test (only after F finishes — dev server HMR), git merge master, full gates, spec header + RELAY_HEALTH note, final report.
+- ⚠ F runs 1-4 were STALE (vite watcher missed the fix; served transport lacked it) — renamed F0stale-*, count as extra pre-fix runs (no split, recovered 23.5/31.6/50.7/?). Dev server restarted, serves the fix (verified by curl). NOW: rerun F x6. THEN: mutation test (restart vite after!), merge master, gates, spec header, RELAY_HEALTH.
 
 ## Log
 - BASELINE B2 (pre-fix, LIGHT_ON_FIRST_DROP, split metric = one side holds the peer, the other none, >= 30 s after LIGHT):

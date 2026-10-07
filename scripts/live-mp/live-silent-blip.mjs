@@ -35,6 +35,14 @@ const log = (...a) => {
   console.log(line);
 };
 
+// ⛔ S196 lesson: the dev server's watcher MISSED a source change on this OneDrive path and served stale code for four
+// runs. Say which transport the server is actually serving, every run.
+try {
+  const served = await (await fetch(new URL('src/net/transport.ts', URL_))).text();
+  log(`served transport.ts has the S196 dropped-peer close: ${served.includes('closeDroppedPeerConnection') ? 'YES' : 'NO'}`);
+} catch (e) {
+  log('could not read the served transport.ts:', String(e));
+}
 const relay = createBlackholeRelay({ log });
 const ctrl = await relay.start();
 log('udp blackhole relay control at', ctrl);
