@@ -1,7 +1,7 @@
 # S196 PROGRESS — render-perf (branch s196/render-perf)
 
 ## NEXT STEP (top, always current)
-Re-run diag v2 (3 match/title cycles, null-aware textures) → then implement: (a) census fix (non-null textures + pooled split), (b) zone backdrop release L1, (c) cycle soak assertion.
+diag v2 (before-fix cycles) running → .tmp-gates/census-diag2-before.jsonl. Next: (a) census fix in main.ts renderCensus (non-null textures + fx pooled split via fxRuntime.fxPoolSizes) — minimal hunk, flag as seam; (b) render-heap cycle assertion; (c) F3 bench.
 
 ## Log
 - boot: merged master 7a596837 (fast-forward of plans/session-state only).
@@ -11,3 +11,4 @@ Re-run diag v2 (3 match/title cycles, null-aware textures) → then implement: (
 - L1 plan: ZoneBackgroundRenderer — release loaded textures no plan piece uses (on bake-signature change) + release all on TITLE; NEVER Assets.unload a url lobbyBackdrop's texCache holds (shared Texture object; a destroyed texture on a lobby sprite would null-deref source). Export `lobbyHoldsTexture(tex)` from lobbyBackdrop.
 - diag v1 RESULT (m1 6300 ticks): census flat ~1870 until the FIGHT starts (tick ~5600), then +270: fxTopLight +141, fxGround +60, fxTopShade +15 (= +216 FxLayer pool HIGH-WATER; pools never shrink, cap 2400/layer) + ~30 entity sprites. Textures +24 at the same step = lazily-loaded race atlases (t3 units/towers, ra-strike) — S169 design.
 - ⭐ FINDING: Pixi 8.19 `managedTextures` = Object.values(GCManagedHash.items) and a REMOVED texture is set to NULL, not deleted (compacted only at 10 000 nulls). So the census `textures` = .length is an EVER-UPLOADED counter that can never go down — a released texture still counts. Diag v1 crashed on such a null.
+- L1 FIXED (uncommitted→this commit): ZoneBackgroundRenderer.releaseLoaded (plan change) + releaseAll (TITLE); lobby-held textures never unloaded (new src/render/backdropTextureShare.ts; lobbyBackdrop registers). Tests src/render/zoneBackdropRelease.test.ts 7/7; 4 mutations each caught (onSprite guard, lobby guard, title call, plan-change call). Related suites 9 files/122 pass.
