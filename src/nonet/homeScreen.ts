@@ -40,6 +40,7 @@ import { attachHoverSheen, skinStaticPlate } from '../render/uiSkinButton.ts';
 import { glowTitleStyle, LazyScreenBackdrop, type ScreenAccent } from '../render/uiScreenChrome.ts';
 import { fitTextToWidth } from '../render/textFit.ts';
 import { formatTime } from '../render/arcadeScores.ts';
+import { flushAllPendingRuns } from '../render/arcadeLeaderboard.ts';
 import { CANVAS_HEIGHT, CANVAS_WIDTH } from '../constants.ts';
 import type { NonetDoor } from './nonetModes.ts';
 import { formatDayKey, rankingPanels, type RankingPanel } from './rankingView.ts';
@@ -162,6 +163,8 @@ export interface NonetHomeOpts {
   readonly loadRanking?: (boardId: string) => readonly RankingEntry[];
   /** Host the living backdrop. Default true; tests pass false (no lazy import). */
   readonly backdrop?: boolean;
+  /** ⭐ S196 MED-1 — the queued-run flush run on every open. Default: `flushAllPendingRuns`. */
+  readonly flushPending?: () => Promise<number>;
 }
 
 /** The blurbs. DAILY's depends on whether today's ranked daily is already solved here. */
@@ -237,6 +240,9 @@ export class NonetHome {
   }
 
   show(ctx: NonetHomeContext): void {
+    // ⭐ S196 MED-1 — deliver any run a DAILY / STAGE board never received: those boards get no "next
+    // submit to the same board" to carry their queue, so an undelivered run would skew an average forever.
+    void (this.opts.flushPending ?? flushAllPendingRuns)().catch(() => 0);
     this.ctx = ctx;
     this.open = true;
     this.container.visible = true;

@@ -216,7 +216,6 @@ import { CharacterSheet } from './render/characterSheet.ts';
 // ⭐ S182 — type-only, for the exhaustive defenderFrame portrait switch (erased at build).
 import type { DefenderKind } from './state/defenders/defender.ts';
 import { ArcadeOverlay, makeArcadeNonet } from './render/arcadeOverlay.ts';
-import { flushAllPendingRuns } from './render/arcadeLeaderboard.ts';
 // ⭐ S196 #16 — the NONET home (Option A). The decisions are tiny and pure (entry); the page is a lazy chunk.
 import { planLaunch, routeArcadeSelect, solveOutcome, type NonetDoor } from './nonet/nonetModes.ts';
 import { dayKeyOfBoard, utcDayKey } from './nonet/dailySeed.ts';
@@ -845,8 +844,6 @@ async function bootstrap(): Promise<void> {
   const openNonetHome = (notice: string | null): void => {
     arcadeNonet = null;
     arcadeRun = null;
-    // ⭐ S196 MED-1 — deliver any run a DAILY / STAGE board never received (they get no "next submit").
-    void flushAllPendingRuns();
     void loadNonetHome().then((home) => {
       // Something else happened while the chunk loaded (a run began, a match started): stand down.
       if (world.gameState !== 'TITLE' || arcadeNonet !== null || arcadeRun !== null) return;
