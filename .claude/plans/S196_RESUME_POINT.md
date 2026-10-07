@@ -9,20 +9,27 @@
 
 Written 2026-10-07 before an expected limit hit. Plan: `.claude/plans/2026-10-07_S196_BATCH_PDR.md` · rulings `S196_OWNER_RULINGS.md` · log `S196_DISPATCH_LOG.md` · state `.claude/session-state.json`.
 
+
+## ⛔ OVERNIGHT RULE (R196-C1)
+Every 30 min check `real-context-tokens.py`; at ≥ 900,000: pause all trees (commit), run the FULL /handoff (pre-approved), carry everything unfinished. Never continue on a compacted context.
+
 ## LIVE
-- S196-#1 `7e9d241c` board-look · S196-#2 `6907fb22` net-blip (silent-drop split fix) · S196-#3 `b35368c6` tower-fx — each verify-deploy 4/4.
-- ✅ S196-#4 `5055efd5` ui-5 click-offset — verify-deploy 4/4 (UI5 closed).
+- S196-#1 7e9d241c board-look · #2 6907fb22 net-blip · #3 b35368c6 tower-fx · #4 5055efd5 ui-5 click-offset · #5 5a7e8de7 NONET (+ leaderboard worker a762da58) · #6 c78f5c58 team-art — all verify-deploy 4/4. Merged docs/tests (no deploy needed): accounts-design, dedicated-host, risen-check.
 
-## TREES IN FLIGHT (each agent keeps its exact next step at the TOP of its own progress file; resume by SendMessage to the agent, or a fresh agent given its brief + progress file)
-| tree | worktree | state | progress file |
-|---|---|---|---|
-| s196/team-art | `.claude/worktrees/s196-team-art` | building: (1) 12 single-race prompts → Desktop `SPARK_Team3_Backdrop_Prompts.html` (2) wire his Grok trio JPGs from Downloads into 3v1 (3) `TEAM_SEAM_BLEND_LEGACY_ART` ON | `.claude/plans/S196_PROGRESS_team-art.md` in the worktree |
-| s196/nonet-home | `.claude/worktrees/s196-nonet-home` | fix round 3 DONE (b02157c2) → RE-AUDIT 3 running. If CLEAN: LAND — ⛔ `npx wrangler deploy` in `server/leaderboard/` BEFORE pushing master (owner approved R196-D3; login = owner signs in). No D1 migration. Then canon §9 doc. | `.claude/plans/S196_PROGRESS_nonet-home.md` in the worktree |
-| s196/boss-release | `.claude/worktrees/s196-boss-release` | building race release flash + crumble rework, derived on peers | `.claude/plans/S196_PROGRESS_boss-release.md` in the worktree |
-| s196/accounts-design | `.claude/worktrees/s196-accounts-design` | DESIGN only: reuse Legacy+CNC auth (read-only), cross-domain one login, payments research → `.claude/plans/S196_ACCOUNTS_DESIGN.md` + Desktop `SPARK_Accounts_Design.html` | `.claude/plans/S196_PROGRESS_accounts-design.md` in the worktree |
+## TREES IN FLIGHT (overnight 2026-10-07; resume each by SendMessage "RESUME: continue from the top of your progress file"; progress file = `.claude/plans/S196_PROGRESS_<tree>.md` inside `.claude/worktrees/s196-<tree>`)
+| tree | state | lands |
+|---|---|---|
+| joiner-desync | ⭐ CRITICAL builder: two leads — unbounded serial decode queue (net-cpu evidence) + existing creatures frozen on the joiner while additions apply (`S196_PLAYTEST2_JOINER_EVIDENCE.md`) | FIRST — the owner tests it in the morning (he hosts on workstation 2, brother joins) |
+| joiner-lag | builder: profile a throttled joiner on MINIMAL; fix render-side costs | after desync |
+| boss-release | FIX ROUND: HIGH-1 joiner clock step-back + the same bug in live tower-fx `trackBirths` + LOW-1 dynasty | re-audit → land |
+| ci | builder: endgameAudit timeout, runner cancel, tickClock, nplayer:140, verify-deploy short-sha + stale-dist | audit → land |
+| render-perf | builder: F1 heap growth + texture release + F3 re-bench | audit → land |
+| win-bar | builder: +20 % bar (BUMP owed — ten sites) | audit → land |
+| queue-edit | builder: drag-reorder + right-click-remove a queued stack (BUMP likely) | audit → land |
+| net-cpu | DONE, branch abbb5cbb HELD: Phase 2 shared encode — merge only AFTER joiner-desync lands, then re-run its oracle + full audit; Phase 3 design only | after desync |
 
-## QUEUE (open in order as slots free; cap FOUR trees — R196-0b)
-#3 s196/ci (incl. ⚠ `endgameAudit.test.ts` MED-1 now times out even alone under load — shorten the run or give it a measured cap, never relax the assertion; F5 F6 F8, tickClock) → #4 s196/net-cpu (+ R196-N1 strongest-machine host: measure CPU + upload + ping in lobby; shared delta package when even) → #11 s196/render-perf.
+## QUEUE
+(empty — every approved item is a tree above)
 
 ## OWNER QUESTIONS OPEN (ask in chat)
 - Hover-highlight (`?hover=1`, screenshots `Desktop\SPARK_S196_HoverHighlight\`): switch on?
