@@ -359,6 +359,10 @@ function settleCache(r: StructureRenderer, w: World): number {
   }
   throw new Error('the connector cache never settled');
 }
+/** S196 audit MED-1 — each non-empty bucket's STRUCTURAL hash (which connectors it holds), by key. */
+const shapeHashes = (x: StructureRenderer): string[] => [...internals(x).bondBuckets.entries()]
+  .map(([k, b]) => [k, (b as unknown as { shape: number }).shape] as const).filter(([, s]) => s !== 0x811c9dc5)
+  .sort((a, b) => a[0] - b[0]).map(([k, s]) => `${k}:${s}`);
 const sortedBuckets = (x: StructureRenderer): string[] => [...internals(x).bondBuckets.entries()]
   .filter(([, b]) => b.g.ops.length > 0).sort((a, b) => a[0] - b[0]).map(([k, b]) => k + ':' + opsOf(b.g));
 
@@ -393,7 +397,10 @@ describe('S195 audit — cache fuzz: after ANY change, the cache equals a fresh 
     let w = board(21, 160);
     const r = new StructureRenderer(app, new ContainerStub() as never);
     for (let f = 0; f < 60; f++) {
-      const k = Math.floor(rnd() * 11);
+      // ⛔ S196 audit MED-1 — on MINIMAL the whole board strains every frame, so the motion budget is ALWAYS
+      // saturated: a structural change the cache wrongly files as motion cannot hide behind a quiet frame.
+      if (tier === 'MINIMAL') for (const b of w.bonds.values()) (b as unknown as B).restLength *= f % 2 === 0 ? 0.985 : 1 / 0.985;
+      const k = Math.floor(rnd() * 12);
       const prims = [...w.primitives.values()] as unknown as P[];
       const pick = prims[Math.floor(rnd() * prims.length)]!;
       if (k === 0) pick.pos.x += rnd() * 4 - 2;
@@ -410,12 +417,24 @@ describe('S195 audit — cache fuzz: after ANY change, the cache equals a fresh 
       else if (k === 7) (w as { gameMode: string }).gameMode = (w.gameMode === 'solo' ? '1v1' : 'solo');
       else if (k === 8) { w = board(Math.floor(rnd() * 1000), 160); } // rematch / host-migration snapshot jump
       else if (k === 9) { pick.type = (pick.type + 1) % 6; } // combo identity change at same geometry
+      else if (k === 10) { // ⛔ MED-1 — a SWAP: one connector severed, a same-look one placed, in one snapshot
+        const bs = [...w.bonds.values()] as unknown as B[];
+        if (bs.length > 0) {
+          const v = bs[Math.floor(rnd() * bs.length)]!;
+          w.bonds.delete(v.id as never);
+          const nid = 100_000 + f;
+          (w.bonds as unknown as Map<number, B>).set(nid, { ...v, id: nid });
+        }
+      }
       else (w as { tick: number }).tick += Math.floor(rnd() * 20);
       r.sync(w);
-      // ⭐ S196 — MINIMAL may defer MOTION-only buckets (the budget); it must still CONVERGE to a fresh renderer.
-      if (tier === 'MINIMAL') settleCache(r, w);
       const fresh = new StructureRenderer(app, new ContainerStub() as never);
       fresh.sync(w);
+      // ⛔ S196 audit MED-1 — STRUCTURE IS NEVER LATE: on the very frame of the change, before any catch-up,
+      // every bucket holds the same connectors as a fresh renderer (its structural hash matches).
+      expect(shapeHashes(r), `frame ${f} mutation ${k}: structure on the same frame`).toEqual(shapeHashes(fresh));
+      // ⭐ S196 — MINIMAL may defer MOTION-only buckets (the budget); it must still CONVERGE to a fresh renderer.
+      if (tier === 'MINIMAL') settleCache(r, w);
       expect(sortedBuckets(r), `frame ${f} mutation ${k}`).toEqual(sortedBuckets(fresh));
     }
   });
@@ -447,7 +466,7 @@ describe('S195 audit — every BondDraw field moves the bucket hash (the cache k
   it('per field', async () => {
     const { hashBondDraw } = await import('./structureRenderer.ts');
     type BD = Parameters<typeof hashBondDraw>[1];
-    const base: BD = { ax: 10, ay: 20, bx: 30, by: 40, visualEffectId: 'fx.wheel', colorA: 0x112233, colorB: 0x445566, alpha: 0.85, width: 2, tick: 600, pulseAlpha: -1, pattern: 'none' };
+    const base: BD = { ax: 10, ay: 20, bx: 30, by: 40, visualEffectId: 'fx.wheel', colorA: 0x112233, colorB: 0x445566, alpha: 0.85, width: 2, tick: 600, pulseAlpha: -1, pattern: 'none', bondId: 7, aId: 3, bId: 4 };
     const h0 = hashBondDraw(0x811c9dc5, base);
     const perturb: Partial<BD>[] = [{ ax: 11 }, { ay: 21 }, { bx: 31 }, { by: 41 }, { visualEffectId: 'fx.star' }, { colorA: 0x112234 }, { colorB: 0x445567 }, { alpha: 0.5 }, { width: 2.5 }, { tick: 606 }, { pulseAlpha: 0.5 }, { pattern: 'rungs' }];
     for (const p of perturb) expect(hashBondDraw(0x811c9dc5, { ...base, ...p }), JSON.stringify(p)).not.toBe(h0);
@@ -582,12 +601,13 @@ describe('S196 — MINIMAL defers motion, never structure', () => {
   it('the structural hash ignores motion and sees structure (the deferral key is the right one)', async () => {
     const { hashBondShape } = await import('./structureRenderer.ts');
     type BD = Parameters<typeof hashBondShape>[1];
-    const base: BD = { ax: 10, ay: 20, bx: 30, by: 40, visualEffectId: 'fx.wheel', colorA: 0x112233, colorB: 0x445566, alpha: 0.85, width: 2, tick: 600, pulseAlpha: -1, pattern: 'none' };
+    const base: BD = { ax: 10, ay: 20, bx: 30, by: 40, visualEffectId: 'fx.wheel', colorA: 0x112233, colorB: 0x445566, alpha: 0.85, width: 2, tick: 600, pulseAlpha: -1, pattern: 'none', bondId: 7, aId: 3, bId: 4 };
     const h0 = hashBondShape(0x811c9dc5, base);
     for (const p of [{ ax: 11 }, { by: 41 }, { colorA: 0x112234 }, { alpha: 0.5 }, { width: 2.5 }, { tick: 606 }, { pulseAlpha: 0.5 }] as Partial<BD>[]) {
       expect(hashBondShape(0x811c9dc5, { ...base, ...p }), JSON.stringify(p)).toBe(h0);
     }
-    for (const p of [{ visualEffectId: 'fx.star' }, { pattern: 'rungs' }] as Partial<BD>[]) {
+    // ⛔ S196 audit MED-1 — IDENTITY is structure: a different connector with the same look is not "movement"
+    for (const p of [{ visualEffectId: 'fx.star' }, { pattern: 'rungs' }, { bondId: 8 }, { aId: 5 }, { bId: 6 }] as Partial<BD>[]) {
       expect(hashBondShape(0x811c9dc5, { ...base, ...p }), JSON.stringify(p)).not.toBe(h0);
     }
     // one more connector in the bucket = a different structural hash
@@ -636,3 +656,50 @@ describe('S196 — the keystone telegraph on MINIMAL ignores sub-grid jitter', (
     expect(g.ops.some((o) => o.name === 'lineTo' && (o.args as number[])[0] === 440.5)).toBe(true);
   });
 });
+
+/*
+ * ⛔ S196 audit MED-1 — the auditor's repro (`audit-joiner-lag/.tmp-audit/zzAuditSwap.test.ts.txt`), adopted: after a
+ * whole-board shake fills the MINIMAL budget, a sever + a same-look placement in the same cell (new id, and a REUSED
+ * id in place) left the severed connector drawn and the new one missing for 25 frames. Identity in the structural
+ * hash makes it 0.
+ */
+for (const variant of ['v1 new id (homogeneous bucket)', 'v2 reused bond id, in place'] as const) {
+  describe(`S196 audit MED-1 repro ${variant} — same-count same-look swap under a saturated budget`, () => {
+    it('the severed connector does not stay drawn, the new one is drawn on the next frame', () => {
+      setTier('MINIMAL');
+      const w = board(47, 200);
+      if (variant.startsWith('v1')) {
+        for (const p of (w.primitives as unknown as Map<number, P>).values()) { p.type = 0; p.placedBy = 0; p.placerColor = COLORS[0]!; p.ownerColor = COLORS[0]!; }
+      }
+      const r = new StructureRenderer(app, new ContainerStub() as never);
+      r.sync(w);
+      for (const b of w.bonds.values()) (b as unknown as B).restLength *= 0.7; // shake all -> saturate
+      r.sync(w); // BUDGET drawn this frame, the rest still owed
+      const lastOf = (b: unknown): number => (b as { lastFrame: number }).lastFrame;
+      const frameNow = Math.max(...[...internals(r).bondBuckets.values()].map(lastOf));
+      const keyOf = (b: B): number => Math.floor((Math.round(b.a.pos.x) + Math.round(b.b.pos.x)) / 2 / BOND_CACHE_CELL_PX) * 1024
+        + Math.floor((Math.round(b.a.pos.y) + Math.round(b.b.pos.y)) / 2 / BOND_CACHE_CELL_PX);
+      // a bucket JUST redrawn — the freshest, so the back of the stalest-first queue
+      const fresh = [...internals(r).bondBuckets.entries()].filter(([, b]) => lastOf(b) === frameNow).map(([k]) => k);
+      const victim = ([...w.bonds.values()] as unknown as B[]).find((b) => fresh.includes(keyOf(b)))!;
+      expect(victim).toBeDefined();
+      const K = keyOf(victim);
+      const na: P = { ...victim.a, id: 9001, pos: { x: victim.a.pos.x + 6, y: victim.a.pos.y + 5 }, bonds: new Set() };
+      const nb: P = { ...victim.b, id: 9002, pos: { x: victim.b.pos.x + 6, y: victim.b.pos.y + 5 }, bonds: new Set() };
+      (w.primitives as unknown as Map<number, P>).set(9001, na);
+      (w.primitives as unknown as Map<number, P>).set(9002, nb);
+      const nid = variant.startsWith('v1') ? 9003 : victim.id;
+      if (variant.startsWith('v1')) w.bonds.delete(victim.id as never);
+      const nbond: B = { id: nid, aId: 9001, bId: 9002, a: na, b: nb, restLength: victim.restLength, stiffnessTier: victim.stiffnessTier };
+      (w.bonds as unknown as Map<number, B>).set(nid, nbond);
+      expect(keyOf(nbond)).toBe(K);
+      r.sync(w);
+      const ref = new StructureRenderer(app, new ContainerStub() as never);
+      ref.sync(w);
+      const one = (x: StructureRenderer): string => opsOf(internals(x).bondBuckets.get(K)!.g);
+      let ghost = 0;
+      while (one(r) !== one(ref) && ghost < 500) { r.sync(w); ghost++; }
+      expect(ghost, 'frames the severed connector stayed drawn').toBe(0);
+    });
+  });
+}

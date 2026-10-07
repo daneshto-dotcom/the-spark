@@ -53,6 +53,8 @@ export function syncGraphicsTier(): void {
  *                     stress tint/width, cover fade, foul tint) may be re-stroked in one frame; the rest wait their
  *                     turn, stalest first. A STRUCTURAL change (a connector added, severed, hidden by fog, or a
  *                     silhouette/pattern change) is never deferred. `Infinity` = no budget. ⚠ MINE.
+ *                     ⚠ On MINIMAL a foul tint, the near-break pulse, a cover fade and a colour remap (steal /
+ *                     rainbow) all count as MOVEMENT, so under load each can show up to the budget's drain late.
  *
  * ⭐ S196 — WHY MINIMAL GOT A BUDGET. Measured on a joiner at wave 10 (`scripts/lag/gfxProbe.ts`): MINIMAL still
  * re-stroked **8.5 buckets / 511 Graphics instructions every frame** — 46 % of every Graphics instruction the

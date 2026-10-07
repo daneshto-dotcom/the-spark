@@ -261,7 +261,12 @@ export class StructureRenderer {
         this.bondBuckets.set(key, bucket);
       }
       BOND_CACHE_STATS.buckets++;
-      if (bucket.hash === cell.hash) continue;
+      if (bucket.hash === cell.hash) {
+        // ⛔ S196 audit MED-1 — an identical DRAWING by different connectors (a swap at the same geometry) needs no
+        // re-stroke, but the bucket must remember who it now holds, or its next motion is misfiled.
+        bucket.shape = cell.shape;
+        continue;
+      }
       // ⭐ S196 — a change that is MOTION ONLY (same connectors, same silhouettes, same patterns) waits for the
       // MINIMAL budget below; anything structural is drawn this frame, exactly as before.
       if (budgeted && bucket.shape === cell.shape) {
@@ -334,6 +339,12 @@ export interface BondDraw {
   /** The near-break red overlay's alpha, or -1 when the connector is not near breaking. */
   readonly pulseAlpha: number;
   readonly pattern: BondPatternKind;
+  /**
+   * ⛔ S196 audit MED-1 — WHICH connector this is: its id and both shape ids. Never drawn; folded ONLY into
+   * `hashBondShape`, so a cell whose connector SET changes at an equal count and an equal look (a sever + a
+   * same-look placement in one snapshot, a fog swap, a reused id) is STRUCTURAL and drawn on the next frame.
+   */
+  readonly bondId: number; readonly aId: number; readonly bId: number;
 }
 
 /** Measurement probe (read by `scripts/lag/joiner-replay.spec.ts` through a dev-server module import). */
@@ -439,6 +450,7 @@ export function forEachBondDraw(world: World, knobs: BondCacheKnobs | null, emit
       visualEffectId: comboView(a.type, b.type).visualEffectId, // S196 — memoised, no per-frame string key
       colorA: stressedA, colorB: stressedB,
       alpha: 0.85 * coverAlpha, width, tick, pulseAlpha, pattern,
+      bondId: bond.id as unknown as number, aId: bond.aId as unknown as number, bId: bond.bId as unknown as number,
     });
   }
 }
@@ -485,14 +497,22 @@ export function hashBondDraw(h: number, d: BondDraw): number {
 }
 
 /**
- * ⭐ S196 — the STRUCTURAL part of a bucket's hash: which connectors it holds (their count, via the number of
- * folds), each one's silhouette and its ownership pattern. Positions, stress tint/width, cover alpha, foul tint
- * and the clock are deliberately absent — those are the MOTION a MINIMAL budget may defer. A sever, a placement
- * or a fog change moves the count (fog skips a connector before `emit`), so it is never deferred.
+ * ⭐ S196 — the STRUCTURAL part of a bucket's hash: WHICH connectors it holds (each one's bond id and both
+ * shape ids, in walk order), each one's silhouette and its ownership pattern. Positions, stress tint/width,
+ * cover alpha, foul tint and the clock are deliberately absent — those are the MOTION a MINIMAL budget may defer.
+ *
+ * ⛔ S196 audit MED-1 — the first version folded only the LOOK (silhouette + pattern) and the count, and claimed
+ * a sever, a placement or a fog change always moved the count. Not so: a sever plus a same-look placement in one
+ * snapshot, a fog SWAP (one enemy connector hidden, another revealed in the same cell — the hidden one stayed
+ * drawn: a leak) or a reused id kept count and look equal, and waited up to ~25 frames on the motion budget.
+ * Identity is what makes "structure is never deferred" true.
  */
 export function hashBondShape(h: number, d: BondDraw): number {
   let fx = fxIdIndex.get(d.visualEffectId);
   if (fx === undefined) fxIdIndex.set(d.visualEffectId, (fx = fxIdIndex.size + 1));
+  h = mix(h, d.bondId);
+  h = mix(h, d.aId);
+  h = mix(h, d.bId);
   h = mix(h, fx);
   return mix(h, PATTERN_INDEX[d.pattern]);
 }
