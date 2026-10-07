@@ -88,8 +88,13 @@ const WARMUP_WALL_CAP_MS = 240_000;
 // stretched limit. Every threshold below is still normalised to `measured`, unchanged.
 const DESIGN_WINDOW_TICKS = 2_000;
 const WINDOW_WALL_CEIL_MS = 600_000;
-/** Browser launch + goto + mode setup + the two stabilizedSample calls (measured ~137 s of setup on CI). */
-const SETUP_AND_SAMPLES_MS = 240_000;
+/**
+ * Browser launch + goto + mode setup + the two stabilizedSample calls (measured ~137 s of setup on CI), plus
+ * ⭐ S196 the title → second-match → title CYCLE after them (`CYCLE_WALL_CAP_MS` + a second bots setup, ~10 s):
+ * 240 → 300 s. The e2e-soak lane still holds every audit (`ci.e2eLanes.test.ts` derives it from these three
+ * constants: 60 + 1 140 + 2 × 1 140 = 3 480 s = the lane's 58 min, read from the yml, not this line).
+ */
+const SETUP_AND_SAMPLES_MS = 300_000;
 const SOAK_TEST_BUDGET_MS = SETUP_AND_SAMPLES_MS + WARMUP_WALL_CAP_MS + WINDOW_WALL_CEIL_MS;
 function windowWallCapMs(warmTicks: number, warmMs: number): number {
   const rate = warmTicks / Math.max(warmMs / 1000, 0.001);
@@ -186,12 +191,83 @@ const MIN_VALID_TICKS = 1_300;
  */
 const TEXTURE_LIMIT = 40;
 
+/*
+ * ⭐⭐ S196 render-perf (F1) — **THE CENSUS NOW SEPARATES A FULL POOL FROM A LEAK, AND THE MATCH CYCLE IS ASSERTED.**
+ *
+ * S195 F1: a local 4 401-tick run failed this census at Δ+239 (limit 51), textures 115 → 144. The S196
+ * attribution run (`render/renderCensus.ts` docblock) found no leak:
+ *   · ~+216 of it was the board fx layers' POOLS reaching a new high-water mark when the first fight began
+ *     (`FxLayer` keeps every sprite it has needed at once, hidden; cap `FX_LAYER_MAX_SPRITES` per layer). The
+ *     census now reports `pooled`, and the assertion below is on the RESIDUAL (`displayObjects − pooled`) — the
+ *     only part a missed destroy() can inflate — with `pooled ≤ poolCap` asserted on its own.
+ *   · the texture count was Pixi's `managedTextures.length`, which never falls (a released texture is nulled in
+ *     place). It is the LIVE count now; `textureSlots` keeps the old number for the log.
+ *   · the rest: lazily-arriving race sheets (S169, by design) and the filter texture pool's size buckets.
+ *
+ * And the CYCLE — the question F1 actually asked (does the game get heavier the longer you play?): after the
+ * soak window, return to the title (C1), play a second short match, return to the title again (C2). Measured
+ * S196 (local, two full 7 000-tick matches): residual 809 → 809 (Δ0), pooled 1 201 → 1 205 (high-water),
+ * live textures 151 → 175 (+24: a new race's lazy sheets + filter-pool buckets). The first-ever match adds a
+ * one-time ~+337 of lazily-built, hidden UI (the bot-setup race picker and its cards), which is why C1 — not
+ * the pre-match title — is the cycle's baseline.
+ */
+/** C2 − C1 residual tolerance. ⚠ MINE: measured Δ0 (n=1); 25 = the census floor, i.e. no looser than the window. */
+const CYCLE_RESIDUAL_TOL = 25;
+/** The second match runs past the backdrop hold (`ZONE_BG_HOLD_TICKS` 180) so the backdrop art loads and is released. */
+const CYCLE_TICKS = 240;
+/** ~67 s at the slowest CI rate seen (3.6 ticks/s); the cycle then simply measures fewer ticks, never fails on speed. */
+const CYCLE_WALL_CAP_MS = 75_000;
+
 interface RenderSample {
   heapMB: number;
   floorRounds: number;
   tick: number;
-  census: { displayObjects: number; textures: number };
+  census: Census;
   counts: { prims: number; bonds: number; sparks: number; creatures: number };
+}
+
+/** `render/renderCensus.ts` (S196): `pooled` ⊂ `displayObjects`; `textures` = LIVE; `textureSlots` = Pixi's `.length`. */
+interface Census { displayObjects: number; pooled: number; poolCap: number; textures: number; textureSlots: number }
+const residual = (c: Census): number => c.displayObjects - c.pooled;
+
+async function readCensus(page: Page): Promise<Census> {
+  return page.evaluate(() => (window as unknown as { __SPARK__: { renderCensus: Census } }).__SPARK__.renderCensus);
+}
+
+async function startBotsMatch(page: Page): Promise<void> {
+  const vsBots = await titleButtonCss(page, 'vsBots');
+  await page.mouse.click(vsBots.x, vsBots.y);
+  await page.waitForFunction(
+    () => {
+      const s = (window as unknown as {
+        __SPARK__: { botSetupOverlay: { getUiPoints?: () => unknown } | null };
+      }).__SPARK__;
+      return s.botSetupOverlay !== null && s.botSetupOverlay.getUiPoints !== undefined;
+    },
+    { timeout: 20_000 },
+  );
+  const startPt = await page.evaluate(() => {
+    const s = (window as unknown as {
+      __SPARK__: { botSetupOverlay: { getUiPoints: () => { start: { x: number; y: number } } } };
+    }).__SPARK__;
+    return s.botSetupOverlay.getUiPoints().start;
+  });
+  const startCss = await canvasToCss(page, startPt.x, startPt.y);
+  await page.mouse.click(startCss.x, startCss.y);
+  await waitForWorld(
+    page,
+    (w) => w.gameState === 'PLAYING' && w.players.length === 4,
+    'bots PLAYING',
+    20_000,
+  );
+}
+
+/** S153 A2's exit: a DOUBLE Escape leaves a live match; then a few frames so every title-return clear() has run. */
+async function returnToTitle(page: Page): Promise<void> {
+  await page.keyboard.press('Escape');
+  await page.keyboard.press('Escape');
+  await waitForWorld(page, (w) => w.gameState === 'TITLE', 'TITLE after double Escape', 20_000);
+  await page.waitForTimeout(2_000);
 }
 
 /** One double-GC floor read (first pass queues finalizers, second collects). */
@@ -224,7 +300,7 @@ async function stabilizedSample(page: Page): Promise<RenderSample> {
   const rest = await page.evaluate(() => {
     const w = window as unknown as {
       __SPARK__: {
-        renderCensus: { displayObjects: number; textures: number };
+        renderCensus: Census;
         world: {
           tick: number;
           primitives: Map<number, unknown>;
@@ -300,31 +376,7 @@ test.describe('S124 P3 — F10 render-side heap/census audit (direct mode) @soak
     });
     await page.goto('/?debug=1');
     await waitForWorld(page, (w) => w.gameState === 'TITLE', 'TITLE', 30_000);
-    const vsBots = await titleButtonCss(page, 'vsBots');
-    await page.mouse.click(vsBots.x, vsBots.y);
-    await page.waitForFunction(
-      () => {
-        const s = (window as unknown as {
-          __SPARK__: { botSetupOverlay: { getUiPoints?: () => unknown } | null };
-        }).__SPARK__;
-        return s.botSetupOverlay !== null && s.botSetupOverlay.getUiPoints !== undefined;
-      },
-      { timeout: 20_000 },
-    );
-    const startPt = await page.evaluate(() => {
-      const s = (window as unknown as {
-        __SPARK__: { botSetupOverlay: { getUiPoints: () => { start: { x: number; y: number } } } };
-      }).__SPARK__;
-      return s.botSetupOverlay.getUiPoints().start;
-    });
-    const startCss = await canvasToCss(page, startPt.x, startPt.y);
-    await page.mouse.click(startCss.x, startCss.y);
-    await waitForWorld(
-      page,
-      (w) => w.gameState === 'PLAYING' && w.players.length === 4,
-      'bots PLAYING',
-      20_000,
-    );
+    await startBotsMatch(page);
 
     // Warm-up so JIT/pools/first structures settle before the baseline.
     const t0 = await page.evaluate(
@@ -357,7 +409,9 @@ test.describe('S124 P3 — F10 render-side heap/census audit (direct mode) @soak
 
     const measured = s1.tick - s0.tick;
     const growthMB = s1.heapMB - s0.heapMB;
-    const censusGrowth = s1.census.displayObjects - s0.census.displayObjects;
+    // ⭐ S196 — the RESIDUAL: pool high-water marks are reported (below) and bounded, never counted as growth.
+    const censusGrowth = residual(s1.census) - residual(s0.census);
+    const pooledGrowth = s1.census.pooled - s0.census.pooled;
     const textureGrowth = s1.census.textures - s0.census.textures;
     const perKtickKB = (growthMB * 1024) / (measured / 1000);
     console.log(
@@ -365,7 +419,8 @@ test.describe('S124 P3 — F10 render-side heap/census audit (direct mode) @soak
         `HEAP ${s0.heapMB.toFixed(1)}→${s1.heapMB.toFixed(1)}MB (Δ${growthMB.toFixed(2)}MB, ` +
         `${perKtickKB.toFixed(1)}KB/ktick, floors ${s0.floorRounds}/${s1.floorRounds}) ` +
         `CENSUS ${s0.census.displayObjects}→${s1.census.displayObjects} objects ` +
-        `(Δ${censusGrowth}), textures ${s0.census.textures}→${s1.census.textures} ` +
+        `(residual Δ${censusGrowth}, pooled ${s0.census.pooled}→${s1.census.pooled} Δ${pooledGrowth} of cap ${s1.census.poolCap}), ` +
+        `textures live ${s0.census.textures}→${s1.census.textures} (slots ${s0.census.textureSlots}→${s1.census.textureSlots}) ` +
         `counts ${JSON.stringify(s0.counts)}→${JSON.stringify(s1.counts)}`,
     );
 
@@ -421,6 +476,9 @@ test.describe('S124 P3 — F10 render-side heap/census audit (direct mode) @soak
         `≥${((censusLimit / censusSignal) * 100).toFixed(0)}% of them.`,
     );
     expect(censusGrowth).toBeLessThan(censusLimit);
+    // ⭐ S196 — a pool may grow to its cap and no further (the census can tell the two apart only if this holds).
+    expect(s1.census.pooled).toBeLessThanOrEqual(s1.census.poolCap);
+    expect(s1.census.poolCap, 'anti-vacuity: the fx layers are on the stage').toBeGreaterThan(0);
     // Texture probe present (−1 = the Pixi internals moved; census invalid → fail loudly)…
     expect(s0.census.textures).toBeGreaterThanOrEqual(0);
     // …and load-time-bounded: entities reuse atlases, they never mint per-entity textures.
@@ -429,5 +487,25 @@ test.describe('S124 P3 — F10 render-side heap/census audit (direct mode) @soak
     // windows. Deliberately NOT re-derived — n=3 CI samples cannot support a new threshold, and
     // the observed same-test spread here (−0.67 … +4.80MB) is itself ±2.7MB of noise.
     expect(growthMB).toBeLessThan(GROWTH_LIMIT_MB);
+
+    // ⭐⭐ S196 (F1) — THE MATCH CYCLE: title (C1) → a second match → title (C2) returns to C1.
+    await returnToTitle(page);
+    const c1 = await readCensus(page);
+    await startBotsMatch(page);
+    const m2t0 = await page.evaluate(
+      () => (window as unknown as { __SPARK__: { world: { tick: number } } }).__SPARK__.world.tick,
+    );
+    const m2 = await waitForTick(page, m2t0 + CYCLE_TICKS, CYCLE_WALL_CAP_MS);
+    await returnToTitle(page);
+    const c2 = await readCensus(page);
+    console.log(
+      `[S196 RENDER cycle] second match ${m2.tick - m2t0}/${CYCLE_TICKS} ticks (capped=${m2.capped}); title C1→C2: ` +
+        `residual ${residual(c1)}→${residual(c2)} (Δ${residual(c2) - residual(c1)} vs tol ${CYCLE_RESIDUAL_TOL}), ` +
+        `pooled ${c1.pooled}→${c2.pooled} of cap ${c2.poolCap}, textures live ${c1.textures}→${c2.textures} ` +
+        `(Δ${c2.textures - c1.textures} vs ${TEXTURE_LIMIT}), slots ${c1.textureSlots}→${c2.textureSlots}`,
+    );
+    expect(residual(c2) - residual(c1)).toBeLessThan(CYCLE_RESIDUAL_TOL);
+    expect(c2.pooled).toBeLessThanOrEqual(c2.poolCap);
+    expect(c2.textures - c1.textures).toBeLessThan(TEXTURE_LIMIT);
   });
 });

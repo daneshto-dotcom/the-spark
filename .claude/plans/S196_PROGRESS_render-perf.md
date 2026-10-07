@@ -1,7 +1,7 @@
 # S196 PROGRESS — render-perf (branch s196/render-perf)
 
 ## NEXT STEP (top, always current)
-diag3 re-run in flight (started 18:30:40; .tmp-gates/diag3.log, census-diag3.jsonl). DO NOT EDIT src/ WHILE IT RUNS (HMR). After: pick cycle tolerances → patch e2e/render-heap.spec.ts (residual growth, pooled≤poolCap, title0→titleEnd cycle) → F3 bench (SPARK_PERF=1) → merge master → gates.
+Run the patched soak `npx playwright test e2e/render-heap.spec.ts --reporter=list` (detached; log .tmp-gates/soak1.log) to validate the cycle assertions; then F3 bench (SPARK_PERF=1); merge master; gates.
 
 ## Log
 - boot: merged master 7a596837 (fast-forward of plans/session-state only).
@@ -17,3 +17,5 @@ diag3 re-run in flight (started 18:30:40; .tmp-gates/diag3.log, census-diag3.jso
 - ⚠ TaskStop on the diag2 bash did NOT kill its playwright (pid 42840) — it ran on alongside diag3 for 13 min (diag3's worker waited). Killed by taskkill /T. Verdict: benign for correctness, but diag3's first sample may be noisy; census counts are not timing-sensitive.
 - F3 bench spec written: e2e/render-bench.spec.ts (@perf-measure, SPARK_PERF=1). Clocks: pixi (patched renderer.render), sync (FxLayer ground.begin → topShade.end), frame.
 - ⚠ Stale-HMR: the vite server started before main.ts edit served the OLD census (pooled=undefined). Restarted. Stale diag3.exit (=1, from the killed run, 18:30:06) ended a wait loop early — benign, re-waited.
+- diag3 RESULT (fixed code, 2 × 7 000-tick bots matches): title0 residual 472 → title1 809 → title2 809 (Δ0 across the second cycle). pooled 477→1201→1205. live textures 42→151→175 (+24 in cycle 2: nagas t3 sheets + 4× each of 5 POT unlabelled sizes = filter TexturePool buckets). First match adds one-time ~+337 hidden lazily-built UI (racePicker 59, bot-setup cards ~120, Text 52...). VERDICT F1: NO display-object leak; growth = fx pool high-water (bounded) + one-time lazy UI + lazy race sheets/filter pool; textures census was counting null slots. Real retention = L1 backdrops (fixed).
+- render-heap.spec: residual census, pooled≤poolCap, C1→C2 title cycle (CYCLE_RESIDUAL_TOL 25, CYCLE_TICKS 240, cap 75 s), SETUP_AND_SAMPLES_MS 240→300 s (soak lane: 3 480 s = 58 min exactly — ci.e2eLanes passes; NO lanes edit). Diag spec moved out of e2e/ (its @diag tag failed the lane-tag test — the expected guard).
