@@ -456,40 +456,49 @@ async function handle(request, env, origin) {
    * submit at the same time. (The client now refuses to do that too — `RemoteLeaderboard`'s per-board
    * in-flight set — but the server is the root: a second client, a second tab, must not double-count.)
    *
-   * So each id is CLAIMED with one `INSERT OR IGNORE` — a single SQLite statement, atomic on the
-   * primary key — and the run is folded ONLY when that statement reports `meta.changes === 1`. Of two
-   * racing requests exactly one sees a change; the other counts it as a duplicate. One round trip per
-   * id-carrying run (≤ MAX_RUNS_PER_REQUEST), the cost the old comment named.
+   * ⛔⛔ S196 MED-B — SO THE CHECK, THE FOLD AND THE MARK ARE ONE `batch()`: ONE TRANSACTION, ONE ROUND TRIP.
    *
-   * ⚠ THE CLAIM COMES BEFORE THE FOLD, so a fold that fails after its claim DROPS that run rather than
-   * risking it twice — the same trade `PENDING_MAX_AGE_MS` makes (canon §9): a dropped run skews an
-   * average by a fraction, a double-counted one skews it forever. The 24 h TTL is unchanged — an id
-   * still present in `seen_runs` (not yet pruned) is ignored exactly as the old SELECT treated it.
+   * Per run with an id, two statements, in this order:
+   *   1. the upsert, guarded `WHERE NOT EXISTS (SELECT 1 FROM seen_runs WHERE id = ?5)` — it folds
+   *      only a run whose id has never been recorded (`meta.changes` 1 = folded, 0 = a duplicate);
+   *   2. `INSERT OR IGNORE INTO seen_runs` — records the id.
+   * A D1 batch is a single transaction that rolls back on any failure, and D1 executes statements
+   * serially per database, so (a) two concurrent requests carrying one id cannot both fold it — the
+   * second request's guard sees the first one's mark (MED-A stays closed), and (b) a request that dies
+   * mid-way commits NEITHER the fold NOR the mark, so the client's retry folds the run exactly once.
+   * Round 2 claimed ids one statement at a time BEFORE folding and accepted "drop rather than
+   * double-count"; that trade is gone — a failure now loses nothing and counts nothing twice.
+   * Two copies of one id inside ONE request are handled by the same guard (the second sees the first's
+   * mark). Id-less runs keep the plain upsert. The 24 h TTL is unchanged: an id still in `seen_runs`
+   * reads as seen exactly as before. Verified on real SQLite 3.50.4 (S196 round 3, `schema.sql`).
    */
-  const foldable = [];
+  const stmts = [];
+  /** Index into `stmts` of each id-carrying run's guarded upsert. */
+  const guarded = [];
   for (const r of runs) {
     if (r.id === null) {
-      foldable.push(r);
-      continue;
-    }
-    const claim = await env.DB.prepare('INSERT OR IGNORE INTO seen_runs (id, created) VALUES (?1, ?2)')
-      .bind(r.id, now)
-      .run();
-    if (Number(claim?.meta?.changes ?? 0) === 1) foldable.push(r);
-  }
-  const duplicates = runs.length - foldable.length;
-
-  if (foldable.length > 0) {
-    await env.DB.batch(
-      foldable.map((r) =>
+      stmts.push(
         env.DB.prepare(
           `INSERT INTO players (board, name, runs, total_ms, updated) VALUES (?1, ?2, 1, ?3, ?4)
            ON CONFLICT(board, name) DO UPDATE SET
              runs = runs + 1, total_ms = total_ms + ?3, updated = ?4`,
         ).bind(board, r.name, r.ms, now),
-      ),
+      );
+      continue;
+    }
+    guarded.push(stmts.length);
+    stmts.push(
+      env.DB.prepare(
+        `INSERT INTO players (board, name, runs, total_ms, updated)
+         SELECT ?1, ?2, 1, ?3, ?4 WHERE NOT EXISTS (SELECT 1 FROM seen_runs WHERE id = ?5)
+         ON CONFLICT(board, name) DO UPDATE SET
+           runs = runs + 1, total_ms = total_ms + ?3, updated = ?4`,
+      ).bind(board, r.name, r.ms, now, r.id),
+      env.DB.prepare('INSERT OR IGNORE INTO seen_runs (id, created) VALUES (?1, ?2)').bind(r.id, now),
     );
   }
+  const results = stmts.length > 0 ? await env.DB.batch(stmts) : [];
+  const duplicates = guarded.filter((i) => Number(results?.[i]?.meta?.changes ?? 0) === 0).length;
 
   // Age out spent rate-limit markers. Bounded, cheap, and the only thing a limiter may forget.
   await env.DB.prepare('DELETE FROM writes WHERE created <= ?1').bind(now - RATE_LIMIT_WINDOW_MS).run();

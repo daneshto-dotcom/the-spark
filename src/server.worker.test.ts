@@ -21,7 +21,12 @@ const ORIGIN = 'https://spark-online.space';
 const SALT = 'x'.repeat(32);
 
 /** An in-memory stand-in for the D1 binding, dispatching on the SQL it is handed. */
-function makeDb(seed: Array<{ name: string; runs: number; total_ms: number }> = [], rendezvous = 0) {
+function makeDb(
+  seed: Array<{ name: string; runs: number; total_ms: number }> = [],
+  rendezvous = 0,
+  /** ⭐ S196 MED-B — make the next N batches touching `players` THROW after their first statement. */
+  failFoldBatches = 0,
+) {
   const players = new Map(seed.map((p) => [p.name, { ...p }]));
   const writes: Array<{ ip_hash: string; created: number }> = [];
   const boards = new Set(['nonet']);
@@ -45,6 +50,8 @@ function makeDb(seed: Array<{ name: string; runs: number; total_ms: number }> = 
   const stmt = (sql: string) => {
     let args: unknown[] = [];
     const api = {
+      touchesSeen: sql.includes('seen_runs'),
+      touchesPlayers: sql.includes('INSERT INTO players'),
       bind(...a: unknown[]) { args = a; return api; },
       async first() {
         if (sql.includes('FROM boards')) return boards.has(String(args[0])) ? { ok: 1 } : null;
@@ -77,6 +84,20 @@ function makeDb(seed: Array<{ name: string; runs: number; total_ms: number }> = 
       },
       async run() {
         await meet(sql);
+        return api.exec();
+      },
+      /** The statement's effect, synchronously — what `batch` runs inside its "transaction". */
+      exec(): { success: boolean; meta?: { changes: number } } {
+        // ⭐ S196 MED-B — the GUARDED upsert: folds only when the id is not yet in seen_runs.
+        if (sql.includes('INSERT INTO players') && sql.includes('WHERE NOT EXISTS (SELECT 1 FROM seen_runs WHERE id = ?5)')) {
+          if (seenRuns.has(String(args[4]))) return { success: true, meta: { changes: 0 } };
+          const name = String(args[1]);
+          const ms = Number(args[2]);
+          const cur = players.get(name);
+          if (cur === undefined) players.set(name, { name, runs: 1, total_ms: ms });
+          else { cur.runs += 1; cur.total_ms += ms; }
+          return { success: true, meta: { changes: 1 } };
+        }
         if (sql.startsWith('INSERT INTO writes')) writes.push({ ip_hash: String(args[0]), created: Number(args[1]) });
         else if (sql.startsWith('DELETE FROM writes')) {
           const cutoff = Number(args[0]);
@@ -97,6 +118,7 @@ function makeDb(seed: Array<{ name: string; runs: number; total_ms: number }> = 
           const cur = players.get(name);
           if (cur === undefined) players.set(name, { name, runs: 1, total_ms: ms });
           else { cur.runs += 1; cur.total_ms += ms; }
+          return { success: true, meta: { changes: 1 } };
         }
         return { success: true };
       },
@@ -106,9 +128,40 @@ function makeDb(seed: Array<{ name: string; runs: number; total_ms: number }> = 
 
   return {
     prepare: (sql: string) => stmt(sql),
-    async batch(list: Array<{ run: () => Promise<unknown> }>) {
-      for (const s of list) await s.run();
-      return [];
+    /*
+     * ⭐ S196 MED-B — a D1 batch, modelled faithfully: ONE transaction, run with no interleaving (D1
+     * serialises per database), ROLLED BACK whole if any statement throws. The rendezvous (if armed)
+     * is met once at the door, so concurrent requests arrive together and then commit one after the other.
+     */
+    async batch(list: Array<{ exec: () => unknown }>) {
+      await meet(list.some((s) => (s as unknown as { touchesSeen?: boolean }).touchesSeen) ? 'seen_runs batch' : '');
+      const snap = {
+        players: new Map([...players].map(([k, v]) => [k, { ...v }])),
+        seen: new Set(seenRuns),
+        boards: new Set(boards),
+        writes: writes.map((w) => ({ ...w })),
+      };
+      const touchesPlayers = list.some((s) => (s as unknown as { touchesPlayers?: boolean }).touchesPlayers);
+      const out: unknown[] = [];
+      try {
+        for (const [i, s] of list.entries()) {
+          out.push(s.exec());
+          if (i === 0 && touchesPlayers && failFoldBatches > 0) {
+            failFoldBatches--;
+            throw new Error('D1_ERROR: simulated failure mid-batch');
+          }
+        }
+      } catch (e) {
+        players.clear();
+        for (const [k, v] of snap.players) players.set(k, v);
+        seenRuns.clear();
+        for (const id of snap.seen) seenRuns.add(id);
+        boards.clear();
+        for (const b of snap.boards) boards.add(b);
+        writes.splice(0, writes.length, ...snap.writes);
+        throw e;
+      }
+      return out;
     },
     _players: players,
     _writes: writes,
@@ -484,5 +537,30 @@ describe('S196 MED-A — the run-id claim is ATOMIC: two concurrent requests fol
       call({ origin: ORIGIN, body: { runs: [{ name: 'OLD', ms: 50_000 }] } }, db),
     ]);
     expect(db._players.get('OLD')?.runs).toBe(2);
+  });
+});
+
+describe('S196 MED-B — the check, the fold and the mark are ONE transaction: a failure loses nothing', () => {
+  it('the fold batch throws once → 500, NOTHING committed; the client retry folds the run exactly once', async () => {
+    const db = makeDb([], 0, 1);
+    const body = { runs: [{ name: 'DAN', ms: 60_000, id: 'r1' }], focus: 'DAN' };
+    const first = await call({ origin: ORIGIN, body }, db);
+    expect(first.res.status).toBe(500);
+    expect(db._players.size).toBe(0);
+    expect(db._seenRuns.has('r1')).toBe(false); // the mark rolled back with the fold
+    const retry = await call({ origin: ORIGIN, body }, db);
+    expect(retry.res.status).toBe(200);
+    expect(db._players.get('DAN')).toMatchObject({ runs: 1, total_ms: 60_000 });
+    expect(retry.body.duplicates).toBe(0);
+    const again = await call({ origin: ORIGIN, body }, db); // and a THIRD send is a duplicate
+    expect(again.body.duplicates).toBe(1);
+    expect(db._players.get('DAN')?.runs).toBe(1);
+  });
+
+  it('two copies of one id inside ONE request fold once', async () => {
+    const db = makeDb();
+    const { body } = await call({ origin: ORIGIN, body: { runs: [{ name: 'EVE', ms: 50_000, id: 'x' }, { name: 'EVE', ms: 50_000, id: 'x' }] } }, db);
+    expect(db._players.get('EVE')?.runs).toBe(1);
+    expect(body.duplicates).toBe(1);
   });
 });
