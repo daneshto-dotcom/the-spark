@@ -114,3 +114,13 @@ export function stageTimedOut(stage: CampaignStage, elapsedMs: number): boolean 
 export function nextStage(id: number): CampaignStage | null {
   return stageById(id + 1);
 }
+
+/** PURE — the home's line after a stage clear: `STAGE 7 CLEARED ★★☆ — stage 8 unlocked`. */
+export function clearNotice(stage: CampaignStage, ms: number): string {
+  const n = stars(stage, ms);
+  const bar = `${'★'.repeat(n)}${'☆'.repeat(3 - n)}`;
+  const next = nextStage(stage.id);
+  return next === null
+    ? `STAGE ${stage.id} CLEARED ${bar} — the whole campaign is yours`
+    : `STAGE ${stage.id} CLEARED ${bar} — stage ${next.id} unlocked`;
+}
