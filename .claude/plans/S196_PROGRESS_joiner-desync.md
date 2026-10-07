@@ -83,3 +83,4 @@ BEFORE trace (`scripts/live-mp/live-joiner-lag.mjs`, joiner CPU 6x throttled, re
   M8 no disconnect guard → LOW-3 red.
 - fix-round gates (merged master f549b5ea): typecheck 0 · vitest 0 (9501 passed, 15 skipped). build/e2e running.
 - build 0 (entry 1266.2 KiB on merged master) · e2e:gating 0 (72 passed, 1 skipped). lobby/protocol running.
+- e2e:lobby 0 (5) · e2e:protocol 0 (2). Live trace next (lag-fr.log).
