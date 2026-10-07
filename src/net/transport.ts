@@ -1355,19 +1355,21 @@ export class NetTransport {
     r.queue.push(entry);
     this.rxStats.arrived++;
     if (r.queue.length > this.rxStats.maxQueue) this.rxStats.maxQueue = r.queue.length;
+    // `done` is set in the SAME callback as the text, and the drain runs one step later: frames whose inflates
+    // finish in the same main-thread turn are therefore ALL done before the first drain looks, and only the
+    // newest of them is applied (latest wins within a turn, not just across turns).
     unpackFrame(data)
       .then(
         (text) => {
           entry.text = text;
+          entry.done = true;
         },
         (err: unknown) => {
           entry.err = err instanceof Error ? err.message : String(err);
+          entry.done = true;
         },
       )
-      .then(() => {
-        entry.done = true;
-        this.drainSnapFrames(peerId, r, gen);
-      })
+      .then(() => this.drainSnapFrames(peerId, r, gen))
       .catch((err: unknown) => {
         // ⛔ S195 re-audit R2(b) — console ONLY: a throwing `onError` (a UI callback) must never be reachable
         // from here. `drainSnapFrames` already guards each frame; this is the last line.
