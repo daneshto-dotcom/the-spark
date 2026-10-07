@@ -240,7 +240,7 @@ describe('S196 — REACH through the real renderer sync (world.layout + world.te
       'zone-bg:/art/race-zones/zone-orcs-4p.png|full',
       `zone-bg:${PIC}|ne`, `zone-bg:${PIC}|se`, `zone-bg:${PIC}|sw`,
     ]);
-    expect(load.mock.calls.filter(([u]) => u === PIC).length).toBe(1); // one picture, loaded once
+    expect(load.mock.calls.filter(([u]) => String(u) === PIC).length).toBe(1); // one picture, loaded once
     expect([...inner.baked.keys()].filter((k) => k.startsWith(PIC)).map((k) => k.split('|')[1]).sort()).toEqual(['ne', 'se', 'sw']);
   });
 
