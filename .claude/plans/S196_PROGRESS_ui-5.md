@@ -1,7 +1,7 @@
 # S196 PROGRESS — tree ui-5 (branch s196/ui-5)
 
 ## NEXT STEP (top, always current)
-TASKS 1-4 DONE (4: prototype OFF, screenshots on OneDrive Desktop). NEXT: git merge master, then gates (typecheck, vitest, build, e2e:gating detached), then final report.
+TASKS 1-4 DONE. Gates: typecheck 0, build 0 (1237.5 KiB), vitest 617/626 files (teams census fixed after; endgameAudit MED-1 timeout-only). NEXT: e2e:gating running detached → .tmp-gates/e2e-gating.{log,exit}; then full vitest re-run; then final report.
 
 ROOT CAUSE (found): index.html canvas CSS = max-width/max-height 100% + object-fit: contain. Whenever the
 window aspect != 16:9 (half-screen, any browser with a toolbar, other monitors), the canvas CSS box is
