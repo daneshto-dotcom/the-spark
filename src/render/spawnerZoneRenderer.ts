@@ -39,14 +39,19 @@ import { isConcealed } from './concealment.ts';
 import {
   TOWER_COVER_DRAW_EPSILON, coverAlphaForBond, coverAlphaForPrim, forEachTowerCoverGroup, resetTowerCoverGroups, towerFootForPrim,
 } from './towerCover.ts';
-import { hubArcFx } from './fx/hubArcFx.ts';
+// ⭐ S196 (owner R196-T1) — every tower's own living signature; the hub's arcs are one of them.
+import { TOWER_SIGNATURE, TOWER_SIG_NO_ACT, defenderSigAct, towerSignatureFx, type TowerSigSinks } from './fx/towerSignatureFx.ts';
+import { getDefenderConfig } from '../state/defenders/defender.ts';
+import { DEFENDER_FIRE_HOLD_TICKS } from '../constants.ts';
+import { raceForTowerId } from '../state/raceTowerIds.ts';
+import { raceForT9TowerId } from '../state/t9BossIds.ts';
 import { BrokenTowerCache } from './brokenTowers.ts';
 import { towerFixSparkleFx, type FixEdge } from './fx/towerSparkleFx.ts';
 import { fxHighQuality } from './fx/fxRuntime.ts';
 import type { Primitive } from '../game/primitive.ts';
 import type { World } from '../state/world.ts';
 import type { PlayerId } from '../types.ts';
-import { fxActive, fxGround, fxTop } from './fx/fxState.ts';
+import { fxActive, fxGround, fxTop, fxTopShade } from './fx/fxState.ts';
 import {
   TOWER_SPARKLE_EPSILON, towerSparkleFx, towerSparkleStrength, type SparkleBond, type SparklePrim,
 } from './fx/towerSparkleFx.ts';
@@ -107,7 +112,7 @@ export class SpawnerZoneRenderer {
     if (fxActive()) {
       this.syncSparkles(world);
       this.syncFixSparkles(world);
-      this.syncHubArcs(world);
+      this.syncTowerSignatures(world);
       return;
     }
     if (world.creatureSpawners.size === 0) return;
@@ -345,19 +350,61 @@ export class SpawnerZoneRenderer {
     }
   }
 
+  /** ⭐ S196 — the newest birth tick per spawner, rebuilt each frame (reused map, no garbage). */
+  private readonly births = new Map<number, number>();
+
   /**
-   * ⭐ S194 (V07 leftover) — the lightning hub's arcs (`fx/hubArcFx.ts`). Only while its building is
-   * actually drawn (a published foot), and fogged with it.
+   * ⭐⭐ S196 `s196/tower-fx` (owner R196-T1) — **EVERY TOWER'S SIGNATURE** (`fx/towerSignatureFx.ts`):
+   * *"what you done for the lightning hub is gorgeous … I want that for all the towers."* The S194 hub arcs
+   * (this method's predecessor, `syncHubArcs`) are now one row of `TOWER_SIGNATURE`.
+   *
+   * Drawn only while the building is actually drawn (its renderer published a foot — no art, fogged, atlas
+   * loading ⇒ no foot ⇒ nothing) and fogged with it (the same `isConcealed` the hub used). The Voltkin TV
+   * is the one tower that is neither a spawner nor a defender; `voltkinTowerRenderer` draws its signature.
+   *
+   * ⛔ THE FLARE IS READ OFF SYNCED STATE, NEVER A `world.effects` PUSH: a spawner's act is the newest
+   * `spawnedAtTick` among creatures whose `sourceSpawnerId` is it (both on the wire); a defender's is its
+   * FSM (`state`, `ticksInState`, `nextFireTick` — all on the wire).
    */
-  private syncHubArcs(world: World): void {
+  private syncTowerSignatures(world: World): void {
+    if (world.creatureSpawners.size === 0 && world.defenders.size === 0) return;
+    const sinks: TowerSigSinks = { ground: fxGround(), top: fxTop(), shade: fxTopShade() };
+    const low = !fxHighQuality();
+    const births = this.births;
+    births.clear();
+    if (world.creatureSpawners.size > 0) {
+      for (const c of world.creatures.values()) {
+        const sid = c.sourceSpawnerId;
+        if (sid === null || sid === undefined) continue;
+        const k = sid as unknown as number;
+        const prev = births.get(k);
+        if (prev === undefined || c.spawnedAtTick > prev) births.set(k, c.spawnedAtTick);
+      }
+    }
     for (const sp of world.creatureSpawners.values()) {
-      if (sp.recipeId !== 'lightningHub') continue;
+      const kind = TOWER_SIGNATURE[sp.recipeId];
+      if (kind === undefined) continue;
       const anchor = world.primitives.get(sp.anchorPrimitiveId);
       if (anchor === undefined) continue;
       const foot = towerFootForPrim(anchor.id);
       if (foot === null) continue;
       if (isConcealed(foot.x, foot.y, anchor.placedBy)) continue;
-      hubArcFx(fxTop(), anchor.id as unknown as number, foot.x, foot.y, foot.w, foot.h, world.tick, !fxHighQuality());
+      const born = births.get(sp.id as unknown as number);
+      const actAge = born === undefined ? TOWER_SIG_NO_ACT : world.tick - born;
+      const race = raceForTowerId(sp.recipeId) ?? raceForT9TowerId(sp.recipeId);
+      towerSignatureFx(sinks, kind, anchor.id as unknown as number, foot.x, foot.y, foot.w, foot.h, world.tick, low, actAge, 0, race);
+    }
+    for (const d of world.defenders.values()) {
+      const kind = TOWER_SIGNATURE[d.recipeId];
+      if (kind === undefined) continue;
+      const anchor = world.primitives.get(d.anchorPrimitiveId);
+      if (anchor === undefined) continue;
+      const foot = towerFootForPrim(anchor.id);
+      if (foot === null) continue;
+      if (isConcealed(foot.x, foot.y, anchor.placedBy)) continue;
+      const cfg = getDefenderConfig(d.kind);
+      const act = defenderSigAct(d.state, d.ticksInState, d.nextFireTick, world.tick, cfg.fireIntervalTicks, cfg.windupTicks, DEFENDER_FIRE_HOLD_TICKS);
+      towerSignatureFx(sinks, kind, anchor.id as unknown as number, foot.x, foot.y, foot.w, foot.h, world.tick, low, act.actAge, act.charge, null);
     }
   }
 
