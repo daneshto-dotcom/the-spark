@@ -1,4 +1,16 @@
-NEXT STEP: final gates on merged tree (typecheck, vitest, build, e2e:gating) for A+B, then final report at top of this file.
+NEXT STEP: NONE — Option A + Option B built, gated, reported. Awaiting the independent audit / merge owner.
+
+# FINAL REPORT — s196/nonet-home (backlog #16: Option A, then Option B per R196-D2)
+- Option A checkpoint 1cf7f3b8; final tip = the commit carrying this report. Master merged twice (b7f1891d, 9ddf5027), no conflicts.
+- Final merged tree: typecheck 0 · vitest 0 (620 files / 9291 passed) · build 0 (entry 1243.5 KiB, +8.0 vs 1235.5; home lazy chunk 11.3 kB) · e2e:gating exit 1 = 60 passed + 9 ERR_CONNECTION_REFUSED after the dev server died at test 60 → zones-visual re-run 11/11 exit 0 = ENVIRONMENTAL; nonet-home spec 2/2 inside the lane.
+- Option A (1cf7f3b8): typecheck 0 · build 0 (1237.9 KiB) · vitest timeout-only red (endgameAudit 18/18 alone) · e2e:gating 68/68.
+- Mutation-tested (RED then restored): ZEN submit guard · stage arm · pad routing.
+- Bump: NONE (nothing on the wire; match call still generateSudoku(seed), pinned).
+- Worker: additive self-registration of `nonet:dYYYYMMDD` (±1 UTC day) and the closed set `nonet:s01..s30`. OWNER ACTION: deploy the worker; until then DAILY/CAMPAIGN boards fall back to local + queue.
+- Screenshots: C:/Users/onesh/OneDrive/Desktop/SPARK_S196_NonetHome/ (01..08).
+- MINE: ranking = boards this device submitted to (R182-G gate) · one ranked daily per device/day, replay = ZEN · daily counts as played on solve · all campaign numbers except clues 16/13/10 · stage seeds frozen · fail → home + retry · no replay picker for old stages · stars not on initials screen (arcadeRunOverlay off-limits) · daily ranking keys accumulate · campaign code in entry (+8 KiB).
+- Seams: main.ts, arcadeRun.ts, arcadeOverlay.ts (targetGivens only), sudokuOverlay.ts (pad), worker.js/.d.ts + server.worker.test.ts, e2e/zones-visual arcade test. uiSkinCensus does not scan src/nonet (own fill-count REACH test instead).
+- NOT DONE: Option C, live race, Steam (out of scope); stage replay picker; stars on initials; canon §9 entry.
 
 ## OPTION A CHECKPOINT = 1cf7f3b8 (merged master b7f1891d). Gates on that tree: typecheck 0 · build 0 (entry 1237.9 KiB, +2.4 vs 1235.5; homeScreen lazy chunk 8.3 kB) · vitest 1 failed/9257 passed — the one red is src/state/endgameAudit.test.ts TIMEOUT (20 s) under shared-machine load, re-run alone 18/18 exit 0 = BENIGN · targeted e2e nonet-home + zones-visual arcade 2/2 · e2e:gating 68/68 exit 0 (10.5 min, own port; incl. nonet-home + zones-visual arcade). OPTION A GREEN.
 
