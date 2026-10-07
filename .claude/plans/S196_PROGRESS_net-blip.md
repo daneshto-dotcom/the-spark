@@ -1,7 +1,7 @@
 # S196 PROGRESS — net-blip (branch s196/net-blip)
 
 ## NEXT STEP (top, always current)
-- transport.ts RESTORED (working tree clean). Dev server on 49915 is DOWN (died during SBj#2). NOW: mutation test (vitest only), git merge master, gates (typecheck, vitest --maxWorkers=3, build), e2e gating + lobby on Playwright's own hashed port, hard-blip spec x3 on own port. THEN final report.
+- Merged master 7e9d241c -> 528ce10d (clean). NOW: gates — typecheck, vitest full (.tmp-gates/vitest-full.{log,exit}), build; then e2e gating + lobby on Playwright's hashed port; hard-blip x3.
 
 ## Log
 - MUTATION: (1) `pc.close()` removed -> droppedPeerClose.test 3 REACH tests RED (exit 1, .tmp-gates/vt-mutant.log);
