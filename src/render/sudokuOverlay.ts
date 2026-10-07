@@ -105,6 +105,35 @@ const GOLD = 0xe8c66a;
  * (`CLOCK_Y = 54`, 210×52, centred) because the whole complaint being answered is that the same
  * puzzle treats time differently depending on where you opened it.
  */
+/**
+ * ⭐ S196 #16 (owner R196-D2 6h) — THE ON-SCREEN NUMBER PAD: six digit keys in their SparkType colours
+ * plus CLEAR, in one row under the frame. Before it, input was pointer-to-select + KEYBOARD digits only,
+ * so a touch player could select a cell and never fill it — the match trial included. ADDITIVE: the keys
+ * call the same `enterDigit` / `clearSelected` the keyboard does, so a tap and a keypress cannot
+ * disagree. The ONE allowed shared edit to this file in S196.
+ *
+ * ⛔ HIT-TESTED BY THE SAME PURE GEOMETRY IT IS DRAWN FROM (`padKeyRects`), and the container tap checks
+ * the pad BEFORE the grid — the two never overlap (the pad sits below the frame), pinned by a test.
+ */
+export const PAD_KEY = 66;
+export const PAD_GAP = 10;
+/** Digits 1..6, then 0 = CLEAR. */
+export const PAD_VALUES: readonly number[] = [1, 2, 3, 4, 5, 6, 0];
+export const PAD_Y = BY + BOARD + 104;
+
+/** PURE — the pad's key rectangles, left to right, in canvas coordinates. */
+export function padKeyRects(): Array<{ value: number; x: number; y: number; w: number; h: number }> {
+  const total = PAD_VALUES.length * PAD_KEY + (PAD_VALUES.length - 1) * PAD_GAP;
+  const x0 = (CANVAS_WIDTH - total) / 2;
+  return PAD_VALUES.map((value, i) => ({ value, x: x0 + i * (PAD_KEY + PAD_GAP), y: PAD_Y, w: PAD_KEY, h: PAD_KEY }));
+}
+
+/** PURE — the pad value (1..6, or 0 for CLEAR) under a canvas point, or null. */
+export function padKeyAt(px: number, py: number): number | null {
+  for (const r of padKeyRects()) if (px >= r.x && px <= r.x + r.w && py >= r.y && py <= r.y + r.h) return r.value;
+  return null;
+}
+
 const CLOCK_Y = 54;
 const CLOCK_W = 210;
 const CLOCK_H = 52;
@@ -354,6 +383,26 @@ export class SudokuOverlay {
       scan.rect(BX, BY + y, BOARD, 1.6).fill({ color: 0x000000, alpha: 0.16 });
     }
     this.container.addChild(scan);
+
+    // ⭐ S196 R196-D2 6h — the number pad (see `padKeyRects`). Drawn once; pointer-transparent — the
+    // container's own tap handler routes it, through the same geometry.
+    const pad = new Graphics();
+    pad.eventMode = 'none';
+    pad.label = 'nonet-pad';
+    this.container.addChild(pad);
+    for (const k of padKeyRects()) {
+      const col = k.value === 0 ? 0x3a3f4b : digitColor(k.value);
+      pad.roundRect(k.x, k.y, k.w, k.h, 10).fill({ color: col, alpha: 0.95 }).stroke({ width: 2, color: GOLD, alpha: 0.7 });
+      pad.roundRect(k.x + 4, k.y + 4, k.w - 8, 14, 6).fill({ color: 0xffffff, alpha: 0.22 });
+      const t = new Text({
+        text: k.value === 0 ? 'CLR' : String(k.value),
+        style: new TextStyle({ fontFamily: 'monospace', fontWeight: 'bold', fontSize: k.value === 0 ? 20 : 34, fill: k.value === 0 ? 0xe4ecf7 : numeralColor(k.value) }),
+      });
+      t.anchor.set(0.5);
+      t.position.set(k.x + k.w / 2, k.y + k.h / 2);
+      t.eventMode = 'none';
+      this.container.addChild(t);
+    }
 
     this.hint = new Text({
       text: 'click a cell · press 1–6 · backspace clears',
@@ -904,6 +953,13 @@ export class SudokuOverlay {
     if (!this.container.visible || this.activeEvent === null) return;
     if (this.activeEvent.resolvedTick != null) return;
     const p = e.getLocalPosition(this.container);
+    // ⭐ S196 — the number pad first (it never overlaps the grid). Same paths as the keyboard.
+    const key = padKeyAt(p.x, p.y);
+    if (key !== null) {
+      if (key === 0) this.clearSelected();
+      else this.enterDigit(key);
+      return;
+    }
     const idx = this.cellAt(p.x, p.y);
     if (idx >= 0 && this.givens[idx] === 0) this.selected = idx;
   };
@@ -912,23 +968,10 @@ export class SudokuOverlay {
     const ev = this.activeEvent;
     if (!this.container.visible || ev == null || ev.resolvedTick != null) return;
     if (e.key >= '1' && e.key <= '6') {
-      if (this.selected >= 0 && this.givens[this.selected] === 0) {
-        const digit = Number(e.key);
-        this.entries[this.selected] = digit;
-        // S102 #6 — instant per-cell feedback: a chipmunk "yey!" when the digit matches
-        // the puzzle's unique solution, a lazy sad "owww" when it's wrong. puzzle.solution
-        // is byte-identical on every peer (generated from the shared seed), so this is purely
-        // render-local — no sim, determinism, or wire impact.
-        if (ev.puzzle.solution[this.selected] === digit) playNonetYey();
-        else playNonetOww();
-        // S182 SI-D — advance FORWARD from where the hand is, not back to the first hole in the grid.
-        const next = nextEditableCell(this.entries, this.givens, this.selected);
-        if (next >= 0) this.selected = next;
-        this.maybeSubmit();
-      }
+      this.enterDigit(Number(e.key));
       e.preventDefault();
     } else if (e.key === 'Backspace' || e.key === 'Delete' || e.key === '0') {
-      if (this.selected >= 0 && this.givens[this.selected] === 0) this.entries[this.selected] = 0;
+      this.clearSelected();
       e.preventDefault();
     } else if (e.key === 'ArrowRight') {
       this.selected = moveSelection(this.selected, this.givens, 0, 1);
@@ -947,6 +990,36 @@ export class SudokuOverlay {
     // and the digit branch's own comment two screens up says why it matters: *"arrows scroll the page
     // otherwise"*. The rule was known, written down, and applied to three of the four key groups.
   };
+
+  /**
+   * Put `digit` in the selected cell — the ONE digit path, shared by the keyboard and (S196) the pad.
+   * Extracted verbatim from `onKey`; the guards `onKey` applied first are re-applied here because the
+   * pad reaches this without passing through `onKey`.
+   */
+  private enterDigit(digit: number): void {
+    const ev = this.activeEvent;
+    if (!this.container.visible || ev == null || ev.resolvedTick != null) return;
+    if (this.selected >= 0 && this.givens[this.selected] === 0) {
+      this.entries[this.selected] = digit;
+      // S102 #6 — instant per-cell feedback: a chipmunk "yey!" when the digit matches
+      // the puzzle's unique solution, a lazy sad "owww" when it's wrong. puzzle.solution
+      // is byte-identical on every peer (generated from the shared seed), so this is purely
+      // render-local — no sim, determinism, or wire impact.
+      if (ev.puzzle.solution[this.selected] === digit) playNonetYey();
+      else playNonetOww();
+      // S182 SI-D — advance FORWARD from where the hand is, not back to the first hole in the grid.
+      const next = nextEditableCell(this.entries, this.givens, this.selected);
+      if (next >= 0) this.selected = next;
+      this.maybeSubmit();
+    }
+  }
+
+  /** Empty the selected cell (never a given) — Backspace / Delete / 0, and the pad's CLR. */
+  private clearSelected(): void {
+    const ev = this.activeEvent;
+    if (!this.container.visible || ev == null || ev.resolvedTick != null) return;
+    if (this.selected >= 0 && this.givens[this.selected] === 0) this.entries[this.selected] = 0;
+  }
 
   /** When the grid is full, submit it; a wrong grid just flashes (host rejects, race continues). */
   private maybeSubmit(): void {
