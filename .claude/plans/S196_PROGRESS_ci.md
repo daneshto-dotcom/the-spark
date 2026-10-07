@@ -1,7 +1,7 @@
 # S196 PROGRESS — s196/ci
 
 ## NEXT STEP (top, always current)
-- FIX ROUND DONE (HIGH-1, LOW-1/2/3). Merged master 07390b45 clean. Gates on the merged tree: typecheck 0 · vitest --maxWorkers=3 0 = 9524 passed / 15 skipped / 0 failed (636 files) · build 0 (entry 1264.3 KiB; +0 from this branch). Waiting for re-audit.
+- SMALL ROUND: LOW-A (attempt in alert title+key), LOW-B (newerDeployRunExists tri-state: unknown → no re-run, but alert). NOW: code + tests in ci-watchdog.mjs / src/ci.watchdog.test.ts.
 
 ## FINAL REPORT
 - merge: master 538476e0 merged clean (489ac387), no conflicts. Bump verdict: NONE (no src runtime/wire change). Entry 1263.3 KiB (+0 from this branch).
