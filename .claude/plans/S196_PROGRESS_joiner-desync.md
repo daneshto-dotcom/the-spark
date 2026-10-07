@@ -1,8 +1,12 @@
 # S196 PROGRESS — s196/joiner-desync
 
 ## NEXT STEP
-Gates running detached (.tmp-gates/gates.sh → typecheck, vitest, build, e2e:gating, e2e:lobby, e2e:protocol; each
-<name>.exit). Read exits; fix reds; write FINAL REPORT at top. Mutations M1-M3 DONE (see LOG).
+PLAYTEST-2 lead ("existing creatures frozen 30 s on the joiner while additions land"): host-side probe
+(src/net/zzFreeze.scratch.test.ts, UNCOMMITTED scratch, log .tmp-gates/freeze-probe.log) shows the HOST freezes the
+SAME way, once per wave (BUILD phase?) — confirm with matchPhase in the probe (T=22000), then delete the scratch,
+write the verdict here, re-run vitest alone for backlog file (done: green), final report.
+Also: joiner world.tick runs LOCALLY (main.ts client branch world.tick++), so a joiner dump's tick moving does NOT
+prove a snapshot applied — harness lag should use host seq vs joiner transport lastSeq (todo, optional).
 
 ## WHY THE JOINER WAS BEHIND (evidence: 2 real Chromium pages, real WebRTC, local relay)
 S195's snapshot codec decoded every received frame through ONE serial promise chain on the joiner: frame N+1's
@@ -32,3 +36,6 @@ BEFORE trace (`scripts/live-mp/live-joiner-lag.mjs`, joiner CPU 6x throttled, re
   budget, commit after; 4 others: botPorchClear, endgameAudit (known flake), spawnEconomy.measure, racialB.differential —
   re-run alone pending) 9467 passed · build 0, entry 1264.7 / 1350 KiB · e2e:gating 0 (72 passed, 1 skipped).
   e2e:lobby + e2e:protocol running.
+- vitest re-runs ALONE: snapshotCodec.backlog 6/6 · botPorchClear 6/6 · spawnEconomy.measure 4/4 · racialB.differential 1/1 ·
+  endgameAudit 2 TIMEOUT (20 s) alone = the brief's known load flake (not net code). e2e:lobby 0 (5 passed) ·
+  e2e:protocol 0 (2 passed).
