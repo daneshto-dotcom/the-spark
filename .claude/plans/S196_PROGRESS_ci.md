@@ -1,7 +1,7 @@
 # S196 PROGRESS — s196/ci
 
 ## NEXT STEP (top, always current)
-- T5: Sym F LOCAL 3/3 RED; trace: stalls in the JOINER first placeFreeSparkAndConfirm -> pullFromBank (castleBanks empty, joiner at ~5 ticks/s on this loaded box, tick 1098 at the 240 s cap). Running DIAGNOSTIC scratch e2e/zz-symf-long.scratch.spec.ts (900 s cap, untracked — delete after) -> .tmp-gates/symf-long.log, to split starvation vs stuck bank. Then Sym I x3.
+- T5: Sym I x3 running (.tmp-gates/symI.log/.exit); then full gates (vitest maxWorkers=3, build, e2e:gating) on merged tree 489ac387+.
 
 ## Log
 - boot: merged master; progress file created.
@@ -19,3 +19,4 @@
 - T4 local: nplayer late-joiner 2/2 pass at DPR 0.5 (3.6 min). CI verdict NOT verifiable from this branch (no push) — the merge owner's first master E2E run is the proof.
 - T6 DONE: verify-deploy refactored to exported runVerify (all effects injectable); resolveSha (git rev-parse) fixes F5 — real run `--sha 5a7e8de7`: old = 4/4 FAIL, new = RUN+VERDICT PASS (REMOTE fails only because master really moved to c78f5c58; `--sha c78f5c58` → REMOTE/RUN/VERDICT PASS). LOCAL BUILD STALE verdict (exit 3) via make-style mtime check of deploy.yml's inputs vs dist/index.html, checked before the TURN-injection diagnosis. ⭐ FOUND: deployPathspecs stopped at the S162 comment inside the paths list → returned [src, public] only since S162; fixed. src/ci.verifyDeploy.test.ts 13/13; 4 mutants all RED.
 - merged master 538476e0 (clean, no conflicts) -> 489ac387; npm install 0; typecheck 0. ⚠ two diagnostic e2e launches died on "webServer 60 s" right after the merge+npm install (first-request dep optimise on a loaded box) — benign, vite verified starting in 4.3 s manually; third launch running.
+- T5 Sym F VERDICT (no fix landed): CI red 3/3 recent runs (240 s cap), local red 3/3 (240 s cap). Trace: stalls in the joiner's FIRST pullFromBank (castleBanks 0 at joiner tick 1098 of its 1800-tick budget; box at ~5 ticks/s). The spec does 4 SEQUENTIAL porch pulls (3 joiner placements + host), each up to 1800 SIM ticks, behind a 40–100 s two-peer connect, under one 240 s WALL cap — the cap measures runner speed, not the territory block. Sym G (1 pull) passed on CI once, so joiner banking works. = STALE BUDGET SHAPE (harness), not product, not a random flake. Recommended port: one pull that banks ≥3 shapes (or holdInBuildPhase + a tick-budgeted wait) before the three placements, and a tick-derived cap. NOT DONE here: the long-cap local diagnostic could not complete on this box (8 worktrees: peers failed to connect in 30 s).
