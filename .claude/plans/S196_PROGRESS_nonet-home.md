@@ -1,4 +1,4 @@
-NEXT STEP: write src/nonet/{nonetModes,dailyProgress,rankingView,homeScreen,index}.ts, then main.ts glue.
+NEXT STEP: main.ts glue (arcade callback -> routeArcadeSelect, lazy mount home, onDoor -> planLaunch, ESC, solve handler ZEN, BOARD ENTER, modalUp, __SPARK__ getters), then typecheck.
 
 # S196 PROGRESS — s196/nonet-home (backlog #16, Option A "a front door")
 
