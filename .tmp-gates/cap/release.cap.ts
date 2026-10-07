@@ -1,7 +1,7 @@
 import { test, type Page } from '@playwright/test';
 import { mkdirSync, writeFileSync } from 'node:fs';
 
-const OUT = process.env.CAP_OUT ?? 'C:/Users/onesh/OneDrive/Desktop/SPARK_S196_BossRelease/raw';
+const OUT = process.env.CAP_OUT ?? 'C:/Users/onesh/OneDrive/Desktop/SPARK_S196_BossRelease/frames';
 const MODE = process.env.CAP_MODE ?? 'after'; // 'after' | 'before'
 const RACES = (process.env.CAP_RACES ?? 'demons,mummies,nagas,orcs,vampires,zombies').split(',');
 const AT = { x: 430, y: 430 };
@@ -72,7 +72,12 @@ test('boss release capture', async ({ page }) => {
     }, sp.id);
     const t0 = await page.evaluate(() => (window as any).__SPARK__.world.tick);
     for (let f = 1; f <= 16; f++) {
-      await page.clock.runFor(f === 1 ? 20 : 60);
+      // step the fake clock one frame at a time until the sim is 9 ticks further on (frame 1 = the release tick)
+      const target = t0 + (f === 1 ? 1 : (f - 1) * 9);
+      for (let g = 0; g < 400; g++) {
+        if (await page.evaluate((t) => (window as any).__SPARK__.world.tick >= t, target)) break;
+        await page.clock.runFor(8);
+      }
       if (f === 1) await page.evaluate((p) => { (window as any).__SPARK__.world.matchPhase = p; }, phase);
       const st = await page.evaluate(() => { const w = (window as any).__SPARK__.world; return { tick: w.tick, spawners: w.creatureSpawners.size }; });
       await page.screenshot({ path: `${OUT}/${MODE}-${race}-${String(f).padStart(2, '0')}.png`, clip });
