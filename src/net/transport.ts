@@ -78,6 +78,7 @@ import {
   segmentsToText,
   unpackFrame,
   type Segments,
+  MAX_INFLATING_PER_SENDER,
 } from './snapshotCodec.ts';
 
 export { classifyJoinError };
@@ -132,13 +133,58 @@ interface TxPeer {
   sinceKey: number;
 }
 
+/**
+ * ⭐ S196 (joiner-desync) — one received codec frame on its way through the receive pipeline. Its inflate starts
+ * the moment it ARRIVES (concurrently with every other frame's); `done` once that settles, with the text or the
+ * reason it could not be read.
+ */
+interface RxEntry {
+  readonly strategyName: StrategyName;
+  done: boolean;
+  text: string | null;
+  err: string | null;
+}
+
 /** ⭐ S195 — what a joiner keeps per SENDER: its rebuilt frames, oldest first. */
 interface RxPeer {
   readonly ring: Map<number, Segments>;
   lastFid: number;
-  /** Frames are decoded strictly one after another, in arrival order (inflate is async). */
-  chain: Promise<void>;
+  /** ⭐ S196 — frames received and not yet applied or superseded, in ARRIVAL order. */
+  readonly queue: RxEntry[];
+  /** ⭐ S196 — `snapFramesSettled` waiters, resolved when `queue` empties. */
+  readonly idle: Array<() => void>;
+  /** ⭐ S196 audit MED-1 — inflates in flight for this sender (≤ MAX_INFLATING_PER_SENDER). */
+  inflating: number;
+  /** ⭐ S196 audit MED-1 — the newest frame that arrived while the cap was full, not yet started. */
+  held: { readonly data: Uint8Array; readonly strategyName: StrategyName } | null;
   lastKeyRequestMs: number;
+}
+
+/**
+ * ⭐ S196 (joiner-desync) — what the joiner's snapshot receive pipeline did, for the live trace
+ * (`scripts/live-mp/live-joiner-lag.mjs`, through the DEV `__SPARK__.netTransport`) and the tests.
+ * `superseded` = frames dropped unapplied because a NEWER frame was already rebuildable.
+ */
+export interface SnapRxStats {
+  arrived: number;
+  applied: number;
+  keyframes: number;
+  deltas: number;
+  superseded: number;
+  failed: number;
+  maxQueue: number;
+  /** ⭐ S196 audit MED-1 — frames refused BEFORE inflating: the sender is not the snapshot authority. */
+  refused: number;
+  /** ⭐ S196 audit MED-1 — the most inflates ever in flight at once for one sender. */
+  maxInflating: number;
+}
+
+/** ⭐ S196 (joiner-desync) — what the host's encoder sent, one count per receiving-peer frame. */
+export interface SnapTxStats {
+  keyframes: number;
+  deltas: number;
+  /** Acks naming a frame the host no longer held (fell out of HOST_RING) — each one means keyframes until a fresh ack. */
+  staleAcks: number;
 }
 // S62 — re-export Trystero's local peer id so net handlers can self-identify in
 // the broadcast roster (each client matches its own seat by peerId === selfId).
@@ -397,6 +443,16 @@ export class NetTransport {
   private readonly encodeMemo = new Map<string, Promise<Uint8Array>>();
   /** ⭐ S195 — joiner side: per sender, the frames rebuilt from its deltas. */
   private readonly rxPeers = new Map<string, RxPeer>();
+  private readonly rxStats: SnapRxStats = { arrived: 0, applied: 0, keyframes: 0, deltas: 0, superseded: 0, failed: 0, maxQueue: 0, refused: 0, maxInflating: 0 };
+  private readonly txStats: SnapTxStats = { keyframes: 0, deltas: 0, staleAcks: 0 };
+  /** ⭐ S196 — the receive pipeline's counters (a copy). */
+  snapRxStats(): SnapRxStats {
+    return { ...this.rxStats };
+  }
+  /** ⭐ S196 — the encoder's counters (a copy). */
+  snapTxStats(): SnapTxStats {
+    return { ...this.txStats };
+  }
   /** ⭐ S195 audit F2 — the one sender whose frames may be kept as bases (see `decodeSnapFrame`). */
   private rxSource: string | null = null;
   /**
@@ -1223,8 +1279,10 @@ export class NetTransport {
     if (key) {
       p.needKey = false;
       p.sinceKey = 0;
+      this.txStats.keyframes++;
     } else {
       p.sinceKey++;
+      this.txStats.deltas++;
     }
     const baseFid = key ? 0 : p.ackFid;
     const z = p.inflate && canDeflate();
@@ -1247,6 +1305,7 @@ export class NetTransport {
     p.inflate = ack.z;
     // Only a frame we still hold can be a base; fids are page-unique, so a stale ack names nothing.
     if (ack.f > p.ackFid && this.txRing.has(ack.f)) p.ackFid = ack.f;
+    else if (ack.f > p.ackFid) this.txStats.staleAcks++;
     if (ack.k) p.needKey = true;
   }
 
@@ -1263,32 +1322,96 @@ export class NetTransport {
   }
 
   /**
-   * ⭐ S195 — a codec frame from `peerId`. Decoded strictly in arrival order per sender (inflate is
-   * async), rebuilt into the FULL wire string, and handed to the unchanged receive path. A frame
-   * whose base this joiner does not hold, or that fails to decode, is dropped and a keyframe is
-   * requested — the board holds at the last good snapshot until it comes (about one round trip).
+   * ⭐ S195 — a codec frame from `peerId`, rebuilt into the FULL wire string and handed to the unchanged
+   * receive path. A frame whose base this joiner does not hold, or that fails to decode, is dropped and a
+   * keyframe is requested — the board holds at the last good snapshot until it comes (about one round trip).
+   *
+   * ⛔⛔ S196 (joiner-desync, owner playtest R196-P1) — **THE JOINER FELL TENS OF SECONDS BEHIND THE HOST.**
+   * Mark (P2, remote) placed six buildings he never saw, kept seeing a bank the host had already spent for
+   * ~45 s, and could not build with shapes he had. S195 decoded every frame through ONE serial promise
+   * chain: frame N+1's inflate could not START until frame N was applied, and a `DecompressionStream`
+   * inflate costs several TASK hops, each waiting for the main thread. On a joiner rendering slowly one
+   * frame's decode took longer than the 100 ms between frames, so the queue grew WITHOUT BOUND and every
+   * snapshot the joiner applied was older than the last — measured in two real Chromium pages over WebRTC
+   * (`scripts/live-mp/live-joiner-lag.mjs`; the before/after table is in the S196 joiner-desync progress
+   * file). Once it was > 3.2 s behind, its acks named frames the host had already evicted (HOST_RING), so
+   * the host fell back to a KEYFRAME every frame, feeding the backlog. The pre-S195 string path applied
+   * synchronously in Trystero's `onmessage`, which is why this arrived with the codec.
+   *
+   * THE FIX — two parts, both here:
+   *   1. every frame's inflate starts on ARRIVAL, concurrently (the hops overlap instead of queueing);
+   *   2. LATEST WINS on receive (`drainSnapFrames`): only the NEWEST frame this joiner can rebuild right now
+   *      (a keyframe, or a delta whose base it holds) is applied, and every older frame still queued is
+   *      SUPERSEDED unapplied. Safe by the codec's own contract: a delta names an ACKNOWLEDGED base, never
+   *      the previous frame, so skipping frames never strands a later one — the same latest-wins rule the
+   *      host's per-peer send slot (S189 C5) has always applied, and the client's seq gate treats the gap
+   *      as normal. A frame that cannot be rebuilt never discards a rebuildable older one: a frame only
+   *      supersedes when IT is the rebuildable one.
    */
   private onSnapFrame(data: unknown, peerId: string, strategyName: StrategyName): void {
     const now = performance.now();
     this.lastRxAtMs.set(peerId, now);
     if (!(data instanceof Uint8Array)) return;
     if (netStats.isEnabled()) netStats.recordReceive(data.byteLength, now);
+    /*
+     * ⛔ S196 audit MED-1 — ONLY THE SNAPSHOT AUTHORITY IS EVER INFLATED. Any room peer can send on `snap`; a
+     * non-authority's frame could never be applied (`hostAuthFilter` drops its NETSNAPSHOT, and R1 keeps it out
+     * of the bases), so inflating it only hands a stranger our memory. Refused before a single byte expands. On
+     * the HOST (`session.hostPeerId` null) nobody is the authority, so a host inflates nothing.
+     */
+    if (this.isSnapshotAuthority !== null && !this.isSnapshotAuthority(peerId)) {
+      this.rxStats.refused++;
+      return;
+    }
     let rx = this.rxPeers.get(peerId);
     if (rx === undefined) {
-      rx = { ring: new Map(), lastFid: 0, chain: Promise.resolve(), lastKeyRequestMs: -Infinity };
+      rx = { ring: new Map(), lastFid: 0, queue: [], idle: [], lastKeyRequestMs: -Infinity, inflating: 0, held: null };
       this.rxPeers.set(peerId, rx);
     }
-    const r = rx;
-    const gen = this.connectGen;
-    // ⛔ S195 audit F1 — the chain must SURVIVE a throw. Without the catch, one throw anywhere below
-    // rejected `chain` for good and every later frame from this host was skipped: a frozen board that
-    // never reads as host-lost (lastRxAtMs keeps updating). The legacy string path survives the same
-    // throw because Trystero catches per call; this restores that property.
-    r.chain = r.chain
-      .then(() => this.decodeSnapFrame(data, peerId, strategyName, r, gen))
+    this.rxStats.arrived++;
+    // ⛔ S196 audit MED-1 — at most MAX_INFLATING_PER_SENDER inflates at once; beyond that only the NEWEST
+    // waits (latest wins — an older held frame is superseded unread), and it starts when one finishes.
+    if (rx.inflating >= MAX_INFLATING_PER_SENDER) {
+      if (rx.held !== null) this.rxStats.superseded++;
+      rx.held = { data, strategyName };
+      return;
+    }
+    this.startInflate(peerId, rx, data, strategyName, this.connectGen);
+  }
+
+  private startInflate(peerId: string, r: RxPeer, data: Uint8Array, strategyName: StrategyName, gen: number): void {
+    const entry: RxEntry = { strategyName, done: false, text: null, err: null };
+    r.queue.push(entry);
+    r.inflating++;
+    if (r.inflating > this.rxStats.maxInflating) this.rxStats.maxInflating = r.inflating;
+    if (r.queue.length > this.rxStats.maxQueue) this.rxStats.maxQueue = r.queue.length;
+    // `done` is set in the SAME callback as the text, and the drain runs one step later: frames whose inflates
+    // finish in the same main-thread turn are therefore ALL done before the first drain looks, and only the
+    // newest of them is applied (latest wins within a turn, not just across turns).
+    unpackFrame(data)
+      .then(
+        (text) => {
+          entry.text = text;
+          entry.done = true;
+        },
+        (err: unknown) => {
+          entry.err = err instanceof Error ? err.message : String(err);
+          entry.done = true;
+        },
+      )
+      .then(() => {
+        r.inflating--;
+        // The held frame starts BEFORE the drain, so its entry is queued and `snapFramesSettled` waits for it.
+        const held = r.held;
+        r.held = null;
+        if (held !== null && this.connectGen === gen && this.rxPeers.get(peerId) === r) {
+          this.startInflate(peerId, r, held.data, held.strategyName, gen);
+        }
+        this.drainSnapFrames(peerId, r, gen);
+      })
       .catch((err: unknown) => {
-        // ⛔ S195 re-audit R2(b) — console ONLY. Routing this through `emitError` would let a throwing
-        // `onError` (a UI callback) re-reject the chain and freeze the board all over again.
+        // ⛔ S195 re-audit R2(b) — console ONLY: a throwing `onError` (a UI callback) must never be reachable
+        // from here. `drainSnapFrames` already guards each frame; this is the last line.
         this.snapHandlerErrors++;
         try {
           console.error(`[net] snapshot frame from ${peerId} failed:`, err);
@@ -1298,29 +1421,83 @@ export class NetTransport {
       });
   }
 
-  /** Visible for tests: resolves when every frame received so far from `peerId` is processed. */
+  /** Visible for tests: resolves when every frame received so far from `peerId` is applied or dropped. */
   snapFramesSettled(peerId: string): Promise<void> {
-    return this.rxPeers.get(peerId)?.chain ?? Promise.resolve();
+    const rx = this.rxPeers.get(peerId);
+    if (rx === undefined || rx.queue.length === 0) return Promise.resolve();
+    return new Promise<void>((resolve) => rx.idle.push(resolve));
   }
 
-  private async decodeSnapFrame(
-    data: Uint8Array,
-    peerId: string,
-    strategyName: StrategyName,
-    rx: RxPeer,
-    gen: number,
-  ): Promise<void> {
-    let text: string;
-    try {
-      text = await unpackFrame(data);
-    } catch (err) {
-      this.requestKeyframe(peerId, strategyName, rx, `undecodable frame: ${err instanceof Error ? err.message : String(err)}`);
+  /**
+   * ⭐ S196 — which queued frame this joiner should apply NOW, or -1 to wait: the NEWEST inflated frame it can
+   * rebuild (newer than the last applied, and a keyframe or a delta on a held base). Pure; static so the
+   * decision is unit-tested on its own (`snapshotCodec.backlog.test.ts`).
+   * ⛔ S196 audit LOW-2 — "newest" is the HIGHEST FRAME ID, not the latest arrival: two strategies (or a route
+   * switch) can deliver [10, 9], and applying 9 would make 10 a stale frame and throw it away.
+   */
+  static pickSnapFrame(
+    queue: ReadonlyArray<{ readonly done: boolean; readonly text: string | null }>,
+    lastFid: number,
+    holds: (fid: number) => boolean,
+  ): number {
+    let best = -1;
+    let bestFid = lastFid;
+    for (let i = 0; i < queue.length; i++) {
+      const e = queue[i];
+      if (!e.done || e.text === null) continue;
+      const h = readDeltaHeader(e.text);
+      if (h !== null && h.fid > bestFid && (h.baseFid === 0 || holds(h.baseFid))) {
+        best = i;
+        bestFid = h.fid;
+      }
+    }
+    return best;
+  }
+
+  /** ⭐ S196 — apply what can be applied; see `onSnapFrame`. Synchronous: no frame waits on another's hops. */
+  private drainSnapFrames(peerId: string, rx: RxPeer, gen: number): void {
+    // A disconnect, or the sender leaving, while frames were inflating: they belong to nobody now.
+    if (this.connectGen !== gen || this.rxPeers.get(peerId) !== rx) rx.queue.length = 0;
+    while (rx.queue.length > 0) {
+      const pick = NetTransport.pickSnapFrame(rx.queue, rx.lastFid, (fid) => rx.ring.has(fid));
+      let e: RxEntry;
+      if (pick >= 0) {
+        // Everything older than the newest rebuildable frame is superseded — it would only be overwritten.
+        this.rxStats.superseded += pick;
+        e = rx.queue.splice(0, pick + 1)[pick] as RxEntry;
+      } else if (rx.queue[0]?.done === true) {
+        // Nothing rebuildable is ready and the OLDEST frame has settled: handle it in order (a duplicate, a
+        // stale frame, a missing base → keyframe request, an undecodable frame → keyframe request).
+        e = rx.queue.shift() as RxEntry;
+      } else {
+        break; // the oldest frame is still inflating — wait for it
+      }
+      try {
+        this.processSnapFrame(e, peerId, rx);
+      } catch (err) {
+        // ⛔ S195 audit F1 / re-audit R2(b) — one throw must not stop the pipeline; console + count only.
+        this.snapHandlerErrors++;
+        try {
+          console.error(`[net] snapshot frame from ${peerId} failed:`, err);
+        } catch {
+          /* nothing left to tell */
+        }
+      }
+    }
+    if (rx.queue.length === 0) for (const resolve of rx.idle.splice(0)) resolve();
+  }
+
+  private processSnapFrame(e: RxEntry, peerId: string, rx: RxPeer): void {
+    const strategyName = e.strategyName;
+    if (e.text === null) {
+      this.rxStats.failed++;
+      this.requestKeyframe(peerId, strategyName, rx, `undecodable frame: ${e.err ?? 'unknown'}`);
       return;
     }
-    // A disconnect, or the sender leaving, while this frame was inflating: it belongs to nobody now.
-    if (this.connectGen !== gen || this.rxPeers.get(peerId) !== rx) return;
+    const text = e.text;
     const header = readDeltaHeader(text);
     if (header === null) {
+      this.rxStats.failed++;
       this.requestKeyframe(peerId, strategyName, rx, 'bad frame header');
       return;
     }
@@ -1332,6 +1509,7 @@ export class NetTransport {
       if (held === undefined) {
         // ⛔ R1 — only the authority is ever asked for a keyframe (anyone else would be fed an upload).
         if (this.isSnapshotAuthority !== null && !this.isSnapshotAuthority(peerId)) return;
+        this.rxStats.failed++;
         this.requestKeyframe(peerId, strategyName, rx, `no base frame ${header.baseFid}`);
         return;
       }
@@ -1343,6 +1521,7 @@ export class NetTransport {
       segs = applyDelta(text, base);
       full = segmentsToText(segs);
     } catch (err) {
+      this.rxStats.failed++;
       this.requestKeyframe(peerId, strategyName, rx, err instanceof Error ? err.message : String(err));
       return;
     }
@@ -1380,6 +1559,9 @@ export class NetTransport {
      * no trace here — it can neither evict the host's bases nor start a keyframe ping-pong.
      */
     if (this.isSnapshotAuthority !== null && !this.isSnapshotAuthority(peerId)) return;
+    this.rxStats.applied++;
+    if (header.baseFid === 0) this.rxStats.keyframes++;
+    else this.rxStats.deltas++;
     if (this.rxSource !== peerId) {
       if (this.rxSource !== null) this.rxPeers.get(this.rxSource)?.ring.clear();
       this.rxSource = peerId;

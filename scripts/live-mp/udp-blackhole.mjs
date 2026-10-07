@@ -25,7 +25,17 @@ export function createBlackholeRelay({ log = () => {} } = {}) {
   /** target "ip:port" -> { listen: Socket, port, clients: Map<"ip:port", Socket upstream> } */
   const targets = new Map();
   let dark = false;
-  const stats = { fwdToTarget: 0, fwdToClient: 0, dropped: 0 };
+  const stats = { fwdToTarget: 0, fwdToClient: 0, dropped: 0, lost: 0 };
+  // S196 (joiner-desync) — optional IMPAIRMENT for a remote-player model: one-way delay + uniform jitter + random
+  // loss, applied per packet in both directions (harness-only; Math.random is fine outside the sim).
+  let impair = { delayMs: 0, jitterMs: 0, loss: 0 };
+  const forward = (sock, buf, port, ip, counter) => {
+    if (impair.loss > 0 && Math.random() < impair.loss) { stats.lost++; return; }
+    stats[counter]++;
+    const d = impair.delayMs + (impair.jitterMs > 0 ? Math.random() * impair.jitterMs : 0);
+    if (d <= 0) sock.send(buf, port, ip);
+    else setTimeout(() => { if (!dark) sock.send(buf, port, ip); }, d);
+  };
 
   const mapTarget = (ip, port) =>
     new Promise((resolve) => {
@@ -42,16 +52,14 @@ export function createBlackholeRelay({ log = () => {} } = {}) {
           up = dgram.createSocket('udp4');
           up.on('message', (back) => {
             if (dark) { stats.dropped++; return; }
-            stats.fwdToClient++;
-            listen.send(back, rinfo.port, rinfo.address);
+            forward(listen, back, rinfo.port, rinfo.address, 'fwdToClient');
           });
           up.on('error', () => {});
           up.bind(0, '0.0.0.0');
           entry.clients.set(ckey, up);
           log(`relay: new client ${ckey} -> ${key}`);
         }
-        stats.fwdToTarget++;
-        up.send(msg, port, ip);
+        forward(up, msg, port, ip, 'fwdToTarget');
       });
       listen.on('error', () => {});
       listen.bind(0, '127.0.0.1', () => {
@@ -81,6 +89,7 @@ export function createBlackholeRelay({ log = () => {} } = {}) {
   return {
     start: () => new Promise((r) => http.listen(0, '127.0.0.1', () => r(`http://127.0.0.1:${http.address().port}`))),
     setDark: (v) => { dark = v; },
+    setImpair: (v) => { impair = { delayMs: 0, jitterMs: 0, loss: 0, ...v }; },
     isDark: () => dark,
     stats: () => ({ ...stats, targets: targets.size }),
     close: () => {
