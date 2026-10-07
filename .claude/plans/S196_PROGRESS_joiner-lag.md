@@ -1,7 +1,21 @@
 # S196 PROGRESS — s196/joiner-lag
 
 ## ⏭ NEXT STEP
-Gates DONE (tc 0 after unused-import fix, vitest 0 9492 passed, build 0 entry 1265.2 KiB). NOW: after-profile SPARK_LAG_TAG=after + gfx probe MINIMAL w5/w10 1x; then e2e:gating + e2e:render; then final report.
+e2e:gating then e2e:render on this worktree's port (detached, logs .tmp-gates/gate-e2e*.log/.exit). Then final report at top of this file.
+
+## AFTER (all 4 fixes, same harness, 1x, fog ON, single runs on a loaded machine — direction, not benchmark)
+| | before (b1) | after |
+|---|---|---|
+| w10 MINIMAL frame p50/p95 | 15.8 / 66.8 ms | 8.9 / 21.2 ms |
+| w10 MINIMAL long tasks / 15 s | 62 (4900 ms) | 10 (1292 ms) |
+| w10 MINIMAL main thread busy | 94.9 % | 74.9 % |
+| w5 MINIMAL frame p50/p95 | 10.0 / 30.7 ms | 9.6 / 19.2 ms |
+| w5 MINIMAL long tasks | 13 | 2 |
+| w10 Graphics instr/frame (MINIMAL) | 1121 | 779 |
+After, w10 1x: LOW 14.8/31.4 ms (8 long tasks), HIGH 22.7/62.3 ms (51) — HIGH/LOW unchanged by design except F2/F3 (allocation-only).
+Top-15 self after, w10 MINIMAL: buildContextBatches 6.9 · stroke 5.0 · (program) 4.9 · texSubImage2D 4.1 · break 3.4 · GC 3.0 · packAttributes 2.7 · toFillStyle 2.5 · pixi anon 2.5 · buildLine 2.3 · updateGpuContext 1.9 · collectRenderablesSimple 1.7+1.5 · damageNumbers.track 1.5 · main frame 1.4
+LOW: stroke 6.8 · buildContextBatches 6.3 · anon 5.5 · break 4.2 · (program) 3.5 · texSubImage2D 3.2 · packAttributes 2.8 · GC 2.6 · updateGpuContext 2.6 · buildLine 2.5 · handleFillObject 2.0 · collectRenderablesSimple 1.9+1.9 · _callContextMethod 1.5 · bufferSubData 1.4
+HIGH: stroke 8.4 · buildContextBatches 7.2 · anon 4.6 · buildLine 4.5 · break 4.3 · texSubImage2D 3.8 · (program) 3.1 · packAttributes 2.4 · GC 2.2 · updateGpuContext 2.1 · handleFillObject 1.8 · collectRenderablesSimple 1.4 · execute 1.3 · _callContextMethod 1.2 · toFillStyle 1.2
 
 ## FIXES (each measured)
 - **F3 damageNumbers structure watch in place** (damageNumbers.ts): no key string / watch object / repair object / ends tuple per shape+connector per frame. Tests: damageNumbersWatchReuse.test.ts (mutation red).
