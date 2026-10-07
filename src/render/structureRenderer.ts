@@ -100,6 +100,8 @@ export class StructureRenderer {
   /** S196 — buckets whose only change this frame is motion, waiting on the MINIMAL budget (reused, no per-frame alloc). */
   private readonly motionQueue: Array<{ key: number; bucket: BondBucket; draws: BondDraw[]; hash: number; shape: number }> = [];
   private cacheFrame = 0;
+  /** S196 — the knobs the cache last drew with: a tier switch redraws everything at once, never on a budget. */
+  private lastKnobs: BondCacheKnobs | null = null;
   private bucketRedraws = 0;
 
   /*
@@ -245,7 +247,8 @@ export class StructureRenderer {
     });
     const queue = this.motionQueue;
     queue.length = 0;
-    const budgeted = Number.isFinite(knobs.motionRedrawsPerFrame);
+    const budgeted = Number.isFinite(knobs.motionRedrawsPerFrame) && this.lastKnobs === knobs;
+    this.lastKnobs = knobs;
     for (const [key, cell] of cells) {
       let bucket = this.bondBuckets.get(key);
       if (cell.draws.length === 0) {
@@ -293,6 +296,7 @@ export class StructureRenderer {
 
   private clearBondCache(): void {
     for (const b of this.bondBuckets.values()) { b.g.clear(); b.hash = FNV_OFFSET; b.shape = FNV_OFFSET; }
+    this.lastKnobs = null;
     this.bondCacheLayer.visible = false;
   }
 
