@@ -44,3 +44,4 @@
 - R196-W2 win bar +20 % → s196/win-bar opened (bump expected).
 - s196/risen-check DONE: NO DEFECT (50/64 zombie-seat kills raised in a 4-seat HARD match; rest castle-gun/tower by ruling). Merged tests-only. Owner question: a visible 'risen' cue.
 - s196/net-cpu builder DONE (abbb5cbb): Phase 1 table (per-peer cost = deflate ~1.5 ms; wave 10 × 3 joiners 8.9 ms/send = 53 % of a frame); Phase 2 shared encode BUILT + 3-joiner oracle 0 mismatches, HELD unmerged until joiner-desync lands (same two files) — then trial-merge + re-run oracle + full audit; Phase 3 host election = design only (S196_HOST_ELECTION_DESIGN.md on branch, ~1.5 trees: takeover inline in main.ts, no voluntary step-down, bump owed). e2e:lobby late-4th-joiner red also with master net code = environmental (F8 class).
+- R196-Q1 → s196/queue-edit opened. R196-N2 overnight: land + deploy everything proven. R196-H2: ws2 host zero lag.
