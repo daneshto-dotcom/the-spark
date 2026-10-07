@@ -1,4 +1,4 @@
-NEXT STEP: FIX ROUND — MED-1 flush all boards pending queues (on success + home open), LOW-1 screenshots opt-in NONET_SHOTS=1, LOW-2 daily-solved test; then merge master + gates.
+NEXT STEP: fix round — MED-1, LOW-1, LOW-2 done + mutation-checked; merge master then gates (typecheck, vitest, build, e2e:gating) -> report.
 
 # FINAL REPORT — s196/nonet-home (backlog #16: Option A, then Option B per R196-D2)
 - Option A checkpoint 1cf7f3b8; final tip = the commit carrying this report. Master merged twice (b7f1891d, 9ddf5027), no conflicts.
