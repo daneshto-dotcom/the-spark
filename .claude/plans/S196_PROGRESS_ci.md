@@ -1,7 +1,7 @@
 # S196 PROGRESS — s196/ci
 
 ## NEXT STEP (top, always current)
-- T5: Sym F LOCAL 3/3 RED (240 s timeout each, same as CI) = NOT a CI flake. Tracing one run (.tmp-gates/symF-trace) to find the stalled step; then Sym I x3.
+- T5: Sym F LOCAL 3/3 RED; trace: stalls in the JOINER first placeFreeSparkAndConfirm -> pullFromBank (castleBanks empty, joiner at ~5 ticks/s on this loaded box, tick 1098 at the 240 s cap). Running DIAGNOSTIC scratch e2e/zz-symf-long.scratch.spec.ts (900 s cap, untracked — delete after) -> .tmp-gates/symf-long.log, to split starvation vs stuck bank. Then Sym I x3.
 
 ## Log
 - boot: merged master; progress file created.
