@@ -1,7 +1,7 @@
 # S196 PROGRESS — boss-release (branch s196/boss-release)
 
 ## NEXT STEP (exact)
-- NONE pending except reading the final e2e exits (.tmp-gates/f-gating.exit / f-render.exit) into the report below.
+- NONE — complete, awaiting independent audit + merge.
 
 ## FINAL REPORT
 - **Tip:** see the last commit on `s196/boss-release`. Merges: master fb8f6b42 → 485dbddc, then 2722124c. No conflicts in either.
