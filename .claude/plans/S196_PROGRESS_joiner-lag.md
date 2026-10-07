@@ -1,7 +1,7 @@
 # S196 PROGRESS — s196/joiner-lag
 
 ## ⏭ NEXT STEP
-FIX ROUND DONE — merged master, gates: typecheck 0, vitest 0 (9541 passed/15 skipped), build 0 (entry 1278.3 KiB), e2e:render 0 (10 passed). Remaining only: re-measure after joiner-desync lands.
+FIX ROUND + LOW-B DONE (fog-swap test adopted; LOW-A fuzz swap moves endpoints; dropping identity turns 4 tests red; tc 0, tiers 29/29). Remaining only: when joiner-desync lands, merge master, npm install, re-profile (SPARK_LAG_TAG=after2) + gates.
 
 ## FINAL REPORT
 - Gates: typecheck 0 · vitest 0 (633 files / 9492 passed / 15 skipped) · build 0 (entry 1265.2 KiB / cap 1350; this tree's src share ~1–2 KiB) · e2e:gating 0 (72 passed, 1 skipped) · e2e:render 0 (10 passed)
