@@ -1,7 +1,7 @@
 # S196 PROGRESS — s196/joiner-lag
 
 ## ⏭ NEXT STEP
-DONE — all gates green. Only remaining: when joiner-desync lands on master, git merge master + npm install, re-run after-profile (SPARK_LAG_TAG=after2) and the gates.
+FIX ROUND (audit MED-1): add bond identity to BondDraw, fold into hashBondShape only; swap repro tests (new id + reused id); fuzz compares structural hash every frame with swap mutation; fix comment; LOW-1 doc line at motionRedrawsPerFrame. Then merge master + gates.
 
 ## FINAL REPORT
 - Gates: typecheck 0 · vitest 0 (633 files / 9492 passed / 15 skipped) · build 0 (entry 1265.2 KiB / cap 1350; this tree's src share ~1–2 KiB) · e2e:gating 0 (72 passed, 1 skipped) · e2e:render 0 (10 passed)
