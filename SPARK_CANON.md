@@ -1312,8 +1312,14 @@ per-seat, unchanged — the first seat to the bar wins for its team.
   ⭐ S195 N19 (`s195/team-tiles`, deploy #9) — SIX BLENDABLE SINGLE-RACE TILES, not trio images: the manifest
   `TEAM_TILE_RACES` ships EMPTY until the owner generates the six tiles from `Desktop\SPARK_Six_Race_Tiles_Prompts.html`
   (files `public/art/race-zones/tiles/<race>.webp`, 480×270). A 3v1 trio switches to tiles ONLY when all three of its
-  races have one; pairs keep the pair art (`TEAM_TILES_FOR_PAIRS` = `false`). The teammate-only seam cross-fade
-  `TEAM_SEAM_BLEND_LEGACY_ART` = `false` — OFF until the owner approves the Desktop COMPARE screenshots.
+  races have one; pairs keep the pair art (`TEAM_TILES_FOR_PAIRS` = `false`).
+  ⭐⭐ S196 (owner R196-A1/A2, `s196/team-art`) — **COMPOSED GROK PICTURES WIN; the six-tile plan is SUPERSEDED.** A 3v1
+  trio whose NE/SE/SW races are a card he generated paints HIS whole-board trio picture, one quarter per trio zone
+  (`public/art/race-zones/teams/<ne>-<se>-<sw>.webp`, 960×540, NW quarter black and never drawn — the solo owns NW):
+  `TEAM_TRIO_ART` (27 of the 56 cards — 1–13, 15–28; card 14 downloaded empty). The key is POSITIONAL: the trio is
+  seated NE → SE → SW by lobby slot, so a trio not standing in its card's order (or with no card yet) shows today's
+  single-race art with the teammate-only seam cross-fade, `TEAM_SEAM_BLEND_LEGACY_ART` = `true` (his ruling: today's
+  art + cross-fade beats the hard edge). A picture that fails to load falls back the same way.
 
 ## 6 · THE WIRE
 

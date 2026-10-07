@@ -6,8 +6,8 @@
  *   · the resolver: a 3v1 trio paints from tiles when EVERY trio race has one (⚠ MINE all-or-none), pairs keep
  *     the owner's pair art unless `forPairs` (⚠ MINE off), solos / the 2v1 solo half / FFA never read a tile;
  *   · the seam cross-fade: every open seam between TEAMMATES on single-quadrant art, never an enemy seam;
- *   · the manifest ships EMPTY and today's-art blend ships OFF (`TEAM_SEAM_BLEND_LEGACY_ART`, until the owner
- *     approves the Desktop screenshots), so every board is byte-identical to deploy #8;
+ *   · the manifest ships EMPTY; today's-art blend shipped OFF in S195 and is ON since S196
+ *     (`TEAM_SEAM_BLEND_LEGACY_ART`, owner R196-A1 — he approved the Desktop screenshots);
  *   · REACH through the real renderer `sync`, the FFA negative, and the missing-file fallback through the real
  *     `Assets.load` rejection path.
  */
@@ -54,10 +54,11 @@ const brief = (plan: ZoneBackdrop[]) => plan.map((p) =>
   `${p.zone}:${p.url.replace('/art/race-zones/', '')}|${p.part}${p.mirror ? '|M' : ''}${p.blend ? `|b:${p.blend.map((b) => `${b.side}=${b.url.replace('/art/race-zones/', '')}`).join(',')}` : ''}`);
 
 describe('S195 N19 — the shipped defaults', () => {
-  it('the manifest ships EMPTY, pairs keep pair art, today\'s 3v1 art does NOT blend until he approves (pinned)', () => {
+  it('the manifest ships EMPTY, pairs keep pair art, today\'s 3v1 art BLENDS — his S196 ruling (pinned)', () => {
     expect(TEAM_TILE_RACES).toEqual([]);
     expect(TEAM_TILES_FOR_PAIRS).toBe(false);
-    expect(TEAM_SEAM_BLEND_LEGACY_ART).toBe(false);
+    // ⭐ S196 R196-A1 (owner, after the COMPARE sheets): "today's art + cross-fade beats the hard edge".
+    expect(TEAM_SEAM_BLEND_LEGACY_ART).toBe(true);
     expect(TEAM_SEAM_FEATHER).toBe(0.22);
     expect(MANIFEST_TILES.blendLegacy).toBe(TEAM_SEAM_BLEND_LEGACY_ART);
     expect(teamTileUrl('orcs')).toBe('/art/race-zones/tiles/orcs.webp');
@@ -75,10 +76,11 @@ describe('S195 N19 — the shipped defaults', () => {
     expect(files.sort()).toEqual(TEAM_TILE_RACES.map((r) => `${r}.webp`).sort());
   });
 
-  it('⛔ the default plan (no tiles, blend off): 3v1 = today\'s plain 4p art — byte-identical to deploy #8 (R195-T5)', () => {
+  it('⭐ the default plan (no tiles, no trio picture for these corners, blend ON since S196): 3v1 today\'s art cross-faded', () => {
     const w = start([0, 0, 0, U], ['orcs', 'zombies', 'nagas', 'vampires']);
     expect(brief(zoneBackdropPlan(w))).toEqual([
-      '0:zone-vampires-4p.png|full', '1:zone-orcs-4p.png|full', '2:zone-zombies-4p.png|full', '3:zone-nagas-4p.png|full',
+      '0:zone-vampires-4p.png|full', '1:zone-orcs-4p.png|full|b:s=zone-zombies-4p.png',
+      '2:zone-zombies-4p.png|full|b:n=zone-orcs-4p.png,w=zone-nagas-4p.png', '3:zone-nagas-4p.png|full|b:e=zone-zombies-4p.png',
     ]);
   });
 
