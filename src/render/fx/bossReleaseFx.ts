@@ -55,8 +55,8 @@ export const BOSS_SEAL_SHARDS = 12;
 export interface BossReleaseSinks { readonly ground: FxSink; readonly top: FxSink; readonly shade: FxSink; readonly shock: FxShockSink }
 
 const TAU = Math.PI * 2;
-const STONE = 0x4a4038;
-const DUST = 0x8a7a66;
+const STONE = 0x6a5e52;
+const DUST = 0xa89884;
 
 /** The size unit, the same as the signatures' (`towerSignatureFx.sigUnit`): a ~90 px tower is 1. */
 function unit(h: number): number { return Math.max(1, h / 90); }
@@ -159,7 +159,7 @@ export function bossCrumbleFx(
     const r = w * (0.25 + 0.85 * easeOutCubic(t));
     const size = w * (0.35 + 0.7 * t);
     s.shade.emit('smoke', x + Math.cos(ang) * r, fy + Math.sin(ang) * r * 0.37 - t * h * 0.12, size, size * 0.7,
-      fxHash(seed, k, 0xe2) * TAU + t, envelope(t, 0.15) * 0.55, DUST, 'normal');
+      fxHash(seed, k, 0xe2) * TAU + t, envelope(t, 0.15) * 0.62, DUST, 'normal');
   }
   if (!low) {
     for (let k = 0; k < 6; k++) {
@@ -202,7 +202,7 @@ export function bossReleaseFx(
   // The FLASH: white-hot at the heart of the tower, fading into the race's colour.
   if (age < 20) {
     const q = age / 20;
-    s.top.emit('soft', x, cy, w * (1.6 + 2.2 * q), w * (1.6 + 2.2 * q), 0, (1 - q) * 0.95, mixColor(0xffffff, base, q), 'add');
+    s.top.emit('soft', x, cy, w * (1.2 + 1.8 * q), w * (1.2 + 1.8 * q), 0, (1 - q) * 0.8, mixColor(0xffffff, base, q), 'add');
     s.top.emit('core', x, cy, w * 0.9 * (1 - q), w * 0.9 * (1 - q), 0, 1 - q, 0xffffff, 'add');
   }
   // The PILLAR: the race's light shot up out of the tower, thinning as it fades.

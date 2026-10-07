@@ -4,7 +4,7 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 const OUT = process.env.CAP_OUT ?? 'C:/Users/onesh/OneDrive/Desktop/SPARK_S196_BossRelease/raw';
 const MODE = process.env.CAP_MODE ?? 'after'; // 'after' | 'before'
 const RACES = (process.env.CAP_RACES ?? 'demons,mummies,nagas,orcs,vampires,zombies').split(',');
-const AT = { x: 520, y: 430 };
+const AT = { x: 430, y: 430 };
 
 async function boot(page: Page): Promise<void> {
   await page.clock.install();
@@ -59,8 +59,8 @@ test('boss release capture', async ({ page }) => {
       return s ? { id: s.id } : null;
     }, race);
     if (sp === null) throw new Error(`${race}: tower did not ignite`);
-    const box = await css(page, AT.x - 420, AT.y - 470);
-    const clip = { x: box.x, y: box.y, width: 840 * box.s, height: 800 * box.s };
+    const box = await css(page, AT.x - 400, AT.y - 470);
+    const clip = { x: box.x, y: box.y, width: 800 * box.s, height: 800 * box.s };
     await page.screenshot({ path: `${OUT}/${MODE}-${race}-00-standing.png`, clip });
     // RELEASE: the real tier-9 arm, made due now (spawners only emit in FIGHT)
     const phase = await page.evaluate((sid) => {
@@ -72,7 +72,7 @@ test('boss release capture', async ({ page }) => {
     }, sp.id);
     const t0 = await page.evaluate(() => (window as any).__SPARK__.world.tick);
     for (let f = 1; f <= 16; f++) {
-      await page.clock.runFor(f === 1 ? 34 : 150);
+      await page.clock.runFor(f === 1 ? 20 : 60);
       if (f === 1) await page.evaluate((p) => { (window as any).__SPARK__.world.matchPhase = p; }, phase);
       const st = await page.evaluate(() => { const w = (window as any).__SPARK__.world; return { tick: w.tick, spawners: w.creatureSpawners.size }; });
       await page.screenshot({ path: `${OUT}/${MODE}-${race}-${String(f).padStart(2, '0')}.png`, clip });
