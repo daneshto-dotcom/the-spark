@@ -110,6 +110,32 @@ export function waveIndexAt(plot: Rect, n: number, x: number, form: 'points' | '
   return Math.max(0, Math.min(n - 1, i));
 }
 
+/**
+ * ⭐ S196 (board-look, live check) — a line chart's END LABELS, spread so no two print on top of each other.
+ *
+ * Found live, 1920×1080, a real 2v2 team match: two teammates finished on 301 and 298, their line ends sat 4 px
+ * apart and "BOT 3" was printed over "BOT 4" — unreadable. Each label is a 16 px-tall text (measured, Kanit 900
+ * at 13 px) whose BOTTOM is the y given here (it is drawn anchored at (1, 1)).
+ *
+ * Pure and a TOTAL ORDER (y, then series index), so equal ends always spread the same way: walk top-down pushing
+ * each label at least `gap` below the one above it; if that runs past `maxBottom`, walk back up from the floor.
+ * A label already clear of its neighbours never moves. Returned in the INPUT order.
+ */
+export const LINE_LABEL_GAP = 16;
+export function spreadLabelBottoms(ys: readonly number[], gap: number, maxBottom: number): number[] {
+  const order = ys.map((y, i) => ({ y, i })).sort((a, b) => a.y - b.y || a.i - b.i);
+  const out = order.map((o) => o.y);
+  for (let k = 1; k < out.length; k++) out[k] = Math.max(out[k]!, out[k - 1]! + gap);
+  const last = out.length - 1;
+  if (last >= 0 && out[last]! > maxBottom) {
+    out[last] = maxBottom;
+    for (let k = last - 1; k >= 0; k--) out[k] = Math.min(out[k]!, out[k + 1]! - gap);
+  }
+  const res = new Array<number>(ys.length);
+  order.forEach((o, k) => { res[o.i] = out[k]!; });
+  return res;
+}
+
 /** The x of point `i` of `n` (lines, area) — centred when there is only one. */
 export const pointX = (plot: Rect, n: number, i: number): number =>
   n <= 1 ? plot.x + plot.w / 2 : plot.x + (plot.w * i) / (n - 1);
