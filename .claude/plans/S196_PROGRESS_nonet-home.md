@@ -1,4 +1,4 @@
-NEXT STEP: Option A gates (typecheck, vitest, build, e2e:gating) on merged tree -> checkpoint commit; then Option B.
+NEXT STEP: (vitest full suite running for Option A checkpoint -> then e2e:gating) ; Option B: add dailySeedHash export to dailySeed.ts, campaignProgress.ts, run fields (stage,puzzleIndex) + nextPuzzle arm, makeArcadeNonet targetGivens, worker stage boards, home CAMPAIGN door + strip, campaign HUD, main glue, number pad.
 
 ## R196-D2 (coordinator, S196): owner answered all 10 questions = the recommendations. After A is green+committed, build Option B in this tree:
 campaign.ts (30 stages as DATA, pure nextStage/stars), bands 16/13/10 via targetGivens in the ARCADE call only, fixed seed per stage, fail=retry, clock per stage over all its puzzles, 1-3 stars by per-stage thresholds,
