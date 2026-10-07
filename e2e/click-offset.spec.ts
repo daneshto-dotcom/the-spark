@@ -19,8 +19,8 @@
  * inverse of what the player sees) and asks the target itself whether the pointer reached it.
  *
  * Two describes:
- *  · GATING (no tag): a 3-size subset, asserting every target is reached and a near-miss is not.
- *  · `@perf-measure` MATRIX: the full viewport × DPR grid, printed as the before/after table.
+ *  · GATING (no tag): the two letterbox directions, asserting every target is reached and a near-miss is not.
+ *  · MATRIX (opt-in, `CLICK_OFFSET_MATRIX=1`): the full viewport × DPR grid, printed as the before/after table.
  */
 import { type Browser, type Page, expect, test } from '@playwright/test';
 import { CANVAS_HEIGHT, CANVAS_WIDTH, canvasToCss, keepAnchor, waitForWorld } from './helpers.ts';
@@ -196,10 +196,15 @@ const fmt = (r: CfgResult): string =>
       `\tcontrolsΔ=(${(t.controls.x - t.aim.x).toFixed(0)},${(t.controls.y - t.aim.y).toFixed(0)})`)
     .join('\n') + `\n${r.cfg.w}x${r.cfg.h}@${r.cfg.dpr}\ttitle SOLO click hit=${r.titleSoloHit ? 'Y' : 'N'}\tnear-miss hovered=${r.nearMissHovered ? 'Y' : 'N'}	SPEED click spent=${r.speedClickSpent ? 'Y' : 'N'}`;
 
-/** The gating subset: the owner's half-screen, a laptop at 125 %, a toolbar-eaten 1080p window at 150 %. */
+/**
+ * The gating subset — the two letterbox directions, nothing else (each probe boots a fresh page, ~25 s, and
+ * the shared gating lane's clock is shared): the owner's half-screen (bars top/bottom → the old error was
+ * vertical) and a toolbar-eaten 1080p window at 150 % (bars left/right → the old error was the +82 px
+ * horizontal one, his "click way to the left"). 16:9 sizes (1366×768, 2560×1440) cannot letterbox, and the
+ * unit matrix in `src/input/pointerMapping.test.ts` covers every size × DPR in arithmetic.
+ */
 const GATING: Cfg[] = [
   { w: 960, h: 1080, dpr: 1 },
-  { w: 1366, h: 768, dpr: 1.25 },
   { w: 1920, h: 947, dpr: 1.5 },
 ];
 
@@ -222,8 +227,15 @@ test.describe('S196 click offset — every target reached at real window sizes',
   }
 });
 
-test.describe('S196 click offset — viewport × DPR matrix @perf-measure', () => {
+/*
+ * ⚠ OPT-IN ONLY (`CLICK_OFFSET_MATRIX=1`), and deliberately NOT tagged `@perf-measure`: 20 fresh boots take
+ * ~8 min locally and far longer on a SwiftShader runner, and that tag would put them on the e2e-soak lane's
+ * tick-derived budget (`src/ci.e2eLanes.test.ts`). This is the measurement that produced the BEFORE/AFTER
+ * tables in `.claude/plans/S196_ui-5_click-offset-*.txt`; re-run it by hand when the canvas CSS changes.
+ */
+test.describe('S196 click offset — viewport × DPR matrix (opt-in)', () => {
   test('matrix', async ({ browser }, info) => {
+    test.skip(process.env.CLICK_OFFSET_MATRIX !== '1', 'opt-in: CLICK_OFFSET_MATRIX=1');
     test.setTimeout(20 * 60_000);
     const sizes = [
       { w: 1920, h: 1080 }, { w: 960, h: 1080 }, { w: 1366, h: 768 }, { w: 1920, h: 947 }, { w: 2560, h: 1440 },
