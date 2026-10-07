@@ -1,7 +1,7 @@
 # S196 PROGRESS — tree ui-5 (branch s196/ui-5)
 
 ## NEXT STEP (top, always current)
-TASK 1 DONE (AFTER matrix: 140/140 hits, 0 pixi delta). TASK 3 already on master (S195 T18 #3; mutation-verified). TASK 2: settings REACH done; NEXT: uiSkinReach.lobby.test.ts for lobbyScreen joinButton + attachButtonFeedback, then drop NOT_DONE.
+TASKS 1,2,3 DONE (2 = lobby+settings REACH, NOT_DONE emptied). NEXT: TASK 4 hover-highlight prototype (flag OFF) + screenshots to OneDrive Desktop/SPARK_S196_HoverHighlight; then gates.
 
 ROOT CAUSE (found): index.html canvas CSS = max-width/max-height 100% + object-fit: contain. Whenever the
 window aspect != 16:9 (half-screen, any browser with a toolbar, other monitors), the canvas CSS box is
