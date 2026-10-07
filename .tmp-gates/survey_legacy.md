@@ -1,0 +1,11 @@
+# Legacy of the Realm auth survey (agent, read-only, 2026-10-07; spot-verified) — paths under Game/founding-realm/rebuild/
+- LIVE build = Cloudflare Worker (src/server/worker.ts, run_worker_first /api/*) + Neon Postgres + Durable Objects (PRESENCE, LOBBY); legacyoftherealm.com. Old Express build frozen (avoid).
+- Login: username+password (+optional email) only. No magic link/OAuth/reset/verify. Guest offline-first localStorage 'legacy-realm.save.v1', link later ("link, do not replace", deploy/RESEARCH-accounts.md §4 :181-230).
+- Passwords.ts: PBKDF2-SHA256 WebCrypto, 16B salt, format pbkdf2-sha256$iter$salt$hash, workerd HARD CAP 100,000 iterations (:61), ~29ms CPU vs 10ms free-plan limit → login needs Workers Paid ($5/mo) (HANDOFF_S125:77-80, unresolved); needsRehash upgrade-on-login (Handlers.ts:286); constant-time compare.
+- Sessions.ts: HMAC token v1.<id>.<exp>.<sig>, 30d (:59), bearer in localStorage, NOT revocable per token (rotate SESSION_SECRET = log everyone out). WS tickets 120s scoped + nonce (:216-308) — good handoff model.
+- Login dummy-hash timing + single message (Handlers.ts:229-277) GOOD; register leaks taken username/email (409).
+- schema.sql: player, realm, save(player_id, realm_id, schema_version, data JSONB, revision BIGINT; optimistic concurrency 409 on stale revision, Handlers.ts:493). No session/identity/audit tables.
+- No rate limit in code (relies on unconfigured dashboard rule), no captcha, no auth email.
+- Incidents: Cloudflare token pasted into transcript (CF-S123, rotate, HANDOFF_2026_09_04_S128:106); password hash leaked into save blob (CF-S119, fixed forTransport()); saves only pushed on restart (CF-S120 HIGH open); shared signing key with CNC hazard noted in wrangler.
+- Tests: account-rules ~54, server-handlers ~93 (real Postgres), presence tickets.
+- RESEARCH-accounts.md: Case A (register on device with progress → first write rev 0); Case B (second device with other progress → BLOCKING PROMPT, pull() reports, adoptRemote/keepLocal explicit, matchesLocal skips prompt). Cites developer.android.com/games/pgs/savedgames.

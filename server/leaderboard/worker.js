@@ -100,6 +100,46 @@ const MAX_RUNS_PER_REQUEST = 21;
 /** Board ids: `nonet` today, `nonet:s07` if a ladder ever lands. */
 const BOARD_RE = /^[a-z0-9]+(?::[a-z0-9]+)?$/;
 
+/**
+ * ⭐ S196 #16 — THE DAILY NONET'S BOARDS REGISTER THEMSELVES, BUT ONLY AROUND TODAY.
+ *
+ * `nonet:dYYYYMMDD` is one board per UTC day (`src/nonet/dailySeed.ts`). Inserting a row into `boards`
+ * by hand every day is not a plan, so a POST to a daily board that is not registered yet registers it —
+ * IF its date is a real calendar date within ONE day of the server's own UTC date (the slack covers a
+ * player who launched at 23:59 and a device clock a little off). The registry's purpose — bounding how
+ * many boards exist — still holds: at most three new boards a day, and a forged far-past or far-future
+ * date is the same 404 as an invented board. ADDITIVE: every other board id behaves exactly as before.
+ */
+export const DAILY_BOARD_RE = /^nonet:d(\d{4})(\d{2})(\d{2})$/;
+const DAY_MS = 86_400_000;
+
+/**
+ * ⭐ S196 #16 Option B — THE 30 CAMPAIGN STAGE BOARDS (`nonet:s01` … `nonet:s30`) register themselves
+ * too. A closed set of exactly thirty ids, so the registry's bound is untouched; `nonet:s31`, `nonet:s7`
+ * and `nonet:s00` stay 404. Pinned against `src/nonet/campaign.ts` `stageBoardId` by a test.
+ */
+export const STAGE_BOARD_RE = /^nonet:s(0[1-9]|[12][0-9]|30)$/;
+
+/** PURE — may this board register itself at `nowMs`? (today's daily ± 1 day, or a campaign stage.) */
+export function selfRegisteringBoard(board, nowMs) {
+  return STAGE_BOARD_RE.test(String(board)) || dailyBoardAcceptable(board, nowMs);
+}
+
+/** PURE — may this daily board be auto-registered at `nowMs`? Exported so it is executably tested. */
+export function dailyBoardAcceptable(board, nowMs) {
+  const m = DAILY_BOARD_RE.exec(String(board));
+  if (m === null) return false;
+  const y = Number(m[1]);
+  const mo = Number(m[2]) - 1;
+  const d = Number(m[3]);
+  const t = Date.UTC(y, mo, d);
+  const back = new Date(t);
+  if (back.getUTCFullYear() !== y || back.getUTCMonth() !== mo || back.getUTCDate() !== d) return false;
+  const now = new Date(nowMs);
+  const today = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+  return Math.abs(t - today) <= DAY_MS;
+}
+
 /** ⚠ Byte-identical to `NAME_ALPHABET` in `src/render/arcadeScores.ts`. */
 const NAME_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 ';
 const NAME_LEN = 3;
@@ -322,7 +362,11 @@ async function handle(request, env, origin) {
   // ⛔ ONLY A REGISTERED BOARD MAY BE WRITTEN TO. `BOARD_RE` bounds the SHAPE of an id, not how many
   // exist, so unlimited invented boards would be unlimited storage.
   const known = await env.DB.prepare('SELECT 1 AS ok FROM boards WHERE board = ?1').bind(board).first();
-  if (known === null || known === undefined) return json({ error: 'unknown board' }, 404, origin);
+  if (known === null || known === undefined) {
+    // ⭐ S196 — the one exception: today's daily board (± one day) registers itself. See DAILY_BOARD_RE.
+    if (!selfRegisteringBoard(board, Date.now())) return json({ error: 'unknown board' }, 404, origin);
+    await env.DB.prepare('INSERT OR IGNORE INTO boards (board) VALUES (?1)').bind(board).run();
+  }
 
   const now = Date.now();
   const ip = request.headers.get('CF-Connecting-IP') ?? '0.0.0.0';
@@ -403,41 +447,58 @@ async function handle(request, env, origin) {
    * send one — refusing them would break the endpoint for callers that are not broken. They simply do
    * not get the protection, which is exactly where they were before.
    *
-   * ⚠ AND THIS IS NOT A TRANSACTION. Two genuinely concurrent requests carrying the same id could
-   * both read "not seen" and both fold. That race is not the one being defended against: a retry is
-   * sequential by construction — the client only retries after its own request has ended. Closing the
-   * concurrent case would need `INSERT OR IGNORE` per run and a read of `meta.changes`, i.e. a round
-   * trip per run instead of one for the batch.
+   * ⛔⛔ S196 MED-A — AND THE CLAIM IS NOW ATOMIC, BECAUSE CONCURRENT REQUESTS ARE NOW REAL.
+   *
+   * This used to be read-then-write (`SELECT … FROM seen_runs`, then fold + mark in a batch) and said
+   * so: two concurrent requests with the same id could both read "not seen" and both fold, which was
+   * accepted because "a retry is sequential by construction". S196 broke that assumption — the NONET
+   * home flushes every board's queue when it opens, so a queued run can ride a flush AND an in-flight
+   * submit at the same time. (The client now refuses to do that too — `RemoteLeaderboard`'s per-board
+   * in-flight set — but the server is the root: a second client, a second tab, must not double-count.)
+   *
+   * ⛔⛔ S196 MED-B — SO THE CHECK, THE FOLD AND THE MARK ARE ONE `batch()`: ONE TRANSACTION, ONE ROUND TRIP.
+   *
+   * Per run with an id, two statements, in this order:
+   *   1. the upsert, guarded `WHERE NOT EXISTS (SELECT 1 FROM seen_runs WHERE id = ?5)` — it folds
+   *      only a run whose id has never been recorded (`meta.changes` 1 = folded, 0 = a duplicate);
+   *   2. `INSERT OR IGNORE INTO seen_runs` — records the id.
+   * A D1 batch is a single transaction that rolls back on any failure, and D1 executes statements
+   * serially per database, so (a) two concurrent requests carrying one id cannot both fold it — the
+   * second request's guard sees the first one's mark (MED-A stays closed), and (b) a request that dies
+   * mid-way commits NEITHER the fold NOR the mark, so the client's retry folds the run exactly once.
+   * Round 2 claimed ids one statement at a time BEFORE folding and accepted "drop rather than
+   * double-count"; that trade is gone — a failure now loses nothing and counts nothing twice.
+   * Two copies of one id inside ONE request are handled by the same guard (the second sees the first's
+   * mark). Id-less runs keep the plain upsert. The 24 h TTL is unchanged: an id still in `seen_runs`
+   * reads as seen exactly as before. Verified on real SQLite 3.50.4 (S196 round 3, `schema.sql`).
    */
-  const ids = runs.map((r) => r.id).filter((id) => id !== null);
-  const seen = new Set();
-  if (ids.length > 0) {
-    const { results } = await env.DB.prepare(
-      `SELECT id FROM seen_runs WHERE id IN (${ids.map((_, i) => `?${i + 1}`).join(', ')})`,
-    )
-      .bind(...ids)
-      .all();
-    for (const row of results ?? []) seen.add(String(row.id));
-  }
-  const foldable = runs.filter((r) => r.id === null || !seen.has(r.id));
-  const duplicates = runs.length - foldable.length;
-
-  if (foldable.length > 0) {
-    await env.DB.batch([
-      ...foldable.map((r) =>
+  const stmts = [];
+  /** Index into `stmts` of each id-carrying run's guarded upsert. */
+  const guarded = [];
+  for (const r of runs) {
+    if (r.id === null) {
+      stmts.push(
         env.DB.prepare(
           `INSERT INTO players (board, name, runs, total_ms, updated) VALUES (?1, ?2, 1, ?3, ?4)
            ON CONFLICT(board, name) DO UPDATE SET
              runs = runs + 1, total_ms = total_ms + ?3, updated = ?4`,
         ).bind(board, r.name, r.ms, now),
-      ),
-      ...foldable
-        .filter((r) => r.id !== null)
-        .map((r) =>
-          env.DB.prepare('INSERT OR IGNORE INTO seen_runs (id, created) VALUES (?1, ?2)').bind(r.id, now),
-        ),
-    ]);
+      );
+      continue;
+    }
+    guarded.push(stmts.length);
+    stmts.push(
+      env.DB.prepare(
+        `INSERT INTO players (board, name, runs, total_ms, updated)
+         SELECT ?1, ?2, 1, ?3, ?4 WHERE NOT EXISTS (SELECT 1 FROM seen_runs WHERE id = ?5)
+         ON CONFLICT(board, name) DO UPDATE SET
+           runs = runs + 1, total_ms = total_ms + ?3, updated = ?4`,
+      ).bind(board, r.name, r.ms, now, r.id),
+      env.DB.prepare('INSERT OR IGNORE INTO seen_runs (id, created) VALUES (?1, ?2)').bind(r.id, now),
+    );
   }
+  const results = stmts.length > 0 ? await env.DB.batch(stmts) : [];
+  const duplicates = guarded.filter((i) => Number(results?.[i]?.meta?.changes ?? 0) === 0).length;
 
   // Age out spent rate-limit markers. Bounded, cheap, and the only thing a limiter may forget.
   await env.DB.prepare('DELETE FROM writes WHERE created <= ?1').bind(now - RATE_LIMIT_WINDOW_MS).run();

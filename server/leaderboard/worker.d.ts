@@ -23,6 +23,18 @@ export function normaliseName(raw: unknown): string;
  */
 export const SEEN_RUN_TTL_MS: number;
 
+/** S196 Option B — `nonet:s01` … `nonet:s30`, the campaign's stage boards. */
+export const STAGE_BOARD_RE: RegExp;
+
+/** S196 — today's daily (± 1 day) or a campaign stage board: may it register itself at `nowMs`? */
+export function selfRegisteringBoard(board: string, nowMs: number): boolean;
+
+/** S196 — `nonet:dYYYYMMDD`, the daily NONET's board-id shape. */
+export const DAILY_BOARD_RE: RegExp;
+
+/** S196 — may this daily board auto-register at `nowMs`? A real date within one UTC day of now. */
+export function dailyBoardAcceptable(board: string, nowMs: number): boolean;
+
 /** True for the live game origin and for any localhost port (dev servers get a random one). */
 export function isAllowedOrigin(origin: string): boolean;
 
