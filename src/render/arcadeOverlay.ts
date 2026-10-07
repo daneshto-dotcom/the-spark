@@ -141,10 +141,13 @@ export function arcadeBackGeom(games: readonly ArcadeGame[] = ARCADE_GAMES): Arc
  * arcade path — the overlay renders the puzzle, and solving is decided locally against
  * `puzzle.solution`.
  */
-export function makeArcadeNonet(seed: number): SudokuEvent {
+export function makeArcadeNonet(seed: number, targetGivens?: number): SudokuEvent {
   return {
     seed,
-    puzzle: generateSudoku(seed),
+    // ⭐ S196 #16 Option B (R196-D2 6b) — a campaign stage passes its band's FIXED clue count (16 / 13 / 10).
+    // THE ARCADE CALL ONLY: the match trial stays `generateSudoku(seed)` (pinned, `matchCallUnchanged.test.ts`).
+    // Without a target this is byte-for-byte the pre-S196 call, so PLAY / DAILY / ZEN are unchanged.
+    puzzle: targetGivens === undefined ? generateSudoku(seed) : generateSudoku(seed, targetGivens),
     startTick: 0,
     triggeredBy: asPlayerId(0),
     solvedBy: null,

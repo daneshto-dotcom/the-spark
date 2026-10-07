@@ -3,16 +3,16 @@
  * have to decide lives here as a function of its inputs, so it is tested without Pixi and without a
  * browser: which arcade row opens what, what each door launches, and where a solve goes.
  *
- * ⭐ ONE PLACE TO EXTEND. Option B's CAMPAIGN (3 bands × 10 stages) will be a fourth `NonetDoor` and a
- * fourth arm in `planLaunch` — it is deliberately NOT here yet: it waits on the owner's answers to the
- * ten questions in `.claude/plans/S195_NONET_HOME_OPTIONS.md` §(d).
+ * ⭐ ONE PLACE TO EXTEND. Option B's CAMPAIGN (3 bands × 10 stages, owner ruling R196-D2) is the fourth
+ * `NonetDoor` and the fourth arm in `planLaunch`; its data and pure rules live in `campaign.ts`.
  */
 import { BOARD_NONET } from '../render/arcadeScores.ts';
 import type { ArcadeRun, ArcadeRunMode } from '../render/arcadeRun.ts';
 import { dailyBoardId, dailySeed, utcDayKey } from './dailySeed.ts';
+import { stageBoardId, stageById, stagePuzzleSeed } from './campaign.ts';
 
 /** The doors on the NONET home that START a puzzle. (RANKING and BACK open no puzzle.) */
-export type NonetDoor = 'PLAY' | 'DAILY' | 'ZEN';
+export type NonetDoor = 'PLAY' | 'DAILY' | 'ZEN' | 'CAMPAIGN';
 
 /** What a door launches. `boardId === null` ⇔ `mode === 'ZEN'`. */
 export interface NonetLaunch {
@@ -23,6 +23,10 @@ export interface NonetLaunch {
   readonly dayKey: string | null;
   /** True when DAILY was pressed after today's ranked daily was already solved on this device. */
   readonly dailyReplay: boolean;
+  /** ⭐ Option B — the campaign stage id, else null. */
+  readonly stage: number | null;
+  /** ⭐ Option B — the clue target for the ARCADE generator call (a stage's band), else null = default. */
+  readonly clues: number | null;
 }
 
 /**
@@ -38,18 +42,39 @@ export interface NonetLaunch {
  * So a second DAILY the same day plays the same grid UNTIMED and UNRANKED (as ZEN). Reported as an
  * owner question; the alternative (every replay ranked) is a one-line change here.
  */
-export function planLaunch(door: NonetDoor, perfNowMs: number, wallNowMs: number, dailySolvedKey: string | null): NonetLaunch {
+export function planLaunch(
+  door: NonetDoor,
+  perfNowMs: number,
+  wallNowMs: number,
+  dailySolvedKey: string | null,
+  campaignStage = 1,
+): NonetLaunch {
   const clockSeed = Math.floor(perfNowMs) >>> 0;
+  const none = { stage: null, clues: null } as const;
   switch (door) {
     case 'PLAY':
-      return { mode: 'PLAY', seed: clockSeed, boardId: BOARD_NONET, dayKey: null, dailyReplay: false };
+      return { mode: 'PLAY', seed: clockSeed, boardId: BOARD_NONET, dayKey: null, dailyReplay: false, ...none };
     case 'ZEN':
-      return { mode: 'ZEN', seed: clockSeed, boardId: null, dayKey: null, dailyReplay: false };
+      return { mode: 'ZEN', seed: clockSeed, boardId: null, dayKey: null, dailyReplay: false, ...none };
     case 'DAILY': {
       const key = utcDayKey(wallNowMs);
       const seed = dailySeed(key);
-      if (dailySolvedKey === key) return { mode: 'ZEN', seed, boardId: null, dayKey: key, dailyReplay: true };
-      return { mode: 'DAILY', seed, boardId: dailyBoardId(key), dayKey: key, dailyReplay: false };
+      if (dailySolvedKey === key) return { mode: 'ZEN', seed, boardId: null, dayKey: key, dailyReplay: true, ...none };
+      return { mode: 'DAILY', seed, boardId: dailyBoardId(key), dayKey: key, dailyReplay: false, ...none };
+    }
+    case 'CAMPAIGN': {
+      // R196-D2 6c — a FIXED seed per stage: stage 7 is the same grid for everyone. An out-of-range id
+      // (a hand-edited progress value) falls back to stage 1 rather than throwing.
+      const stage = stageById(campaignStage) ?? stageById(1)!;
+      return {
+        mode: 'CAMPAIGN',
+        seed: stagePuzzleSeed(stage, 0),
+        boardId: stageBoardId(stage.id),
+        dayKey: null,
+        dailyReplay: false,
+        stage: stage.id,
+        clues: stage.clues,
+      };
     }
   }
 }

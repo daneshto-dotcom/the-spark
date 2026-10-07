@@ -220,11 +220,16 @@ import { ArcadeOverlay, makeArcadeNonet } from './render/arcadeOverlay.ts';
 import { planLaunch, routeArcadeSelect, solveOutcome, type NonetDoor } from './nonet/nonetModes.ts';
 import { dayKeyOfBoard, utcDayKey } from './nonet/dailySeed.ts';
 import { loadDailySolvedKey, saveDailySolvedKey } from './nonet/dailyProgress.ts';
+// ⭐ S196 #16 Option B — the campaign (data + pure fns + the device progress store; tiny, entry).
+import { clearNotice, stageById, stagePuzzleSeed, stageTimedOut, stars as stageStars } from './nonet/campaign.ts';
+import { currentStage, loadProgress, recordClear, saveProgress } from './nonet/campaignProgress.ts';
 import type { NonetHome } from './nonet/homeScreen.ts';
 import { ArcadeRunOverlay } from './render/arcadeRunOverlay.ts';
 import {
   beginSubmit,
   cycleLetter,
+  stageSolve,
+  startStageRun,
   finishRun,
   moveCursor,
   revealBoard,
@@ -848,7 +853,7 @@ async function bootstrap(): Promise<void> {
       }
       arcadeOverlay.hide();
       // ⚠ `Date.now()` is the MENU's clock (which UTC day it is for DAILY) — UI, never the sim.
-      home.show({ todayKey: utcDayKey(Date.now()), dailySolvedKey: loadDailySolvedKey(), notice });
+      home.show({ todayKey: utcDayKey(Date.now()), dailySolvedKey: loadDailySolvedKey(), notice, progress: loadProgress() });
     });
   };
   /**
@@ -860,9 +865,12 @@ async function bootstrap(): Promise<void> {
    * seed and board; ZEN has no board. `planLaunch` decides; this only applies it.
    */
   const launchNonetDoor = (door: NonetDoor): void => {
-    const plan = planLaunch(door, performance.now(), Date.now(), loadDailySolvedKey());
-    arcadeNonet = makeArcadeNonet(plan.seed);
-    arcadeRun = plan.boardId === null ? startRun(performance.now(), 'ZEN') : startRun(performance.now(), plan.mode, plan.boardId);
+    const plan = planLaunch(door, performance.now(), Date.now(), loadDailySolvedKey(), currentStage(loadProgress()));
+    // ⭐ Option B — a stage passes its band's clue count to the ARCADE call; every other door passes none.
+    arcadeNonet = plan.clues === null ? makeArcadeNonet(plan.seed) : makeArcadeNonet(plan.seed, plan.clues);
+    if (plan.boardId === null) arcadeRun = startRun(performance.now(), 'ZEN');
+    else if (plan.mode === 'CAMPAIGN' && plan.stage !== null) arcadeRun = startStageRun(performance.now(), plan.stage, plan.boardId);
+    else arcadeRun = startRun(performance.now(), plan.mode, plan.boardId);
     nonetHome?.hide();
   };
   const arcadeRunOverlay = new ArcadeRunOverlay(app, app.stage);
@@ -1709,7 +1717,9 @@ async function bootstrap(): Promise<void> {
         arcadeNonet = makeArcadeNonet(Math.floor(performance.now()) >>> 0);
         arcadeRun = startRun(performance.now());
       } else {
-        openNonetHome(null);
+        // ⭐ Option B — a cleared stage goes home with its stars and what it unlocked.
+        const st = run.stage === null ? null : stageById(run.stage);
+        openNonetHome(st !== null && run.finishedMs !== null ? clearNotice(st, run.finishedMs) : null);
       }
     }
   });
@@ -3013,7 +3023,25 @@ Network routes: ${v.detail}`;
               // racing this transition cannot re-time the run or award a second row.
               // ⭐ S196 — a ZEN solve (no clock, no board) goes back to the NONET home instead, as
               // does a solve with no run in flight (shouldn't happen).
-              if (arcadeRun !== null && solveOutcome(arcadeRun) === 'INITIALS') {
+              const stage = arcadeRun !== null && arcadeRun.mode === 'CAMPAIGN' && arcadeRun.stage !== null ? stageById(arcadeRun.stage) : null;
+              if (arcadeRun !== null && stage !== null) {
+                // ⭐ S196 Option B — THE STAGE ARM. Not the last grid: the next one, same clock. The last:
+                // the stage is cleared — stars banked on this device, then initials → the stage's board.
+                const next = stageSolve(arcadeRun, stage.puzzles, performance.now());
+                if (next.phase === 'RUNNING') {
+                  arcadeNonet = makeArcadeNonet(stagePuzzleSeed(stage, next.puzzleIndex), stage.clues);
+                  arcadeRun = next;
+                } else {
+                  const got = stageStars(stage, next.finishedMs ?? Number.POSITIVE_INFINITY);
+                  if (got === 0) {
+                    // Solved, but past the clock (the per-frame check missed it by a frame): a fail.
+                    openNonetHome(`OUT OF TIME — stage ${stage.id}, try again`);
+                  } else {
+                    saveProgress(recordClear(loadProgress(), stage.id, got));
+                    arcadeRun = next;
+                  }
+                }
+              } else if (arcadeRun !== null && solveOutcome(arcadeRun) === 'INITIALS') {
                 // A DAILY counts as played the moment it is solved here — the grid has been seen.
                 const day = dayKeyOfBoard(arcadeRun.boardId ?? '');
                 if (day !== null) saveDailySolvedKey(day);
@@ -4367,6 +4395,21 @@ Network routes: ${v.detail}`;
     // from (run, gameState) sixty times a second.
     // ⭐ S196 — a ZEN run has no clock and no board, so the run overlay has nothing to draw for it.
     arcadeRunOverlay.render(arcadeRun !== null && arcadeRun.mode === 'ZEN' ? null : arcadeRun, performance.now(), world.gameState === 'TITLE');
+    // ⭐ S196 Option B — the stage strip over a campaign stage, and the stage clock: past it, the stage is
+    // failed and the player goes home to retry it (R196-D2 6d). Wall clock — the arcade is not the sim.
+    {
+      const run = arcadeRun;
+      const st = run !== null && run.mode === 'CAMPAIGN' && run.phase === 'RUNNING' && run.stage !== null && world.gameState === 'TITLE'
+        ? stageById(run.stage)
+        : null;
+      const nowMs = performance.now();
+      if (run !== null && st !== null && stageTimedOut(st, nowMs - run.startedAtMs)) {
+        nonetHome?.renderCampaignHud(null);
+        openNonetHome(`OUT OF TIME — stage ${st.id}, try again`);
+      } else {
+        nonetHome?.renderCampaignHud(run !== null && st !== null ? { stage: st, puzzleIndex: run.puzzleIndex, elapsedMs: nowMs - run.startedAtMs } : null);
+      }
+    }
     // S93 — realm-shift audio: rising edge → swap to the trial theme; falling edge → restore the
     // duel track. Edge-driven (the audio fns are idempotent). All modes: the host sets world.sudoku
     // locally; a 1v1 client receives it via NetSnapshot, so both peers hear the realm theme.

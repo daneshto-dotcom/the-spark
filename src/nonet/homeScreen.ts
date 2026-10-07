@@ -5,9 +5,10 @@
  * Owner, R194-25: NONET is its own game and gets a home screen. Before this, clicking NONET on the
  * ARCADE menu dropped you straight into a random grid with the clock running — "that drop-straight-in
  * is what you called wrong". Now the row opens THIS page, in the arcade's own skin (glowing title,
- * living backdrop, the kami as the hero), with five doors:
+ * living backdrop, the kami as the hero), with six doors:
  *
  *   PLAY    — the timed run, exactly as before (fresh grid, the `nonet` average board)
+ *   CAMPAIGN — (Option B, R196-D2) 3 bands × 10 stages, one board per stage (`nonet:s07`)
  *   DAILY   — one grid per UTC day, the same for everyone, its own board (`nonet:dYYYYMMDD`)
  *   ZEN     — no clock, no board
  *   RANKING — the boards you have put your name on (R182-G's reveal gate kept — `rankingView.ts`)
@@ -21,9 +22,10 @@
  *
  * ## ⭐ ONE MOUNT CALL — `mountNonetHome`
  *
- * `main.ts` lazy-imports this chunk and calls `mountNonetHome` once. Option B's campaign is a sixth row
- * in `NONET_HOME_DOORS` + an arm in `nonetModes.planLaunch`; Option C (its own `/nonet/` page) mounts
- * the same class into its own Pixi stage. Neither is built: both wait on the owner's answers.
+ * `main.ts` lazy-imports this chunk and calls `mountNonetHome` once. Option B's CAMPAIGN (R196-D2) is a
+ * row in `NONET_HOME_DOORS` + an arm in `nonetModes.planLaunch` + the stage/star strip + the campaign
+ * HUD this page owns; Option C (its own `/nonet/` page, not built) would mount the same class into its
+ * own Pixi stage.
  *
  * ## The hit-test is MECHANICAL (S182 rule 2)
  *
@@ -42,6 +44,9 @@ import { CANVAS_HEIGHT, CANVAS_WIDTH } from '../constants.ts';
 import type { NonetDoor } from './nonetModes.ts';
 import { formatDayKey, rankingPanels, type RankingPanel } from './rankingView.ts';
 import type { RankingEntry } from '../render/arcadeScores.ts';
+import { CAMPAIGN_STAGES, STAGES_PER_BAND, stageById } from './campaign.ts';
+import { FRESH_PROGRESS, currentStage, totalStars, type CampaignProgress } from './campaignProgress.ts';
+import { CampaignHud, type CampaignHudInfo } from './campaignHud.ts';
 
 /** NONET's accent — the violet of its arcade row (`ARCADE_GAMES` tint 0x9b7bff) and the kami's moss. */
 export const ACCENT_NONET: ScreenAccent = {
@@ -58,7 +63,7 @@ export const ACCENT_NONET: ScreenAccent = {
 };
 
 /** Every id the home's hit-test can answer. */
-export type NonetHomeId = 'play' | 'daily' | 'zen' | 'ranking' | 'back' | 'ranking-back';
+export type NonetHomeId = 'play' | 'campaign' | 'daily' | 'zen' | 'ranking' | 'back' | 'ranking-back';
 
 export interface NonetHomeRow {
   readonly id: NonetHomeId;
@@ -71,21 +76,29 @@ export interface NonetHomeRow {
 /** The doors on the home view, top to bottom. BACK is drawn smaller, below them. */
 export const NONET_HOME_DOORS: readonly { id: Exclude<NonetHomeId, 'back' | 'ranking-back'>; name: string; icon: SkinIconKind; tint: number }[] = [
   { id: 'play', name: 'PLAY', icon: 'play', tint: 0x9b7bff },
+  // ⭐ S196 Option B (R196-D2) — three bands × ten stages.
+  { id: 'campaign', name: 'CAMPAIGN', icon: 'book', tint: 0xff8a5a },
   { id: 'daily', name: 'DAILY', icon: 'globe', tint: 0xf2bf26 },
   { id: 'zen', name: 'ZEN', icon: 'grid', tint: 0x6fae5e },
   { id: 'ranking', name: 'RANKING', icon: 'star', tint: 0x3bd7ff },
 ];
 
 const COL_CX = 1180;
-const TITLE_Y = 200;
+const TITLE_Y = 190;
 const ROW_W = 560;
 const ROW_H = 78;
 const ROW_GAP = 16;
-const FIRST_ROW_Y = 320;
+const FIRST_ROW_Y = 340;
+/** ⭐ Option B — the 30-pip stage/star strip under the subtitle. */
+const STRIP_Y = 292;
+const PIP_W = 22;
+const PIP_H = 16;
+const PIP_GAP = 4;
+const BAND_GAP = 14;
 const BACK_W = 220;
 const BACK_H = 56;
 const HERO_X = 470;
-const HERO_Y = 600;
+const HERO_Y = 610;
 /** The kami is 512 px square; this puts it ~560 px tall, the page's hero. */
 const HERO_SCALE = 1.1;
 
@@ -113,7 +126,7 @@ export function nonetRankingGeoms(): { panels: { x: number; y: number; w: number
 }
 
 export interface NonetHomeHooks {
-  /** PLAY / DAILY / ZEN pressed — `main.ts` plans and mints the run (`nonetModes.planLaunch`). */
+  /** PLAY / CAMPAIGN / DAILY / ZEN pressed — `main.ts` plans and mints the run (`nonetModes.planLaunch`). */
   onDoor(door: NonetDoor): void;
   /** BACK (or ESC on the home view) — return to the ARCADE menu. */
   onBack(): void;
@@ -127,6 +140,19 @@ export interface NonetHomeContext {
   readonly dailySolvedKey: string | null;
   /** A one-line note (e.g. after a ZEN solve), or null. */
   readonly notice?: string | null;
+  /** ⭐ Option B — campaign progress on this device (`campaignProgress.loadProgress()`). */
+  readonly progress?: CampaignProgress;
+}
+
+/** PURE — the strip's 30 pips: x of each, centred on the door column, ten per band with a gap. */
+export function stripPipXs(): number[] {
+  const total = CAMPAIGN_STAGES.length * PIP_W + (CAMPAIGN_STAGES.length - 3) * PIP_GAP + 2 * BAND_GAP;
+  const x0 = COL_CX - total / 2;
+  return CAMPAIGN_STAGES.map((_, i) => {
+    const band = Math.floor(i / STAGES_PER_BAND);
+    const inBand = i % STAGES_PER_BAND;
+    return x0 + band * (STAGES_PER_BAND * PIP_W + (STAGES_PER_BAND - 1) * PIP_GAP + BAND_GAP) + inBand * (PIP_W + PIP_GAP);
+  });
 }
 
 export interface NonetHomeOpts {
@@ -142,6 +168,11 @@ export interface NonetHomeOpts {
 export function doorBlurb(id: NonetHomeId, ctx: NonetHomeContext): string {
   switch (id) {
     case 'play': return 'the timed run — a fresh grid, your average on the board';
+    case 'campaign': {
+      const p = ctx.progress ?? FRESH_PROGRESS;
+      const s = stageById(currentStage(p))!;
+      return `stage ${s.id} of 30 · ${s.clues} clues · ★ ${totalStars(p)}/90 on this device`;
+    }
     case 'daily':
       return ctx.dailySolvedKey === ctx.todayKey
         ? 'solved today ✓ — replay it untimed, unranked'
@@ -163,6 +194,10 @@ export class NonetHome {
   private readonly notice: Text;
   private readonly texts: Text[] = [];
   private readonly backdrop: LazyScreenBackdrop | null;
+  /** ⭐ Option B — the stage/star strip, redrawn on every `show`. */
+  private readonly strip = new Graphics();
+  /** ⭐ Option B — the campaign strip over a stage (lives outside the page: it shows while the page is hidden). */
+  private readonly hud: CampaignHud;
   private hero: Sprite | null = null;
   private heroLoading = false;
   private open = false;
@@ -198,6 +233,7 @@ export class NonetHome {
     const lastRow = nonetHomeGeoms()[nonetHomeGeoms().length - 1]!;
     this.notice.position.set(COL_CX, lastRow.y + lastRow.h + 44);
     parent.addChild(this.container);
+    this.hud = new CampaignHud(parent);
   }
 
   show(ctx: NonetHomeContext): void {
@@ -210,6 +246,7 @@ export class NonetHome {
       fitTextToWidth(t, ROW_W - 88);
     }
     this.notice.text = ctx.notice ?? '';
+    this.drawStrip(ctx.progress ?? FRESH_PROGRESS);
     this.backdrop?.setShown(true);
     this.loadHero();
     // Re-add on top of whatever was constructed later (the S149 arcade z-order lesson).
@@ -251,6 +288,7 @@ export class NonetHome {
     if (!this.open) return;
     switch (id) {
       case 'play': this.hooks.onDoor('PLAY'); return;
+      case 'campaign': this.hooks.onDoor('CAMPAIGN'); return;
       case 'daily': this.hooks.onDoor('DAILY'); return;
       case 'zen': this.hooks.onDoor('ZEN'); return;
       case 'ranking': this.setView('ranking'); return;
@@ -274,6 +312,31 @@ export class NonetHome {
     this.container.destroy({ children: true });
   }
 
+  /** ⭐ Option B — every frame from `main.ts`: the campaign strip over a stage, or `null`. */
+  renderCampaignHud(info: CampaignHudInfo | null): void {
+    this.hud.render(info);
+  }
+
+  campaignHudPoints(): { visible: boolean; top: string; bottom: string } {
+    return this.hud.getUiPoints();
+  }
+
+  /** The 30 pips: locked dim, unlocked outlined, cleared gold by stars, the current stage ringed. */
+  private drawStrip(p: CampaignProgress): void {
+    const g = this.strip;
+    g.clear();
+    const xs = stripPipXs();
+    const cur = currentStage(p);
+    for (const [i, x] of xs.entries()) {
+      const id = i + 1;
+      const st = p.stars[i] ?? 0;
+      if (st > 0) g.roundRect(x, STRIP_Y, PIP_W, PIP_H, 4).fill({ color: 0xffd60a, alpha: [0, 0.45, 0.72, 1][st] ?? 1 });
+      else if (id <= p.unlocked) g.roundRect(x, STRIP_Y, PIP_W, PIP_H, 4).fill({ color: 0x9b7bff, alpha: 0.18 }).stroke({ width: 1.5, color: 0x9b7bff, alpha: 0.8 });
+      else g.roundRect(x, STRIP_Y, PIP_W, PIP_H, 4).fill({ color: 0x2a2f3a, alpha: 0.7 });
+      if (id === cur) g.roundRect(x - 3, STRIP_Y - 3, PIP_W + 6, PIP_H + 6, 6).stroke({ width: 2, color: 0xffffff, alpha: 0.9 });
+    }
+  }
+
   private setView(v: 'home' | 'ranking'): void {
     this.viewName = v;
     this.homeLayer.visible = v === 'home';
@@ -295,6 +358,8 @@ export class NonetHome {
     glow.ellipse(HERO_X, HERO_Y + 300, 230, 34).fill({ color: 0x000000, alpha: 0.35 });
     glow.eventMode = 'none';
     this.homeLayer.addChild(glow);
+    this.strip.eventMode = 'none';
+    this.homeLayer.addChild(this.strip);
 
     const geoms = nonetHomeGeoms();
     for (const [i, d] of NONET_HOME_DOORS.entries()) {
@@ -365,7 +430,7 @@ export class NonetHome {
         s.scale.set(HERO_SCALE);
         s.position.set(HERO_X, HERO_Y);
         s.eventMode = 'none';
-        this.homeLayer.addChildAt(s, 3); // above the glow pool, below every button
+        this.homeLayer.addChildAt(s, 3); // above the glow pool (and below the strip and every button)
         this.hero = s;
       })
       .catch(() => { this.heroLoading = false; });

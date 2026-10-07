@@ -56,7 +56,14 @@ export function isDayKey(key: string): boolean {
 export const DAILY_SEED_SALT = 'spark-nonet-daily-v1:';
 
 export function dailySeed(dayKey: string): number {
-  const s = DAILY_SEED_SALT + dayKey;
+  return dailySeedHash(DAILY_SEED_SALT + dayKey);
+}
+
+/**
+ * PURE — the string hash under every fixed NONET seed (the daily's, and the campaign's stage seeds in
+ * `campaign.ts`): FNV-1a, then the murmur3 finaliser. Unsigned 32-bit.
+ */
+export function dailySeedHash(s: string): number {
   let h = 0x811c9dc5;
   for (let i = 0; i < s.length; i++) {
     h ^= s.charCodeAt(i);

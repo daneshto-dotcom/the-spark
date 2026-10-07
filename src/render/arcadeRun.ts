@@ -58,7 +58,7 @@ export type ArcadeRunPhase = 'RUNNING' | 'ENTER_INITIALS' | 'RECAP' | 'BOARD';
  * `ZEN` — no clock, no board. ⛔ A ZEN run can never reach a submission: `finishRun` keeps it RUNNING
  * (the caller returns to the NONET home instead), and `beginSubmit` / `submitRun` refuse it outright.
  */
-export type ArcadeRunMode = 'PLAY' | 'DAILY' | 'ZEN';
+export type ArcadeRunMode = 'PLAY' | 'DAILY' | 'ZEN' | 'CAMPAIGN';
 
 export interface ArcadeRun {
   readonly phase: ArcadeRunPhase;
@@ -87,6 +87,10 @@ export interface ArcadeRun {
    * `null` for ZEN — and only for ZEN.
    */
   readonly boardId: string | null;
+  /** ⭐ S196 Option B — the campaign stage id (1..30), `null` for every other mode. */
+  readonly stage: number | null;
+  /** ⭐ S196 Option B — which puzzle of the stage is on screen (0-based). Always 0 outside CAMPAIGN. */
+  readonly puzzleIndex: number;
 }
 
 /**
@@ -97,6 +101,8 @@ export function startRun(nowMs: number, mode: ArcadeRunMode = 'PLAY', boardId: s
   return {
     mode,
     boardId: mode === 'ZEN' ? null : boardId,
+    stage: null,
+    puzzleIndex: 0,
     phase: 'RUNNING',
     startedAtMs: nowMs,
     finishedMs: null,
@@ -106,6 +112,31 @@ export function startRun(nowMs: number, mode: ArcadeRunMode = 'PLAY', boardId: s
     recapStartedMs: null,
     submitting: false,
   };
+}
+
+/**
+ * ⭐ S196 Option B — a campaign stage, clock started. ONE clock for the whole stage, across all of its
+ * puzzles (R196-D2 6d), filed to the stage's own board (`nonet:s07`).
+ */
+export function startStageRun(nowMs: number, stage: number, boardId: string): ArcadeRun {
+  return { ...startRun(nowMs, 'CAMPAIGN', boardId), stage, puzzleIndex: 0 };
+}
+
+/**
+ * ⭐ S196 Option B — **THE STAGE ARM: a solved grid either brings the NEXT puzzle or CLEARS the stage.**
+ *
+ * Before this, RUNNING had exactly one exit (`finishRun` → ENTER_INITIALS). A campaign stage of
+ * `puzzles` grids stays RUNNING with the SAME clock and the next `puzzleIndex` until its last grid is
+ * solved; that last solve is the stage clear, and it is `finishRun` — the clock freezes and the run goes
+ * to the initials screen and the stage's board exactly like a timed run (R182-G order kept).
+ *
+ * Any other mode, or a run not RUNNING, is handed to `finishRun` unchanged — so PLAY / DAILY / ZEN
+ * behave exactly as before whichever function the caller uses.
+ */
+export function stageSolve(run: ArcadeRun, puzzlesInStage: number, nowMs: number): ArcadeRun {
+  if (run.mode !== 'CAMPAIGN' || run.phase !== 'RUNNING') return finishRun(run, nowMs);
+  if (run.puzzleIndex + 1 < puzzlesInStage) return { ...run, puzzleIndex: run.puzzleIndex + 1 };
+  return finishRun(run, nowMs);
 }
 
 /**
