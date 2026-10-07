@@ -37,7 +37,9 @@ const FX = TIERS ?? (process.env.SPARK_LAG_FX ?? 'high,low,legacy').split(',');
 const JOINER_URL = process.env.SPARK_LAG_JOINER_URL ?? '/';
 const PROFILE = process.env.SPARK_LAG_PROFILE === '1';
 const WARM_MS = 3000;
-const MEASURE_MS = 8000;
+const MEASURE_MS = Number(process.env.SPARK_LAG_MEASURE_MS ?? 8000);
+/** S196 joiner-lag — keep the fog ON (a real joiner draws it; S195 measured with it off). */
+const FOG = process.env.SPARK_LAG_FOG === '1';
 
 interface Row {
   project: string; wave: number; throttle: number; fx: string; snapKiB: number; injected: number;
@@ -100,6 +102,8 @@ async function installInjector(page: Page): Promise<void> {
       }
       orig(d, p, s);
     };
+    const lt = ((window as unknown as { __lagLong: { n: number; ms: number } }).__lagLong = { n: 0, ms: 0 });
+    try { new PerformanceObserver((l) => { for (const e of l.getEntries()) { lt.n++; lt.ms += e.duration; } }).observe({ type: 'longtask', buffered: false }); } catch { /* unsupported */ }
     let last = performance.now();
     const loop = (now: number): void => { lag.raf.push(now - last); last = now; if (lag.raf.length > 2000) lag.raf.shift(); requestAnimationFrame(loop); };
     requestAnimationFrame(loop);
@@ -159,7 +163,7 @@ test('S195 N9 — joiner cost of a wave-N board, replayed at 10 Hz', async ({ br
   test.skip(!existsSync(join(DIR, `burst-${LABEL}-w${WAVES[0]}.json`)), `run the Node instrument first (${DIR})`);
   const hostCtx = await browser.newContext();
   const joinCtx = await browser.newContext();
-  for (const c of [hostCtx, joinCtx]) await c.addInitScript(() => { (window as { __FOG_DISABLE__?: boolean }).__FOG_DISABLE__ = true; });
+  if (!FOG) for (const c of [hostCtx, joinCtx]) await c.addInitScript(() => { (window as { __FOG_DISABLE__?: boolean }).__FOG_DISABLE__ = true; });
   const host = await hostCtx.newPage();
   const joiner = await joinCtx.newPage();
   const rows: Row[] = [];
@@ -206,7 +210,7 @@ test('S195 N9 — joiner cost of a wave-N board, replayed at 10 Hz', async ({ br
           await cdp.send('Emulation.setCPUThrottlingRate', { rate: thr });
           await startInjection(joiner);
           await joiner.waitForTimeout(WARM_MS);
-          await joiner.evaluate(() => { const l = (window as unknown as { __lag: { handle: number[]; raf: number[] } }).__lag; l.handle = []; l.raf = []; });
+          await joiner.evaluate(() => { const l = (window as unknown as { __lag: { handle: number[]; raf: number[] } }).__lag; l.handle = []; l.raf = []; const lt = (window as unknown as { __lagLong: { n: number; ms: number } }).__lagLong; lt.n = 0; lt.ms = 0; });
           const f0 = await joiner.evaluate(() => (window as unknown as { __SPARK__: { frameMs: readonly number[] } }).__SPARK__.frameMs.length);
           void f0;
           const readStats = async (): Promise<{ frames: number; buckets: number; redraws: number; tier?: string; stored?: string | null; urls?: string }> => joiner.evaluate(async () => {
@@ -227,7 +231,8 @@ ${topSelf(profile, 30)}`);
           const got = await joiner.evaluate(() => {
             const g = window as unknown as { __lag: { handle: number[]; raf: number[] }; __SPARK__: { frameMs: readonly number[]; world: { creatures: Map<unknown, unknown>; primitives: Map<unknown, unknown>; bonds: Map<unknown, unknown>; effects: unknown[] } } };
             const w = g.__SPARK__.world;
-            return { handle: [...g.__lag.handle], raf: [...g.__lag.raf], frame: [...g.__SPARK__.frameMs].slice(-240),
+            const lt = (window as unknown as { __lagLong: { n: number; ms: number } }).__lagLong;
+            return { longTasks: lt.n, longTaskMs: Math.round(lt.ms), handle: [...g.__lag.handle], raf: [...g.__lag.raf], frame: [...g.__SPARK__.frameMs].slice(-600),
               counts: { creatures: w.creatures.size, primitives: w.primitives.size, bonds: w.bonds.size } };
           });
           const st1 = await readStats();
@@ -257,7 +262,7 @@ ${topSelf(profile, 30)}`);
             throw new Error(`injected board NOT applied: page has ${got.counts.primitives} primitives, recording has ${want}`);
           }
           rows.push(row);
-          console.log(`${row.project} w${wave} ${fx.padEnd(6)} ${thr}x  snap ${row.snapKiB} KiB  handle ${row.handleMsMed}/${row.handleMsP95} ms  frame ${row.frameMsMed}/${row.frameMsP95} ms  fps ${row.fpsMed} (p5 ${row.fpsP5})  long>50ms ${row.longFrames}  injected ${row.injected}  | ${cacheLine} | idle fps ${row.idleFpsMed} (p5 ${row.idleFpsP5}) frame ${row.idleFrameMsMed}  ${JSON.stringify(row.counts)}`);
+          console.log(`${row.project} w${wave} ${fx.padEnd(6)} ${thr}x  snap ${row.snapKiB} KiB  handle ${row.handleMsMed}/${row.handleMsP95} ms  frame ${row.frameMsMed}/${row.frameMsP95} ms  fps ${row.fpsMed} (p5 ${row.fpsP5})  long>50ms ${row.longFrames}  longtasks ${got.longTasks} (${got.longTaskMs} ms)  injected ${row.injected}  | ${cacheLine} | idle fps ${row.idleFpsMed} (p5 ${row.idleFpsP5}) frame ${row.idleFrameMsMed}  ${JSON.stringify(row.counts)}`);
           writeFileSync(join(DIR, `joiner-${info.project.name}-${LABEL}.json`), JSON.stringify({ renderer, rows }, null, 1));
         }
       }

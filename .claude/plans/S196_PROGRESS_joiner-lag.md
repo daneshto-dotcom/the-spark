@@ -1,7 +1,7 @@
 # S196 PROGRESS — s196/joiner-lag
 
 ## ⏭ NEXT STEP
-npm install; then re-use scripts/lag/joiner-replay.spec.ts (S195 harness) with a CPU profile capture per tier (HIGH/LOW/MINIMAL) at waves 5/10, 4x and 6x.
+Baseline profile running: SPARK_LAG_FOG=1 SPARK_LAG_TIERS=HIGH,LOW,MINIMAL waves 5,10 throttles 4,6 PROFILE=1 -> .tmp-gates/prof-base.log. Then read top-self tables, fill the WHERE table, pick fixes.
 
 ## WHERE THE JOINER'S TIME GOES
 (pending)
