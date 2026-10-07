@@ -21,11 +21,26 @@ const ORIGIN = 'https://spark-online.space';
 const SALT = 'x'.repeat(32);
 
 /** An in-memory stand-in for the D1 binding, dispatching on the SQL it is handed. */
-function makeDb(seed: Array<{ name: string; runs: number; total_ms: number }> = []) {
+function makeDb(seed: Array<{ name: string; runs: number; total_ms: number }> = [], rendezvous = 0) {
   const players = new Map(seed.map((p) => [p.name, { ...p }]));
   const writes: Array<{ ip_hash: string; created: number }> = [];
   const boards = new Set(['nonet']);
   const seenRuns = new Set();
+  /*
+   * ⭐ S196 MED-A — a RENDEZVOUS for concurrency tests: the first `rendezvous` statements that touch
+   * `seen_runs` all wait until every one of them has arrived, so N concurrent requests reach the
+   * idempotency check TOGETHER — the interleaving a real D1 can produce and a run-to-completion fake
+   * otherwise never does. 0 = off.
+   */
+  let arrived = 0;
+  let release: () => void = () => {};
+  const gate = new Promise<void>((r) => { release = r; });
+  const meet = async (sql: string): Promise<void> => {
+    if (rendezvous === 0 || !sql.includes('seen_runs') || sql.startsWith('DELETE') || arrived >= rendezvous) return;
+    arrived++;
+    if (arrived === rendezvous) release();
+    await gate;
+  };
 
   const stmt = (sql: string) => {
     let args: unknown[] = [];
@@ -53,6 +68,7 @@ function makeDb(seed: Array<{ name: string; runs: number; total_ms: number }> = 
         return null;
       },
       async all() {
+        await meet(sql);
         if (sql.includes('FROM players WHERE board = ?1')) return { results: [...players.values()] };
         if (sql.includes('FROM seen_runs WHERE id IN')) {
           return { results: args.filter((a) => seenRuns.has(String(a))).map((id) => ({ id })) };
@@ -60,6 +76,7 @@ function makeDb(seed: Array<{ name: string; runs: number; total_ms: number }> = 
         return { results: [] };
       },
       async run() {
+        await meet(sql);
         if (sql.startsWith('INSERT INTO writes')) writes.push({ ip_hash: String(args[0]), created: Number(args[1]) });
         else if (sql.startsWith('DELETE FROM writes')) {
           const cutoff = Number(args[0]);
@@ -67,7 +84,11 @@ function makeDb(seed: Array<{ name: string; runs: number; total_ms: number }> = 
         } else if (sql.startsWith('INSERT OR IGNORE INTO boards')) {
           boards.add(String(args[0])); // S196 — a daily board registering itself
         } else if (sql.startsWith('INSERT OR IGNORE INTO seen_runs')) {
-          seenRuns.add(String(args[0]));
+          // ⭐ S196 MED-A — modelled FAITHFULLY: `changes` is 1 only for the statement that inserted.
+          const id = String(args[0]);
+          const changes = seenRuns.has(id) ? 0 : 1;
+          seenRuns.add(id);
+          return { success: true, meta: { changes } };
         } else if (sql.startsWith('DELETE FROM seen_runs')) {
           /* aged out by time; nothing to model here */
         } else if (sql.includes('INSERT INTO players')) {
@@ -434,5 +455,34 @@ describe('S196 #16 Option B — the 30 campaign stage boards register themselves
     expect(ok.db._boards.has('nonet:s07')).toBe(true);
     const bad = await call({ origin: ORIGIN, path: '/board/nonet:s31', body: { runs: [{ name: 'DAN', ms: 60_000 }] } });
     expect(bad.res.status).toBe(404);
+  });
+});
+
+describe('S196 MED-A — the run-id claim is ATOMIC: two concurrent requests fold a run exactly once', () => {
+  it('[r1, new] and [r1] in flight together → r1 folded ONCE, new folded once', async () => {
+    const db = makeDb([], 2);
+    const [a, b] = await Promise.all([
+      call({ origin: ORIGIN, body: { runs: [{ name: 'DAN', ms: 60_000, id: 'r1' }, { name: 'DAN', ms: 80_000, id: 'n1' }], focus: 'DAN' } }, db),
+      call({ origin: ORIGIN, body: { runs: [{ name: 'DAN', ms: 60_000, id: 'r1' }], focus: 'DAN' } }, db),
+    ]);
+    expect(a.res.status).toBe(200);
+    expect(b.res.status).toBe(200);
+    expect(db._players.get('DAN')).toMatchObject({ runs: 2, total_ms: 140_000 });
+    expect(a.body.duplicates + b.body.duplicates).toBe(1);
+  });
+
+  it('five concurrent copies of one run → folded once', async () => {
+    const db = makeDb([], 5);
+    await Promise.all(Array.from({ length: 5 }, () => call({ origin: ORIGIN, body: { runs: [{ name: 'EVE', ms: 50_000, id: 'same' }] } }, db)));
+    expect(db._players.get('EVE')?.runs).toBe(1);
+  });
+
+  it('negative control: runs WITHOUT an id are still folded every time (old clients)', async () => {
+    const db = makeDb();
+    await Promise.all([
+      call({ origin: ORIGIN, body: { runs: [{ name: 'OLD', ms: 50_000 }] } }, db),
+      call({ origin: ORIGIN, body: { runs: [{ name: 'OLD', ms: 50_000 }] } }, db),
+    ]);
+    expect(db._players.get('OLD')?.runs).toBe(2);
   });
 });

@@ -447,40 +447,48 @@ async function handle(request, env, origin) {
    * send one — refusing them would break the endpoint for callers that are not broken. They simply do
    * not get the protection, which is exactly where they were before.
    *
-   * ⚠ AND THIS IS NOT A TRANSACTION. Two genuinely concurrent requests carrying the same id could
-   * both read "not seen" and both fold. That race is not the one being defended against: a retry is
-   * sequential by construction — the client only retries after its own request has ended. Closing the
-   * concurrent case would need `INSERT OR IGNORE` per run and a read of `meta.changes`, i.e. a round
-   * trip per run instead of one for the batch.
+   * ⛔⛔ S196 MED-A — AND THE CLAIM IS NOW ATOMIC, BECAUSE CONCURRENT REQUESTS ARE NOW REAL.
+   *
+   * This used to be read-then-write (`SELECT … FROM seen_runs`, then fold + mark in a batch) and said
+   * so: two concurrent requests with the same id could both read "not seen" and both fold, which was
+   * accepted because "a retry is sequential by construction". S196 broke that assumption — the NONET
+   * home flushes every board's queue when it opens, so a queued run can ride a flush AND an in-flight
+   * submit at the same time. (The client now refuses to do that too — `RemoteLeaderboard`'s per-board
+   * in-flight set — but the server is the root: a second client, a second tab, must not double-count.)
+   *
+   * So each id is CLAIMED with one `INSERT OR IGNORE` — a single SQLite statement, atomic on the
+   * primary key — and the run is folded ONLY when that statement reports `meta.changes === 1`. Of two
+   * racing requests exactly one sees a change; the other counts it as a duplicate. One round trip per
+   * id-carrying run (≤ MAX_RUNS_PER_REQUEST), the cost the old comment named.
+   *
+   * ⚠ THE CLAIM COMES BEFORE THE FOLD, so a fold that fails after its claim DROPS that run rather than
+   * risking it twice — the same trade `PENDING_MAX_AGE_MS` makes (canon §9): a dropped run skews an
+   * average by a fraction, a double-counted one skews it forever. The 24 h TTL is unchanged — an id
+   * still present in `seen_runs` (not yet pruned) is ignored exactly as the old SELECT treated it.
    */
-  const ids = runs.map((r) => r.id).filter((id) => id !== null);
-  const seen = new Set();
-  if (ids.length > 0) {
-    const { results } = await env.DB.prepare(
-      `SELECT id FROM seen_runs WHERE id IN (${ids.map((_, i) => `?${i + 1}`).join(', ')})`,
-    )
-      .bind(...ids)
-      .all();
-    for (const row of results ?? []) seen.add(String(row.id));
+  const foldable = [];
+  for (const r of runs) {
+    if (r.id === null) {
+      foldable.push(r);
+      continue;
+    }
+    const claim = await env.DB.prepare('INSERT OR IGNORE INTO seen_runs (id, created) VALUES (?1, ?2)')
+      .bind(r.id, now)
+      .run();
+    if (Number(claim?.meta?.changes ?? 0) === 1) foldable.push(r);
   }
-  const foldable = runs.filter((r) => r.id === null || !seen.has(r.id));
   const duplicates = runs.length - foldable.length;
 
   if (foldable.length > 0) {
-    await env.DB.batch([
-      ...foldable.map((r) =>
+    await env.DB.batch(
+      foldable.map((r) =>
         env.DB.prepare(
           `INSERT INTO players (board, name, runs, total_ms, updated) VALUES (?1, ?2, 1, ?3, ?4)
            ON CONFLICT(board, name) DO UPDATE SET
              runs = runs + 1, total_ms = total_ms + ?3, updated = ?4`,
         ).bind(board, r.name, r.ms, now),
       ),
-      ...foldable
-        .filter((r) => r.id !== null)
-        .map((r) =>
-          env.DB.prepare('INSERT OR IGNORE INTO seen_runs (id, created) VALUES (?1, ?2)').bind(r.id, now),
-        ),
-    ]);
+    );
   }
 
   // Age out spent rate-limit markers. Bounded, cheap, and the only thing a limiter may forget.
