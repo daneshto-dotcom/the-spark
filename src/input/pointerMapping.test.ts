@@ -77,7 +77,8 @@ function realEventSystem(rect: ClientRectLike, dpr: number): { app: PointerMappe
 
 /** Drive Pixi's OWN normalisation path (public `normalizeWheelEvent` → `this.mapPositionToPoint`). */
 function pixiGlobal(es: EventSystem, x: number, y: number): { x: number; y: number } {
-  const ev = es.normalizeWheelEvent({ clientX: x, clientY: y, deltaX: 0, deltaY: 0, deltaZ: 0, deltaMode: 0, type: 'wheel' } as WheelEvent);
+  // `normalizeWheelEvent` is protected in the .d.ts and public at runtime — it is Pixi's own normalisation path.
+  const ev = (es as unknown as { normalizeWheelEvent(e: WheelEvent): { global: { x: number; y: number } } }).normalizeWheelEvent({ clientX: x, clientY: y, deltaX: 0, deltaY: 0, deltaZ: 0, deltaMode: 0, type: 'wheel' } as WheelEvent);
   return { x: ev.global.x, y: ev.global.y };
 }
 
