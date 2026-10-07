@@ -44,6 +44,26 @@
  * failed even WITH the abort), and every announce in that window hits the early-return. NOT observed here, NOT
  * ruled out for production. Owed reproduction (desktop, live-mp harness): block UDP on one side instead of
  * `pc.close()`, and read the host's signal-handler path for the joiner's first announces.
+ *
+ * ⛔ S196 (net-blip) — THE SILENT DROP, REPRODUCED AND FIXED (this spec's own `pc.close()` blip is unchanged).
+ * Harness: `scripts/live-mp/live-silent-blip.mjs` + `udp-blackhole.mjs` — the joiner's ICE forced through a local UDP
+ * relay that goes DARK (every packet dropped, nothing closed, no SCTP abort; both channels stay `open` until ICE consent
+ * notices: `disconnected` at +5.5..8.6 s). Measured on the desktop (local Nostr relay, nostr only):
+ *   · outage shorter than Trystero's close (8 / 12.5 / 13 s): ICE self-heals, no leave, back at +10..14 s.
+ *   · outage longer than both closes (20 / 40 s): both sides leave, the rejoin handshakes fresh, back ~10-14 s after
+ *     the network returns (+37.7 / +52.8 s).
+ *   · ⛔ outage ending BETWEEN the two sides' 5 s closes: a PERMANENT SPLIT, 4 times pre-fix (12 s sweep, r1, B2 #1/#3;
+ *     ~19 % of runs lit at the first side's drop), both directions. Trystero's close only DETACHES the peer
+ *     (`shared-peer.mjs` `destroyPeer: false`, `room.mjs` `exitPeer`), so the dropped side's RTCPeerConnection lives
+ *     on, reconnects ICE, answers consent and keeps the other side's channel `open` — that side reads its peer `live`
+ *     forever. T8's suspect is real in exactly this shape: relay trace r1 = 24 offers from the rejoining joiner
+ *     DELIVERED to the host, ZERO answers (`signal-handler.mjs` early return on a live `connectedPeer`). Joiner-side
+ *     split: RECONNECTING then TERMINAL at 3 min while the host never notices; host-side split: host terminal, the
+ *     joiner plays a dead board with NO overlay.
+ *   FIX (`transport.ts` `shouldCloseDroppedPeerConnection`): when Trystero drops a peer whose connection reads dead,
+ *   the transport closes it — the far side then leaves too (abort, or consent failure + its own close). After the fix:
+ *   12 runs, 0 splits (6 lit at the first drop + 6 with one side's close stretched to 9 s, which pre-fix splits — see
+ *   the S196 progress file for the per-run numbers).
  */
 import { test, expect } from '@playwright/test';
 import { canvasToCss, hostNewRoom, joinRoom, readWorldState, waitForWorld } from './helpers.ts';
