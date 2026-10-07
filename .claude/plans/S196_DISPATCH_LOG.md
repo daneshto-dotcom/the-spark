@@ -47,3 +47,4 @@
 - R196-Q1 → s196/queue-edit opened. R196-N2 overnight: land + deploy everything proven. R196-H2: ws2 host zero lag.
 - 20:01 context 668572 — 30-min check cron scheduled (:07/:37, R196-C1); hourly resume cron replaced. queue-edit dispatched.
 - boss-release audit FIX FIRST: HIGH-1 joiner clock step-back wipes the release (tracker re-primes on any backwards step); SAME pattern live in tower-fx trackBirths (spawnerZoneRenderer ~:377) → joiners lose birth flares → both sent to the boss-release builder as one fix round (same file). LOW-1 Endless Dynasty false release near keep. Entry headroom 75 KiB.
+- FINDING (not SPARK, not touched): pid 20368 = Founder DNA brain-search (uvicorn app.main:app :8090, started 15:50) at ~107,900 CPU-s (~6 cores continuous) — likely contributed to the dev-box lag the owner felt. Owner to look (other project, R196-X1).
