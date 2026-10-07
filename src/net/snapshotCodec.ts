@@ -432,6 +432,15 @@ export const HOST_RING = 32;
 /** Frames a JOINER remembers per sender. Larger than HOST_RING, so an ack the host can use is held. */
 export const JOINER_RING = 64;
 
+/**
+ * ⚠ MINE (S196 joiner-desync audit MED-1) — the most frames one sender may have INFLATING at once on a receiver.
+ * Inflates start on arrival (concurrently, the lag fix), so without a cap a burst of tiny deflate bombs would all
+ * expand at once — up to MAX_INFLATED_BYTES each. Beyond the cap only the NEWEST not-yet-started frame is held;
+ * the rest are superseded unread. 4 × 2 MiB bounds the worst case at 8 MiB per sender; a healthy 10 Hz stream on
+ * a slow joiner measured ≤ ~2 in flight once arrivals are coalesced, so 4 never throttles a real host.
+ */
+export const MAX_INFLATING_PER_SENDER = 4;
+
 /** ⚠ MINE — the fastest a joiner re-asks one sender for a keyframe while it has no usable base. */
 export const KEY_REQUEST_MIN_MS = 500;
 

@@ -78,6 +78,7 @@ import {
   segmentsToText,
   unpackFrame,
   type Segments,
+  MAX_INFLATING_PER_SENDER,
 } from './snapshotCodec.ts';
 
 export { classifyJoinError };
@@ -152,6 +153,10 @@ interface RxPeer {
   readonly queue: RxEntry[];
   /** ⭐ S196 — `snapFramesSettled` waiters, resolved when `queue` empties. */
   readonly idle: Array<() => void>;
+  /** ⭐ S196 audit MED-1 — inflates in flight for this sender (≤ MAX_INFLATING_PER_SENDER). */
+  inflating: number;
+  /** ⭐ S196 audit MED-1 — the newest frame that arrived while the cap was full, not yet started. */
+  held: { readonly data: Uint8Array; readonly strategyName: StrategyName } | null;
   lastKeyRequestMs: number;
 }
 
@@ -168,6 +173,10 @@ export interface SnapRxStats {
   superseded: number;
   failed: number;
   maxQueue: number;
+  /** ⭐ S196 audit MED-1 — frames refused BEFORE inflating: the sender is not the snapshot authority. */
+  refused: number;
+  /** ⭐ S196 audit MED-1 — the most inflates ever in flight at once for one sender. */
+  maxInflating: number;
 }
 
 /** ⭐ S196 (joiner-desync) — what the host's encoder sent, one count per receiving-peer frame. */
@@ -434,7 +443,7 @@ export class NetTransport {
   private readonly encodeMemo = new Map<string, Promise<Uint8Array>>();
   /** ⭐ S195 — joiner side: per sender, the frames rebuilt from its deltas. */
   private readonly rxPeers = new Map<string, RxPeer>();
-  private readonly rxStats: SnapRxStats = { arrived: 0, applied: 0, keyframes: 0, deltas: 0, superseded: 0, failed: 0, maxQueue: 0 };
+  private readonly rxStats: SnapRxStats = { arrived: 0, applied: 0, keyframes: 0, deltas: 0, superseded: 0, failed: 0, maxQueue: 0, refused: 0, maxInflating: 0 };
   private readonly txStats: SnapTxStats = { keyframes: 0, deltas: 0, staleAcks: 0 };
   /** ⭐ S196 — the receive pipeline's counters (a copy). */
   snapRxStats(): SnapRxStats {
@@ -1344,16 +1353,37 @@ export class NetTransport {
     this.lastRxAtMs.set(peerId, now);
     if (!(data instanceof Uint8Array)) return;
     if (netStats.isEnabled()) netStats.recordReceive(data.byteLength, now);
+    /*
+     * ⛔ S196 audit MED-1 — ONLY THE SNAPSHOT AUTHORITY IS EVER INFLATED. Any room peer can send on `snap`; a
+     * non-authority's frame could never be applied (`hostAuthFilter` drops its NETSNAPSHOT, and R1 keeps it out
+     * of the bases), so inflating it only hands a stranger our memory. Refused before a single byte expands. On
+     * the HOST (`session.hostPeerId` null) nobody is the authority, so a host inflates nothing.
+     */
+    if (this.isSnapshotAuthority !== null && !this.isSnapshotAuthority(peerId)) {
+      this.rxStats.refused++;
+      return;
+    }
     let rx = this.rxPeers.get(peerId);
     if (rx === undefined) {
-      rx = { ring: new Map(), lastFid: 0, queue: [], idle: [], lastKeyRequestMs: -Infinity };
+      rx = { ring: new Map(), lastFid: 0, queue: [], idle: [], lastKeyRequestMs: -Infinity, inflating: 0, held: null };
       this.rxPeers.set(peerId, rx);
     }
-    const r = rx;
-    const gen = this.connectGen;
+    this.rxStats.arrived++;
+    // ⛔ S196 audit MED-1 — at most MAX_INFLATING_PER_SENDER inflates at once; beyond that only the NEWEST
+    // waits (latest wins — an older held frame is superseded unread), and it starts when one finishes.
+    if (rx.inflating >= MAX_INFLATING_PER_SENDER) {
+      if (rx.held !== null) this.rxStats.superseded++;
+      rx.held = { data, strategyName };
+      return;
+    }
+    this.startInflate(peerId, rx, data, strategyName, this.connectGen);
+  }
+
+  private startInflate(peerId: string, r: RxPeer, data: Uint8Array, strategyName: StrategyName, gen: number): void {
     const entry: RxEntry = { strategyName, done: false, text: null, err: null };
     r.queue.push(entry);
-    this.rxStats.arrived++;
+    r.inflating++;
+    if (r.inflating > this.rxStats.maxInflating) this.rxStats.maxInflating = r.inflating;
     if (r.queue.length > this.rxStats.maxQueue) this.rxStats.maxQueue = r.queue.length;
     // `done` is set in the SAME callback as the text, and the drain runs one step later: frames whose inflates
     // finish in the same main-thread turn are therefore ALL done before the first drain looks, and only the
@@ -1369,7 +1399,16 @@ export class NetTransport {
           entry.done = true;
         },
       )
-      .then(() => this.drainSnapFrames(peerId, r, gen))
+      .then(() => {
+        r.inflating--;
+        // The held frame starts BEFORE the drain, so its entry is queued and `snapFramesSettled` waits for it.
+        const held = r.held;
+        r.held = null;
+        if (held !== null && this.connectGen === gen && this.rxPeers.get(peerId) === r) {
+          this.startInflate(peerId, r, held.data, held.strategyName, gen);
+        }
+        this.drainSnapFrames(peerId, r, gen);
+      })
       .catch((err: unknown) => {
         // ⛔ S195 re-audit R2(b) — console ONLY: a throwing `onError` (a UI callback) must never be reachable
         // from here. `drainSnapFrames` already guards each frame; this is the last line.
@@ -1393,19 +1432,26 @@ export class NetTransport {
    * ⭐ S196 — which queued frame this joiner should apply NOW, or -1 to wait: the NEWEST inflated frame it can
    * rebuild (newer than the last applied, and a keyframe or a delta on a held base). Pure; static so the
    * decision is unit-tested on its own (`snapshotCodec.backlog.test.ts`).
+   * ⛔ S196 audit LOW-2 — "newest" is the HIGHEST FRAME ID, not the latest arrival: two strategies (or a route
+   * switch) can deliver [10, 9], and applying 9 would make 10 a stale frame and throw it away.
    */
   static pickSnapFrame(
     queue: ReadonlyArray<{ readonly done: boolean; readonly text: string | null }>,
     lastFid: number,
     holds: (fid: number) => boolean,
   ): number {
-    for (let i = queue.length - 1; i >= 0; i--) {
+    let best = -1;
+    let bestFid = lastFid;
+    for (let i = 0; i < queue.length; i++) {
       const e = queue[i];
       if (!e.done || e.text === null) continue;
       const h = readDeltaHeader(e.text);
-      if (h !== null && h.fid > lastFid && (h.baseFid === 0 || holds(h.baseFid))) return i;
+      if (h !== null && h.fid > bestFid && (h.baseFid === 0 || holds(h.baseFid))) {
+        best = i;
+        bestFid = h.fid;
+      }
     }
-    return -1;
+    return best;
   }
 
   /** ⭐ S196 — apply what can be applied; see `onSnapFrame`. Synchronous: no frame waits on another's hops. */

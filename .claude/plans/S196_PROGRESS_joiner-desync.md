@@ -1,7 +1,10 @@
 # S196 PROGRESS — s196/joiner-desync
 
 ## NEXT STEP
-DONE — awaiting merge-owner audit. (If resumed: nothing left; re-run gates only if master moved src.)
+FIX ROUND (audit MED-1 / LOW-2 / LOW-3): code for MED-1 (authority check before inflate + MAX_INFLATING_PER_SENDER=4,
+newest held) and LOW-2 (pick highest fid) COMMITTED, tsc green. NEXT: tests in snapshotCodec.backlog.test.ts —
+50 bombs → ≤4 concurrent + newest legit applies; non-authority never inflated; [10,9] applies 10; disconnect while
+inflating → nothing to handlers; mutate each guard; then merge master, full gates, one live trace, report.
 
 ## FINAL REPORT
 - ROOT CAUSE (one, with trace): S195 codec receive path decoded every snapshot frame through ONE serial promise chain
