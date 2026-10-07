@@ -28,6 +28,14 @@ import { canvasToCss, hostNewRoom, joinRoom, waitForWorld, CANVAS_WIDTH } from '
 import { installGfxProbe, readGfxProbe, resetGfxProbe } from './gfxProbe';
 
 const GFXPROBE = process.env.SPARK_LAG_GFXPROBE === '1';
+/**
+ * S196 joiner-lag — INTERLEAVED A/B. On a machine at 100 % load two separate runs disagree by 3×, so a
+ * before/after is taken INSIDE one page: `SPARK_LAG_AB_JS` is a function body `(on) => {…}` that switches the
+ * candidate on/off; the page flips it every `AB_PERIOD_MS` and files each frame's CPU (the DEV frame probe) under
+ * A (off) or B (on), skipping the first frames after each flip. Load drift hits both halves alike.
+ */
+const AB_JS = process.env.SPARK_LAG_AB_JS;
+const AB_PERIOD_MS = Number(process.env.SPARK_LAG_AB_PERIOD_MS ?? 1500);
 
 const DIR = process.env.SPARK_LAG_OUT ?? '.tmp-gates/lag';
 const WAVES = (process.env.SPARK_LAG_WAVES ?? '1,5,8,10,15').split(',').map(Number);
@@ -225,6 +233,27 @@ test('S195 N9 — joiner cost of a wave-N board, replayed at 10 Hz', async ({ br
           });
           const st0 = await readStats();
           if (GFXPROBE) await joiner.evaluate(resetGfxProbe);
+          if (AB_JS !== undefined) {
+            const ab = await joiner.evaluate(async ([src, period, total]) => {
+              const toggle = (0, eval)(src) as (on: boolean) => void;
+              const g = window as unknown as { __SPARK__: { frameMs: readonly number[]; app: { ticker: { add(f: () => void, c?: unknown, p?: number): void; remove(f: () => void): void } } } };
+              const A: number[] = []; const B: number[] = [];
+              let on = false; let skip = 0;
+              const tap = (): void => { const fm = g.__SPARK__.frameMs; const v = fm[fm.length - 1]; if (v === undefined) return; if (skip > 0) { skip--; return; } (on ? B : A).push(v); };
+              g.__SPARK__.app.ticker.add(tap, undefined, -60);
+              toggle(false);
+              const t0 = performance.now();
+              while (performance.now() - t0 < total) {
+                await new Promise((r) => setTimeout(r, period));
+                on = !on; toggle(on); skip = 8;
+              }
+              toggle(false);
+              g.__SPARK__.app.ticker.remove(tap);
+              return { A, B };
+            }, [AB_JS, AB_PERIOD_MS, MEASURE_MS] as [string, number, number]);
+            const q = (xs: number[], p: number): string => pct(xs, p).toFixed(2);
+            console.log(`AB w${wave} ${fx} ${thr}x  OFF n=${ab.A.length} med ${q(ab.A, 0.5)} p75 ${q(ab.A, 0.75)} p95 ${q(ab.A, 0.95)} | ON n=${ab.B.length} med ${q(ab.B, 0.5)} p75 ${q(ab.B, 0.75)} p95 ${q(ab.B, 0.95)} | med delta ${((100 * (pct(ab.B, 0.5) - pct(ab.A, 0.5))) / pct(ab.A, 0.5)).toFixed(1)} %`);
+          }
           if (PROFILE) { await cdp.send('Profiler.enable'); await cdp.send('Profiler.setSamplingInterval', { interval: 500 }); await cdp.send('Profiler.start'); }
           await joiner.waitForTimeout(MEASURE_MS);
           if (PROFILE) {
