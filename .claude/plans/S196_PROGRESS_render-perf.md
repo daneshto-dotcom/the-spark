@@ -1,7 +1,7 @@
 # S196 PROGRESS — render-perf (branch s196/render-perf)
 
 ## NEXT STEP (top, always current)
-FIX ROUND: MED-1 DONE (lobbyBackdropRelease.test.ts green; mutation delete holdForLobby → RED 'expected false to be true'; restored). LOW-1 written (render-heap asserts m2.tick ≥ 180 + backdrop sprites > 0). NEXT: run soak to validate (detached, .tmp-gates/fx-soak.log), merge master, typecheck + render tests + build. (was: MED-1 add lobbyBackdropRelease REACH test via real makeLobbyBackdrop().update + mutation (delete holdForLobby line → RED); LOW-1 render-heap cycle asserts second match passed the 180-tick hold. Then merge master, typecheck + render tests + build.
+FIX ROUND: MED-1 DONE (lobbyBackdropRelease.test.ts green; mutation delete holdForLobby → RED 'expected false to be true'; restored). LOW-1 DONE: soak exit 0 (8.5 min): second match tick 4710 (world.tick does not reset between matches → sprite count is the load-bearing check), backdrop sprites 4, cycle residual 808→808. NEXT: merge master, typecheck + render tests + build (exit files .tmp-gates/fr-*.exit), report. (was: MED-1 add lobbyBackdropRelease REACH test via real makeLobbyBackdrop().update + mutation (delete holdForLobby line → RED); LOW-1 render-heap cycle asserts second match passed the 180-tick hold. Then merge master, typecheck + render tests + build.
 
 ## FINAL REPORT
 - Tip: see `git log -1` on s196/render-perf (this commit). Merges: master 7a596837 → 8b60bdcf → 71cfa975 (merge 5feff1be); no conflicts (master brought plans + two risen test files only).

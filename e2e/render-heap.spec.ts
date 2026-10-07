@@ -219,8 +219,10 @@ const CYCLE_TICKS = 240;
 const CYCLE_WALL_CAP_MS = 75_000;
 /**
  * S196 audit LOW-1 — `ZONE_BG_HOLD_TICKS` (`zoneBackgroundRenderer.ts`, 3 × 60): no backdrop loads before this
- * match tick. A cycle whose second match never got past it never loaded (so never released) a backdrop, and
- * must not pass as if it had — asserted below, together with the backdrop sprites actually being up.
+ * world tick. A cycle whose second match never got past it never loaded (so never released) a backdrop, and
+ * must not pass as if it had. ⚠ Measured S196: `world.tick` does NOT restart on a new VS-BOTS match (the second
+ * match began at ~4 450), so the tick assertion mirrors the renderer's literal gate and the BACKDROP SPRITE
+ * count (> 0 before leaving) is the load-bearing half — measured 4 (one per quadrant).
  */
 const ZONE_BG_HOLD_TICKS = 180;
 
