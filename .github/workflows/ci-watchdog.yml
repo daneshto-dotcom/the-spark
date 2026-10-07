@@ -49,6 +49,5 @@ jobs:
       - name: Re-run starved runs / alert on silent deaths
         run: node .github/workflows/ci-watchdog.mjs
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # not a default var; GITHUB_REPOSITORY is (defaults cannot be overridden)
           RUN_ID: ${{ github.event.workflow_run.id }}
