@@ -1,7 +1,7 @@
 # S196 PROGRESS — tower-fx (branch s196/tower-fx)
 
 ## NEXT STEP (exact)
-- DONE drawers + wiring (spawnerZoneRenderer.syncTowerSignatures, TV in voltkinTowerRenderer); tsc 0. NOW: write src/render/fx/towerSignature.test.ts (pure + REACH + negatives + census), run hubArc/fxGuards tests.
+- DONE drawers+wiring+tests (55 green, mutations M1 births / M2 fog both caught). Capture script .tmp-gates/fx/shots.mjs (vite on 31796). NOW: effects far too faint at board scale — rewriting towerSignatureFx sizes with a unit U (bigger, brighter), then re-shoot.
   then wire `SpawnerZoneRenderer.syncTowerSignatures` (fx path; replaces syncHubArcs) + the TV idle static in
   `voltkinTowerRenderer` fx block; then tests `towerSignature.test.ts`.
 
