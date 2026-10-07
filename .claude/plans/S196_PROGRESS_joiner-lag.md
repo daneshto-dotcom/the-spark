@@ -1,7 +1,7 @@
 # S196 PROGRESS — s196/joiner-lag
 
 ## ⏭ NEXT STEP
-Gates running detached (.tmp-gates/gate-*.log/.exit): typecheck, vitest --maxWorkers=3, build. Then after-profile (SPARK_LAG_TAG=after) + gfx probe at MINIMAL w5/w10 1x, then e2e:gating + e2e:render, then final report.
+Gates DONE (tc 0 after unused-import fix, vitest 0 9492 passed, build 0 entry 1265.2 KiB). NOW: after-profile SPARK_LAG_TAG=after + gfx probe MINIMAL w5/w10 1x; then e2e:gating + e2e:render; then final report.
 
 ## FIXES (each measured)
 - **F3 damageNumbers structure watch in place** (damageNumbers.ts): no key string / watch object / repair object / ends tuple per shape+connector per frame. Tests: damageNumbersWatchReuse.test.ts (mutation red).
