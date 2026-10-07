@@ -4,6 +4,10 @@
 - Read S195_PROGRESS_net-mp.md, reconnect-hard-blip.spec.ts, reconnectPolicy.ts, transport.ts, scripts/live-mp/*; npm install running.
 
 ## Log
+- BASELINE B x3 (pre-fix, LIGHT_ON_FIRST_DROP; B-30000-*.log): NO split — the second side's close fired 0.2-0.4 s after
+  the first (before its ICE could recover), so both left and the rejoin handshook fresh: recovered +51.3 / +88.5 / +42.7 s
+  (host terminal CONNECTION LOST shown from ~+29 s each time — host-side grace, unchanged behaviour). The split needs the
+  two sides' 5 s timers >= ~0.6 s apart (2 of 9 pre-fix outages so far landed there: s-12000, r1).
 - RUN r1 (LIGHT_ON_FIRST_DROP, nostr only; .tmp-gates/blip/r1-30000.log, pre-fix code): ⛔ REPRODUCED, MIRROR DIRECTION.
   Joiner's 5 s close fired at +12.6 s (LIGHT at that instant); host's had not — host ICE back to connected +12.9/+13.5 on
   the joiner's ORPHAN pc. Joiner: RECONNECTING from +13.8, reconnect attempts +13.8 / +49.2 / +84.7 / +119.9 / +155.2
