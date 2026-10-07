@@ -1,7 +1,7 @@
 # S196 PROGRESS — tower-fx (branch s196/tower-fx)
 
 ## NEXT STEP (exact)
-- DONE drawers+wiring+tests; visuals retuned (vite ignores .claude/** — RESTART vite after edits: sh .tmp-gates/fx/restart-vite.sh). NOW: perf bench .tmp-gates/fx/bench.mjs (interleaved ON/OFF per tier), then owner screenshots to Desktop/SPARK_S196_TowerFx, then full gates.
+- DONE: drawers, wiring, unit+e2e-reach tests, captures (Desktop/SPARK_S196_TowerFx + README), bench x2, merged master 9ddf5027. NOW: gates (typecheck, vitest full detached -> .tmp-gates/vitest.*, build, e2e:gating, e2e:render), then final report.
   then wire `SpawnerZoneRenderer.syncTowerSignatures` (fx path; replaces syncHubArcs) + the TV idle static in
   `voltkinTowerRenderer` fx block; then tests `towerSignature.test.ts`.
 
