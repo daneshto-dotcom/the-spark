@@ -70,6 +70,7 @@ import { fxSeed } from './fx/emitter.ts';
 import { BURN_FLICKER_MAX_UNITS, burnFlickerFx, scorchZoneFx } from './fx/perkFx.ts';
 import { isConcealed } from './concealment.ts';
 import { creatureSpriteScaleMul } from './towerFrames.ts';
+import { lobbyHoldsTexture } from './backdropTextureShare.ts';
 
 /**
  * How strongly the backdrop shows through.
@@ -1064,6 +1065,9 @@ export class ZoneBackgroundRenderer {
   }
 
   sync(world: World): void {
+    // ⭐ S196 render-perf (L1) — the title holds no board art: free every sprite, bake and loaded picture.
+    // Before `enabled`, so a player who switched the backdrop off mid-match does not keep its art either.
+    if (world.gameState === 'TITLE') this.releaseAll();
     // ⭐ S193 V12 — the scorch's light is perk feedback, not backdrop art: it draws with backdrops off.
     const burning = world.gameState === 'PLAYING' ? burningZonesNow(world) : [];
     if (fxActive() && burning.length > 0) drawScorchFx(world, burning);
@@ -1225,6 +1229,14 @@ export class ZoneBackgroundRenderer {
     if (usedSig !== this.lastUsedSig) {
       this.lastUsedSig = usedSig;
       this.pruneBaked(usedKeys);
+      // ⭐ S196 render-perf (L1) — and every LOADED picture the plan no longer names (a rematch on other races,
+      // another trio, a layout change). Every url the plan names is kept, painted or still loading.
+      const wanted = new Set<string>();
+      for (const p of plan) {
+        wanted.add(p.url);
+        for (const nb of p.blend ?? []) wanted.add(nb.url);
+      }
+      this.releaseLoaded(wanted);
     }
     this.syncVignette();
   }
@@ -1249,6 +1261,50 @@ export class ZoneBackgroundRenderer {
       this.baked.delete(key);
       if (!loaded.has(tex) && !onSprite.has(tex)) tex.destroy(true);
     }
+  }
+
+  /**
+   * ⭐⭐ S196 render-perf (team-art audit L1) — **A LOADED PICTURE NO QUADRANT WANTS IS RELEASED.**
+   *
+   * Until S196 `this.textures` only ever grew: every race, pair and trio picture a session met stayed decoded
+   * on the GPU for the life of the tab (27 trios × 960×540 RGBA ≈ 54 MB in the worst case; pair + race art the
+   * same way). `pruneBaked` freed the BAKES since S195, never the pictures they were baked from.
+   *
+   * Released through `Assets.unload` (never `tex.destroy` here: the Assets cache must forget the url too, or the
+   * next `Assets.load` would hand back the destroyed object). Kept:
+   *   · every url in `keep` (the plan names it — painted, or still loading);
+   *   · a texture still ON a sprite (a quadrant waiting for its replacement keeps showing the old picture);
+   *   · a texture the LOBBY holds (`backdropTextureShare.ts` — the same object, shown again on the next visit).
+   * A bake that IS the picture (`punchPortal` degrades to returning its input) leaves the cache with it.
+   */
+  private releaseLoaded(keep: ReadonlySet<string>): void {
+    if (this.textures.size === 0) return;
+    const onSprite = new Set([...this.sprites.values()].map((sp) => sp.texture));
+    for (const [url, tex] of [...this.textures]) {
+      if (keep.has(url) || onSprite.has(tex)) continue;
+      this.textures.delete(url);
+      this.loadStarted.delete(url);
+      for (const [key, b] of [...this.baked]) if (b === tex) this.baked.delete(key);
+      if (!lobbyHoldsTexture(tex)) void Assets.unload(url).catch(() => undefined);
+    }
+  }
+
+  /**
+   * ⭐ S196 render-perf (L1) — the TITLE: every backdrop sprite, every bake and every loaded picture goes, so a
+   * match → title → match cycle returns the GPU to where it started (`e2e/render-heap.spec.ts` cycle census).
+   * Cheap to call every title frame: it returns at once when nothing is held. A load still in flight when the
+   * title arrives lands in `textures` later and is released by the next title frame (or, if a match has started
+   * by then, used by it). `failed` survives: a 404 stays a 404.
+   */
+  private releaseAll(): void {
+    if (this.sprites.size === 0 && this.baked.size === 0 && this.textures.size === 0) return;
+    for (const sp of this.sprites.values()) sp.destroy();
+    this.sprites.clear();
+    const loaded = new Set(this.textures.values());
+    for (const tex of this.baked.values()) if (!loaded.has(tex)) tex.destroy(true);
+    this.baked.clear();
+    this.lastUsedSig = '';
+    this.releaseLoaded(new Set());
   }
 
   /** ⭐ S193 V26 — the vignette: on with the new effects, off under `?fx=legacy`. Above the backdrops. */
