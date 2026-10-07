@@ -323,6 +323,36 @@ export function classifyPeerDrop(conn: string | null, ice: string | null): PeerD
   return 'unknown';
 }
 
+/**
+ * ⛔⛔ S196 (net-blip) — **A PEER TRYSTERO DROPPED FOR A DEAD NETWORK MUST NOT KEEP ITS RTCPeerConnection.**
+ *
+ * Reproduced on the desktop with a silent UDP drop (`scripts/live-mp/live-silent-blip.mjs`, the joiner's ICE
+ * forced through a relay that goes dark — no `pc.close()`, no SCTP abort): a 12 s outage left the match SPLIT
+ * FOR GOOD. Trystero (`@trystero-p2p/core` 0.25.2) closes a peer that sits ICE `disconnected` for 5 s
+ * (`peer.mjs` `disconnectedCloseDelayMs`), but that close only DETACHES it — `shared-peer.mjs` clears with
+ * `destroyPeer: false` and `room.mjs` `exitPeer` destroys the room proxy, never the connection. The two sides'
+ * timers run on their own clocks, so a blip that ends between them lets ONE side drop the peer while the other's
+ * ICE recovers first. The dropped side's ORPHAN connection then reconnects too, answers ICE consent and keeps its
+ * data channel `open` — so the other side's Trystero reads its peer as `live` forever: it never leaves, never
+ * re-announces into a fresh handshake, and ignores every announce and offer from the rejoin
+ * (`signal-handler.mjs` early-return on a live `connectedPeer`). Measured: host `PEER DROPPED` at +12.5 s as its
+ * orphan's ICE came back; joiner kept peers=1 and no overlay; host terminal CONNECTION LOST from +27.7 s to the
+ * end of a 476 s observation.
+ *
+ * So when Trystero drops a peer whose connection reads DEAD (the `network-died` cause), the transport closes
+ * that connection itself. Over a working path the close sends an SCTP abort and the far side leaves at once;
+ * over a dead one the far side's consent checks go unanswered and its own 5 s close follows. Either way both
+ * sides converge on "gone", and the rejoin handshakes fresh.
+ *
+ * ⚠ NOT on a peer that LEFT (its connection still healthy): Trystero shares one connection per remote peer across
+ * rooms, and the clean-leave rejoin (`e2e/reconnect.spec.ts`) re-binds that still-open connection in ~0.2 s —
+ * closing it would turn every clean rejoin into a full handshake. `unknown` (no observed state) is left alone too.
+ */
+export function shouldCloseDroppedPeerConnection(conn: string | null, ice: string | null): boolean {
+  if (conn === 'closed') return false; // already gone — nothing to close
+  return classifyPeerDrop(conn, ice) === 'network-died';
+}
+
 export function detectProtocolMismatch(
   parsed: unknown,
 ): { mismatch: true; version: unknown } | { mismatch: false } {
@@ -348,6 +378,12 @@ export class NetTransport {
   private connectGen = 0;
   /** ⭐ S189 (E3) — each strategy×peer connection's last observed state, for the drop line. */
   private readonly pcState = new Map<string, { conn: string; ice: string }>();
+  /**
+   * ⭐ S196 (net-blip) — each strategy×peer's RTCPeerConnection, captured when it joined: by the time Trystero
+   * fires `onPeerLeave` it has already removed the peer from `room.getPeers()`. See
+   * `shouldCloseDroppedPeerConnection`.
+   */
+  private readonly peerPcs = new Map<string, RTCPeerConnection>();
   /** ⭐ S189 (E3) — when each peer last sent us anything (performance.now()). */
   private readonly lastRxAtMs = new Map<string, number>();
   /** ⭐ S195 — host side of the snapshot codec: per receiving peer, and the frames it may delta against. */
@@ -699,6 +735,7 @@ export class NetTransport {
       room.onPeerLeave = (peerId) => {
         console.info(`[net] ${name} onPeerLeave: ${peerId}`);
         this.logPeerDrop(name, peerId);
+        this.closeDroppedPeerConnection(name, peerId);
         handle.peers.delete(peerId);
         handle.snapSlots?.delete(peerId); // ⭐ S189 — its snapshot slot goes with it
         // Only fire leave when ALL strategies have lost this peer.
@@ -886,6 +923,7 @@ export class NetTransport {
       const pc = peers?.[peerId];
       if (pc === undefined || typeof pc.addEventListener !== 'function') return;
       const key = `${handle.name}:${peerId}`;
+      this.peerPcs.set(key, pc);
       const record = (): void => {
         this.pcState.set(key, { conn: String(pc.connectionState), ice: String(pc.iceConnectionState) });
       };
@@ -914,6 +952,27 @@ export class NetTransport {
         `conn=${st?.conn ?? 'unseen'} ice=${st?.ice ?? 'unseen'} ` +
         `lastRxAgoMs=${lastRxAgoMs} visibility=${visibility}`,
     );
+  }
+
+  /**
+   * ⛔ S196 (net-blip) — close the connection of a peer Trystero just dropped for a dead network, so it cannot
+   * revive as an orphan the far side still trusts. Reads the connection's state NOW (Trystero fires the drop
+   * synchronously from its own state check). See `shouldCloseDroppedPeerConnection`.
+   */
+  private closeDroppedPeerConnection(strategy: StrategyName, peerId: string): void {
+    const key = `${strategy}:${peerId}`;
+    const pc = this.peerPcs.get(key);
+    this.peerPcs.delete(key);
+    if (pc === undefined) return;
+    try {
+      const conn = String(pc.connectionState);
+      const ice = String(pc.iceConnectionState);
+      if (!shouldCloseDroppedPeerConnection(conn, ice)) return;
+      console.warn(`[net] closing dropped peer's connection strategy=${strategy} peer=${peerId} conn=${conn} ice=${ice} (S196)`);
+      pc.close();
+    } catch {
+      /* a connection that throws on close is already unusable */
+    }
   }
 
   private stopIcePoll(handle: StrategyHandle): void {
@@ -1459,6 +1518,8 @@ export class NetTransport {
     this.connectGen++;
     this.strategies.clear();
     this.peerSet.clear();
+    // ⭐ S196 — forget, never close: a self-disconnect keeps Trystero's shared connections for the rejoin.
+    this.peerPcs.clear();
     // ⭐ S195 — codec state is per connection. (`nextSnapFid` is NOT reset: fids stay page-unique.)
     this.txPeers.clear();
     this.txRing.clear();
