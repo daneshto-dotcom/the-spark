@@ -12,7 +12,9 @@
  *   VITE_TEST_NOSTR_RELAYS=ws://127.0.0.1:<rp> npm run dev -- --port <own port> --strictPort
  *   SPARK_URL=http://localhost:<own port>/ RELAY=ws://127.0.0.1:<rp> DARK_MS=8000 node scripts/live-mp/live-silent-blip.mjs
  * Env: DARK_MS (default 8000) · OBSERVE_S (default 200 — past RECONNECT_GIVE_UP_MS) · BLOCK_TORRENT=1 (close the
- * public tracker sockets so nostr is the only strategy) · TRACE=<dir> (writes timeline json).
+ * public tracker sockets so nostr is the only strategy) · TRACE=<dir> (writes timeline json) · LIGHT_ON_FIRST_DROP=1
+ * (stay dark until the FIRST side's Trystero close fires, then light at once — aims at the asymmetric window where one
+ * side has dropped the peer and the other has not; DARK_MS is then only the upper bound).
  */
 import { chromium } from 'playwright';
 import { writeFileSync } from 'node:fs';
@@ -72,6 +74,10 @@ const mk = async (name, forced) => {
   p.on('console', (m) => {
     const t = m.text();
     if (/ice-poll|relay sockets attached|getRelaySockets/.test(t)) return;
+    if (process.env.LIGHT_ON_FIRST_DROP === '1' && relay.isDark() && /PEER DROPPED/.test(t)) {
+      relay.setDark(false);
+      log(`LIGHT — on ${name}'s first PEER DROPPED (LIGHT_ON_FIRST_DROP: the other side's 5 s close has not fired yet)`);
+    }
     if (/\[trace\]|onPeerLeave|onPeerJoin|PEER DROPPED|reconnect attempt|disconnect strategy|onJoinError|connect: roomCode|duplicate join|CONNECTION|overlay|JOIN STALL|starv/i.test(t)) {
       log(`<${name}>`, t.slice(0, 240));
     }
@@ -117,7 +123,7 @@ if (relay.stats().fwdToTarget === 0) throw new Error('the joiner did NOT route t
 BLIP = Date.now();
 relay.setDark(true);
 log(`DARK for ${DARK_MS} ms (every joiner<->host UDP packet dropped; nothing closed)`);
-const lightAt = setTimeout(() => { relay.setDark(false); log('LIGHT — packets flow again'); }, DARK_MS);
+const lightAt = setTimeout(() => { if (relay.isDark()) { relay.setDark(false); log('LIGHT — packets flow again'); } }, DARK_MS);
 
 let recoveredAt = null;
 let sawLost = false;
@@ -138,7 +144,7 @@ for (let i = 0; i < OBSERVE_S; i++) {
   const advancing = j.tick > lastJoinTick + 5;
   lastJoinTick = Math.max(lastJoinTick, j.tick);
   const overlayUp = [...hv, ...jv].some((t) => /CONNECTION LOST|RECONNECTING|MIGRATING/i.test(t));
-  if (recoveredAt === null && Date.now() - BLIP > DARK_MS && advancing && h.peers > 0 && j.peers > 0 && !overlayUp) {
+  if (recoveredAt === null && !relay.isDark() && advancing && h.peers > 0 && j.peers > 0 && !overlayUp) {
     recoveredAt = (Date.now() - BLIP) / 1000;
     log('RECOVERED — joiner ticks advancing, both sides see a peer, no overlay');
   }
