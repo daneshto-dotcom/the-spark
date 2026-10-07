@@ -165,3 +165,37 @@ describe('S196 B — progress on this device', () => {
     expect(() => saveProgress(p)).not.toThrow();
   });
 });
+
+describe('S196 B — the home strip, the CAMPAIGN blurb and the stage HUD', () => {
+  it('30 pips, left to right, never overlapping, on screen, a wider gap between bands', async () => {
+    const { stripPipXs } = await import('./homeScreen.ts');
+    const xs = stripPipXs();
+    expect(xs.length).toBe(30);
+    for (let i = 1; i < xs.length; i++) expect(xs[i]!).toBeGreaterThan(xs[i - 1]! + 22);
+    expect(xs[10]! - xs[9]!).toBeGreaterThan(xs[9]! - xs[8]!);
+    expect(xs[0]!).toBeGreaterThan(0);
+    expect(xs[29]! + 22).toBeLessThan(1920);
+  });
+
+  it('the CAMPAIGN blurb shows the current stage, its clues and the banked stars (labelled this device)', async () => {
+    const { doorBlurb } = await import('./homeScreen.ts');
+    const p = recordClear(FRESH_PROGRESS, 1, 3);
+    const b = doorBlurb('campaign', { todayKey: '20261007', dailySolvedKey: null, progress: p });
+    expect(b).toContain('stage 2 of 30');
+    expect(b).toContain('16 clues');
+    expect(b).toContain('★ 3/90');
+    expect(b).toContain('this device');
+  });
+
+  it('HUD lines: stage, puzzle k/n, time left, the next star; urgent in the last 20 %', async () => {
+    const { campaignHudLines } = await import('./campaignHud.ts');
+    const s = stageById(8)!; // 3 puzzles, clock 440, 3★ 220, 2★ 330
+    const a = campaignHudLines({ stage: s, puzzleIndex: 1, elapsedMs: 100_000 });
+    expect(a.top).toBe('STAGE 8 · BAND 1 · PUZZLE 2/3');
+    expect(a.bottom).toBe('TIME LEFT 5:40 · ★★★ under 3:40');
+    expect(a.urgent).toBe(false);
+    const b = campaignHudLines({ stage: s, puzzleIndex: 2, elapsedMs: 400_000 });
+    expect(b.bottom).toBe('TIME LEFT 0:40 · ★ — beat the clock');
+    expect(b.urgent).toBe(true);
+  });
+});

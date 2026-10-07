@@ -7,7 +7,8 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { BOARD_NONET } from '../render/arcadeScores.ts';
 import { setLeaderboardForTests, type LeaderboardClient, type RankingUpdate } from '../render/arcadeLeaderboard.ts';
-import { beginSubmit, finishRun, startRun, submitRun, typeLetter, type ArcadeRun } from '../render/arcadeRun.ts';
+import { beginSubmit, finishRun, stageSolve, startRun, startStageRun, submitRun, typeLetter, type ArcadeRun } from '../render/arcadeRun.ts';
+import { stageBoardId, stageById, stars } from './campaign.ts';
 import { dailyBoardId, dailySeed, utcDayKey } from './dailySeed.ts';
 import { planLaunch, routeArcadeSelect, solveOutcome } from './nonetModes.ts';
 
@@ -33,7 +34,7 @@ afterEach(() => setLeaderboardForTests(null));
 describe('S196 — planLaunch: what each door starts', () => {
   it('PLAY = the pre-S196 launch: seed floor(perf) >>> 0, the `nonet` board', () => {
     const p = planLaunch('PLAY', 123456.789, NOW, null);
-    expect(p).toEqual({ mode: 'PLAY', seed: 123456, boardId: BOARD_NONET, dayKey: null, dailyReplay: false });
+    expect(p).toEqual({ mode: 'PLAY', seed: 123456, boardId: BOARD_NONET, dayKey: null, dailyReplay: false, stage: null, clues: null });
     // `>>> 0` exactly as main.ts always wrote it — a large perf value wraps the same way.
     expect(planLaunch('PLAY', 2 ** 32 + 5.5, NOW, null).seed).toBe((Math.floor(2 ** 32 + 5.5)) >>> 0);
   });
@@ -41,14 +42,14 @@ describe('S196 — planLaunch: what each door starts', () => {
   it('DAILY = today\'s seed and today\'s own board, ignoring the perf clock', () => {
     const a = planLaunch('DAILY', 1, NOW, null);
     const b = planLaunch('DAILY', 999_999, NOW + 3_600_000, null); // another player, an hour later, same UTC day
-    expect(a).toEqual({ mode: 'DAILY', seed: dailySeed(TODAY), boardId: dailyBoardId(TODAY), dayKey: TODAY, dailyReplay: false });
+    expect(a).toEqual({ mode: 'DAILY', seed: dailySeed(TODAY), boardId: dailyBoardId(TODAY), dayKey: TODAY, dailyReplay: false, stage: null, clues: null });
     expect(b.seed).toBe(a.seed);
     expect(b.boardId).toBe(a.boardId);
   });
 
   it('DAILY after today\'s ranked daily was solved here = the same grid, as ZEN (untimed, no board)', () => {
     const p = planLaunch('DAILY', 1, NOW, TODAY);
-    expect(p).toEqual({ mode: 'ZEN', seed: dailySeed(TODAY), boardId: null, dayKey: TODAY, dailyReplay: true });
+    expect(p).toEqual({ mode: 'ZEN', seed: dailySeed(TODAY), boardId: null, dayKey: TODAY, dailyReplay: true, stage: null, clues: null });
   });
 
   it('negative: YESTERDAY\'s solve does not block today\'s ranked daily', () => {
@@ -56,11 +57,11 @@ describe('S196 — planLaunch: what each door starts', () => {
   });
 
   it('ZEN = a fresh grid and NO board', () => {
-    expect(planLaunch('ZEN', 77.9, NOW, null)).toEqual({ mode: 'ZEN', seed: 77, boardId: null, dayKey: null, dailyReplay: false });
+    expect(planLaunch('ZEN', 77.9, NOW, null)).toEqual({ mode: 'ZEN', seed: 77, boardId: null, dayKey: null, dailyReplay: false, stage: null, clues: null });
   });
 
   it('every plan: boardId is null exactly when mode is ZEN', () => {
-    for (const door of ['PLAY', 'DAILY', 'ZEN'] as const) {
+    for (const door of ['PLAY', 'DAILY', 'ZEN', 'CAMPAIGN'] as const) {
       for (const solved of [null, TODAY]) {
         const p = planLaunch(door, 5, NOW, solved);
         expect(p.boardId === null).toBe(p.mode === 'ZEN');
@@ -135,5 +136,49 @@ describe('S196 — routeArcadeSelect: the arcade row opens the home', () => {
     routeArcadeSelect('pitch-masters', a); // page games are navigated by the overlay itself
     routeArcadeSelect('', a);
     expect(log).toEqual(['home', 'back']);
+  });
+});
+
+describe('S196 Option B — the CAMPAIGN door and the stage arm', () => {
+  it('CAMPAIGN plans the current stage: its fixed seed, its band clue count, its own board', () => {
+    const p = planLaunch('CAMPAIGN', 123.4, NOW, null, 7);
+    const s7 = stageById(7)!;
+    expect(p).toEqual({ mode: 'CAMPAIGN', seed: s7.seed, boardId: 'nonet:s07', dayKey: null, dailyReplay: false, stage: 7, clues: 16 });
+    // the same for every player, whatever their clocks
+    expect(planLaunch('CAMPAIGN', 9e9, NOW + 5e9, TODAY, 7)).toEqual(p);
+    expect(planLaunch('CAMPAIGN', 0, NOW, null, 21).clues).toBe(10);
+  });
+
+  it('negative: a bogus stage id (hand-edited progress) falls back to stage 1, never throws', () => {
+    expect(planLaunch('CAMPAIGN', 0, NOW, null, 99).stage).toBe(1);
+    expect(planLaunch('CAMPAIGN', 0, NOW, null, 0).stage).toBe(1);
+  });
+
+  it('stageSolve: a 3-puzzle stage stays RUNNING on the SAME clock through puzzles 1 and 2, then clears', () => {
+    let r = startStageRun(1000, 8, stageBoardId(8));
+    expect(r).toMatchObject({ mode: 'CAMPAIGN', stage: 8, puzzleIndex: 0, boardId: 'nonet:s08', phase: 'RUNNING' });
+    r = stageSolve(r, 3, 61_000);
+    expect(r).toMatchObject({ phase: 'RUNNING', puzzleIndex: 1, startedAtMs: 1000, finishedMs: null });
+    r = stageSolve(r, 3, 121_000);
+    expect(r).toMatchObject({ phase: 'RUNNING', puzzleIndex: 2, startedAtMs: 1000 });
+    r = stageSolve(r, 3, 181_000);
+    expect(r.phase).toBe('ENTER_INITIALS');
+    expect(r.finishedMs).toBe(180_000); // the WHOLE stage, all three grids
+    expect(stars(stageById(8)!, r.finishedMs!)).toBe(3); // 3★ ≤ 220 s
+  });
+
+  it('stageSolve on any other mode IS finishRun — PLAY / DAILY / ZEN unchanged', () => {
+    expect(stageSolve(startRun(0), 3, 63_000)).toEqual(finishRun(startRun(0), 63_000));
+    expect(stageSolve(startRun(0, 'ZEN'), 3, 63_000).phase).toBe('RUNNING'); // ZEN still never reaches initials
+    expect(startRun(0).stage).toBeNull();
+    expect(startRun(0).puzzleIndex).toBe(0);
+  });
+
+  it('a cleared stage submits to its OWN board', async () => {
+    const spy = spyBoard();
+    setLeaderboardForTests(spy.client);
+    const r = stageSolve(startStageRun(0, 7, stageBoardId(7)), 2, 50_000);
+    await submitRun(stageSolve(r, 2, 100_000), () => 1);
+    expect(spy.calls.map((c) => c.boardId)).toEqual(['nonet:s07']);
   });
 });

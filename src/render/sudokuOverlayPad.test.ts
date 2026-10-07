@@ -38,6 +38,7 @@ let submitted: number[][] = [];
 
 beforeAll(() => {
   vi.stubGlobal('document', { createElement: () => fakeVideo() });
+  vi.stubGlobal('window', { addEventListener: () => {}, removeEventListener: () => {} });
   vi.spyOn(Assets, 'load').mockReturnValue(new Promise(() => {}) as never);
   const stage = new Container();
   overlay = new SudokuOverlay({ stage } as never, (grid) => { submitted.push(grid); return false; });

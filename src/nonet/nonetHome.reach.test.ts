@@ -32,6 +32,8 @@ function home(load: (b: string) => readonly RankingEntry[] = () => []): { h: Non
   return { h, get doors() { return log.doors; }, get backs() { return log.backs; } };
 }
 
+/** The RANKING door's index among the buttons. */
+const RANKING = NONET_HOME_DOORS.findIndex((d) => d.id === 'ranking');
 const buttonsOf = (h: NonetHome): Container[] => (h as unknown as { buttons: Container[] }).buttons;
 
 describe('S196 — REACH: the arcade NONET row opens the home (never a puzzle)', () => {
@@ -81,7 +83,7 @@ describe('S196 — the home: every door reached through its real button and the 
     expect(src.match(/this\.addButton\(/g)?.length).toBe(3); // doors loop, home BACK, ranking BACK
     const { h } = home();
     expect(buttonsOf(h).length).toBe(nonetHomeGeoms().length + 1);
-    expect(NONET_HOME_DOORS.map((d) => d.id)).toEqual(['play', 'daily', 'zen', 'ranking']);
+    expect(NONET_HOME_DOORS.map((d) => d.id)).toEqual(['play', 'campaign', 'daily', 'zen', 'ranking']);
   });
 
   it('each button\'s hit rect IS its geometry row, and the home hit-test agrees inside / outside', () => {
@@ -96,14 +98,12 @@ describe('S196 — the home: every door reached through its real button and the 
     }
   });
 
-  it('PLAY / DAILY / ZEN taps reach onDoor with their door; BACK reaches onBack', () => {
+  it('PLAY / CAMPAIGN / DAILY / ZEN taps reach onDoor with their door; BACK reaches onBack', () => {
     const t = home();
     const b = buttonsOf(t.h);
-    b[0]!.emit('pointertap', {} as never);
-    b[1]!.emit('pointertap', {} as never);
-    b[2]!.emit('pointertap', {} as never);
-    expect(t.doors).toEqual(['PLAY', 'DAILY', 'ZEN']);
-    b[4]!.emit('pointertap', {} as never);
+    for (const i of [0, 1, 2, 3]) b[i]!.emit('pointertap', {} as never);
+    expect(t.doors).toEqual(['PLAY', 'CAMPAIGN', 'DAILY', 'ZEN']);
+    b[5]!.emit('pointertap', {} as never);
     expect(t.backs).toBe(1);
   });
 
@@ -131,7 +131,7 @@ describe('S196 — the home: every door reached through its real button and the 
 
   it('ESC: ranking → home, home → onBack', () => {
     const t = home();
-    buttonsOf(t.h)[3]!.emit('pointertap', {} as never);
+    buttonsOf(t.h)[RANKING]!.emit('pointertap', {} as never);
     expect(t.h.view()).toBe('ranking');
     // In the ranking view, the door rows are NOT hit-testable — only its BACK.
     const play = nonetHomeGeoms()[0]!;
@@ -161,7 +161,7 @@ describe('S196 — RANKING keeps the R182-G reveal gate', () => {
 
   it('a board never filed to on this device reads LOCKED — no names', () => {
     const t = home(() => []);
-    buttonsOf(t.h)[3]!.emit('pointertap', {} as never);
+    buttonsOf(t.h)[RANKING]!.emit('pointertap', {} as never);
     const rankingLayer = (t.h as unknown as { rankingContent: Container }).rankingContent;
     const shown = texts(rankingLayer);
     expect(shown.filter((s) => s === 'LOCKED').length).toBe(2);
@@ -172,7 +172,7 @@ describe('S196 — RANKING keeps the R182-G reveal gate', () => {
       [dailyBoardId(TODAY)]: [{ name: 'BBB', runs: 1, totalMs: 90_000 }, { name: 'AAA', runs: 2, totalMs: 120_000 }],
     };
     const t = home((b) => cache[b] ?? []);
-    buttonsOf(t.h)[3]!.emit('pointertap', {} as never);
+    buttonsOf(t.h)[RANKING]!.emit('pointertap', {} as never);
     const shown = texts((t.h as unknown as { rankingContent: Container }).rankingContent);
     expect(shown.filter((s) => s === 'LOCKED').length).toBe(1); // the timed board is still locked
     expect(shown.indexOf('AAA')).toBeGreaterThan(-1);

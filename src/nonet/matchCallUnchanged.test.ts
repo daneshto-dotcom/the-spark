@@ -61,9 +61,9 @@ function generatorCalls(): Array<{ file: string; args: number; text: string }> {
 describe('S196 — ⛔ the match call is still single-argument (and so is every other call)', () => {
   const calls = generatorCalls();
 
-  it('anti-vacuity: the scan finds the match trial, the snapshot regen and the arcade', () => {
+  it('anti-vacuity: the scan finds the match trial, the snapshot regen and the arcade (its two arms)', () => {
     const files = calls.map((c) => c.file).sort();
-    expect(files).toEqual(['render/arcadeOverlay.ts', 'state/save.ts', 'state/sudokuEvent.ts']);
+    expect(files).toEqual(['render/arcadeOverlay.ts', 'render/arcadeOverlay.ts', 'state/save.ts', 'state/sudokuEvent.ts']);
   });
 
   it('the match trial (`sudokuEvent.ts`) and its snapshot regen (`save.ts`) pass exactly the seed', () => {
@@ -71,8 +71,11 @@ describe('S196 — ⛔ the match call is still single-argument (and so is every 
     expect(calls.find((c) => c.file === 'state/save.ts')?.text).toBe('generateSudoku(snap.sudoku.seed)');
   });
 
-  it('R182-H: no production call passes the difficulty dial', () => {
-    expect(calls.filter((c) => c.args !== 1)).toEqual([]);
+  it('R196-D2 6b: the ONLY call passing a clue target is the ARCADE call (a campaign stage) — never the match', () => {
+    expect(calls.filter((c) => c.args !== 1)).toEqual([
+      { file: 'render/arcadeOverlay.ts', args: 2, text: 'generateSudoku(seed, targetGivens)' },
+    ]);
+    expect(calls.filter((c) => c.file.startsWith('state/')).every((c) => c.args === 1)).toBe(true);
   });
 
   it('negative control: the scanner DOES count a second argument when one is present', () => {
