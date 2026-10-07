@@ -1,9 +1,11 @@
 # S196 PROGRESS — s196/joiner-lag
 
 ## ⏭ NEXT STEP
-Fix 3 candidates (re-ranked by f2 profile, MINIMAL w10 1x): damageNumbers.track (4.8 %) / keystone compute (4.0 %) / goblin (5.7 %) / chewer per-frame redraw (134 instr) / creatureProjectile (105 instr). Read damageNumbers.track first. Profile tool: node .tmp-gates/anaprof.mjs <cpuprofile>. Then full gates.
+Gates running detached (.tmp-gates/gate-*.log/.exit): typecheck, vitest --maxWorkers=3, build. Then after-profile (SPARK_LAG_TAG=after) + gfx probe at MINIMAL w5/w10 1x, then e2e:gating + e2e:render, then final report.
 
 ## FIXES (each measured)
+- **F3 damageNumbers structure watch in place** (damageNumbers.ts): no key string / watch object / repair object / ends tuple per shape+connector per frame. Tests: damageNumbersWatchReuse.test.ts (mutation red).
+- **F4 keystone links on MINIMAL snap to 4 px** (keystoneTelegraphRenderer.ts `MINIMAL_LINK_SNAP_PX` ⚠ MINE): interpolation jitter no longer redraws them every frame. Test in structureRenderer.tiers.test.ts (mutation red).
 - **F1 MINIMAL connector motion budget** (graphicsTier.ts knob `motionRedrawsPerFrame` 3, structureRenderer.ts). Interleaved A/B in one page (1x): w10 frame med 12.6 -> 10.1 ms (-19.8 %), w5 11.2 -> 7.9 ms (-29.5 %); bucket redraws/frame 9.0 -> 3.3 (w10), 10.5 -> 3.4 (w5). Graphics instr/frame w10 1121 -> 779 (bonds 511 -> 193). Tests: 6 new in structureRenderer.tiers.test.ts, 3 mutations each red.
 - **F2 comboView memo** (render/comboView.ts): connector + keystone walks no longer build a `${a}->${b}` string per bond per frame; keystone tests the cheap combo before vision. Zero visual change (HIGH byte-for-byte test green). Profile after F1+F2 (w10 MINIMAL 1x): idle 5.1 % -> 24.2 % of the window; structureRenderer share 11.2 -> 7.3 %.
 
