@@ -1,7 +1,7 @@
 # S196 PROGRESS — tree ui-5 (branch s196/ui-5)
 
 ## NEXT STEP (top, always current)
-TASK 1 — fix + unit/census tests landed (41 pass, census mutation red). AFTER matrix running detached → .tmp-gates/click-offset-matrix-after.txt. NEXT: TASK 3 (HOVER_GROW: verify the S195 test) then TASK 2 (uiSkinCensus REACH rows).
+TASK 1 DONE (AFTER matrix: 140/140 hits, 0 pixi delta). TASK 3 already on master (S195 T18 #3; mutation-verified). TASK 2: settings REACH done; NEXT: uiSkinReach.lobby.test.ts for lobbyScreen joinButton + attachButtonFeedback, then drop NOT_DONE.
 
 ROOT CAUSE (found): index.html canvas CSS = max-width/max-height 100% + object-fit: contain. Whenever the
 window aspect != 16:9 (half-screen, any browser with a toolbar, other monitors), the canvas CSS box is
