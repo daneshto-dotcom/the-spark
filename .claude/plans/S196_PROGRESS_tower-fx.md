@@ -1,7 +1,7 @@
 # S196 PROGRESS — tower-fx (branch s196/tower-fx)
 
 ## NEXT STEP (exact)
-- DONE: drawers, wiring, unit+e2e-reach tests, captures (Desktop/SPARK_S196_TowerFx + README), bench x2, merged master 9ddf5027. NOW: gates (typecheck, vitest full detached -> .tmp-gates/vitest.*, build, e2e:gating, e2e:render), then final report.
+- DONE: everything incl. gates on merge 1 (typecheck 0, vitest 0 9276, build 0 1249.6KiB, e2e:gating 0 67, e2e:render 0 10). Merged master 7e9d241c; NOW re-running all gates on the merged tree (.tmp-gates/final-*.exit), then write the final report.
   then wire `SpawnerZoneRenderer.syncTowerSignatures` (fx path; replaces syncHubArcs) + the TV idle static in
   `voltkinTowerRenderer` fx block; then tests `towerSignature.test.ts`.
 
