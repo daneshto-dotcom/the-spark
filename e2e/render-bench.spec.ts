@@ -165,8 +165,9 @@ test.describe('S196 F3 — visual stack per tier, interleaved @perf-measure', ()
       }, FRAMES);
     };
 
-    const data: Record<string, { pixi: number[]; sync: number[]; frame: number[]; sprites: number[]; creatures: number[] }> = {};
-    for (const a of ARMS) data[key(a)] = { pixi: [], sync: [], frame: [], sprites: [], creatures: [] };
+    const data: Record<string, { pixi: number[]; sync: number[]; frame: number[]; sprites: number[]; creatures: number[]; roundRender: number[] }> = {};
+    for (const a of ARMS) data[key(a)] = { pixi: [], sync: [], frame: [], sprites: [], creatures: [], roundRender: [] };
+    const med = (xs: number[]): number => { const s = [...xs].sort((p, q) => p - q); return s[Math.floor(s.length / 2)] ?? 0; };
     for (let r = 0; r < ROUNDS; r++) {
       const order = r % 2 === 0 ? ARMS : [...ARMS].reverse();
       for (const a of order) {
@@ -175,6 +176,8 @@ test.describe('S196 F3 — visual stack per tier, interleaved @perf-measure', ()
         const d = data[key(a)]!;
         d.pixi.push(...s.pixi); d.sync.push(...s.sync); d.frame.push(...s.frame);
         d.sprites.push(s.sprites); d.creatures.push(s.creatures);
+        // per-round render median (pixi + sync medians) — the PAIRED unit for the on/off deltas
+        d.roundRender.push(+(med(s.pixi) + med(s.sync)).toFixed(3));
       }
       console.log(`[bench] round ${r + 1}/${ROUNDS} done`);
     }
@@ -191,7 +194,7 @@ test.describe('S196 F3 — visual stack per tier, interleaved @perf-measure', ()
       // per-frame pairing is not guaranteed (the fog renders to its RT through the same call), so sum the stats
       summary[k] = { pixi: px, sync: sy, render: { mean: +(px.mean + sy.mean).toFixed(3), median: +(px.median + sy.median).toFixed(3) }, frame: stat(d.frame),
         spritesAvg: Math.round(d.sprites.reduce((p, c) => p + c, 0) / d.sprites.length),
-        creaturesAvg: Math.round(d.creatures.reduce((p, c) => p + c, 0) / d.creatures.length) };
+        creaturesAvg: Math.round(d.creatures.reduce((p, c) => p + c, 0) / d.creatures.length), roundRender: d.roundRender };
     }
     fs.writeFileSync(OUT, JSON.stringify({ gl, board: stress ? 'stress' : 'realistic', rounds: ROUNDS, frames: FRAMES, built, summary }, null, 1));
     console.log(`[bench] ${JSON.stringify(summary)}`);
