@@ -1,7 +1,7 @@
 # S196 PROGRESS — render-perf (branch s196/render-perf)
 
 ## NEXT STEP (top, always current)
-Census done (renderCensus.ts + main.ts getter hunk). Next: render-heap.spec cycle assertions (residual = displayObjects−pooled; pooled ≤ poolCap; match→title→match returns to baseline) then run diag v2 on a STABLE tree (no edits while it runs — HMR reloads the page).
+diag3 re-run in flight (started 18:30:40; .tmp-gates/diag3.log, census-diag3.jsonl). DO NOT EDIT src/ WHILE IT RUNS (HMR). After: pick cycle tolerances → patch e2e/render-heap.spec.ts (residual growth, pooled≤poolCap, title0→titleEnd cycle) → F3 bench (SPARK_PERF=1) → merge master → gates.
 
 ## Log
 - boot: merged master 7a596837 (fast-forward of plans/session-state only).
@@ -16,3 +16,4 @@ Census done (renderCensus.ts + main.ts getter hunk). Next: render-heap.spec cycl
 - Census: src/render/renderCensus.ts {displayObjects, pooled, poolCap, textures(LIVE), textureSlots}; FxLayer registers in a WeakMap (fxPoolOf) + poolSize getter; main.ts renderCensus getter delegates (MERGE SEAM: main.ts DEV block, 5 lines). Test renderCensus.test.ts 4/4; mutations (null count, pooled sum) caught.
 - ⚠ TaskStop on the diag2 bash did NOT kill its playwright (pid 42840) — it ran on alongside diag3 for 13 min (diag3's worker waited). Killed by taskkill /T. Verdict: benign for correctness, but diag3's first sample may be noisy; census counts are not timing-sensitive.
 - F3 bench spec written: e2e/render-bench.spec.ts (@perf-measure, SPARK_PERF=1). Clocks: pixi (patched renderer.render), sync (FxLayer ground.begin → topShade.end), frame.
+- ⚠ Stale-HMR: the vite server started before main.ts edit served the OLD census (pooled=undefined). Restarted. Stale diag3.exit (=1, from the killed run, 18:30:06) ended a wait loop early — benign, re-waited.
