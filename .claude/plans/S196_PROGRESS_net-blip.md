@@ -1,9 +1,14 @@
 # S196 PROGRESS — net-blip (branch s196/net-blip)
 
 ## NEXT STEP (top, always current)
-- NOW: pre-fix SLOW_CLOSE comparison: transport.ts reverted in WORKING TREE ONLY (git checkout 52559381 -- src/net/transport.ts && git restore --staged src/net/transport.ts), vite restarted, curl NO; runs TAG=SBh/SBj x2. THEN restore (git checkout HEAD -- src/net/transport.ts), RESTART vite, curl YES; mutation test; merge master; gates; spec header; RELAY_HEALTH.
+- transport.ts RESTORED (working tree clean). Dev server on 49915 is DOWN (died during SBj#2). NOW: mutation test (vitest only), git merge master, gates (typecheck, vitest --maxWorkers=3, build), e2e gating + lobby on Playwright's own hashed port, hard-blip spec x3 on own port. THEN final report.
 
 ## Log
+- ⭐ SLOW_CLOSE PRE-FIX (SBh/SBj, served NO, same setup as SFh/SFj): 4/4 SPLIT — SBh x2: joiner dropped, host never;
+  reconnect attempts every 35 s to +189/+191 s, splitForS 186/217. SBj x2: host dropped, joiner never; host terminal from
+  +29 s to the end, splitForS 218/188. (SBj#2: the dev server process died at +20 s — ERR_CONNECTION_REFUSED on vite's HMR
+  socket; page code was already loaded and the split was already set at +13.4 s, so counted with that caveat.)
+  => WITH vs WITHOUT the fix in the deterministic asymmetric model: 0/6 split vs 4/4 split.
 - SLOW_CLOSE WITH FIX (SFh = host's close stretched to 9 s, SFj = joiner's), 6 runs, no split; recovered 22.0/25.3/30.3 (h),
   29.7/31.8/52.2 (j). The rescue is visible: SFh#1/#2 — joiner dropped first and CLOSED its pc; the host's ICE then never
   came back (conn stayed disconnected: the orphan it would have reconnected to is gone) and its stretched close fired
