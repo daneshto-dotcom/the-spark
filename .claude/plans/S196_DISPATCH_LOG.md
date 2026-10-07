@@ -6,3 +6,4 @@
 - Wave 2 APPROVED (R196-0c). Open order as slots free: **#12 s196/ui-5 FIRST** (now carries the live CLICK-OFFSET bug, R196-U1 — a defect players hit every match outranks CI hygiene), then #3 s196/ci, #4 s196/net-cpu (+ R196-N1 strongest-machine host: measure → shared package → host election with upload weighed alongside CPU), #11 s196/render-perf.
 - NONET tree: owner answered 6a–6j as recommended (R196-D2) → told s196/nonet-home to extend to Option B campaign after Option A.
 - Blender 5.2.2 install started via winget (R196-D1). Team-tile COMPARE sheets were moved by his desktop cleaner to `The Spark/_from-desktop/SPARK_S195_TeamTiles/` — path given to him.
+- Blender 5.2.2 LTS installed (winget exit 0; `C:\Program Files\Blender Foundation\Blender 5.2\blender.exe --version` verified). Voltkin pilot deferred (R196-D1).
