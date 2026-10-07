@@ -21,7 +21,7 @@ import { encodeDelta, packFrame, segmentSnapshotMessage } from './snapshotCodec.
 import { NetTransport } from './transport.ts';
 import { wireNumberReplacer } from '../state/save.ts';
 
-const gate = { manual: false, started: 0, waiting: [] as Array<() => void> };
+const gate = { manual: false, started: 0, waiting: [] as Array<{ text: string; go: () => void }> };
 vi.mock('./snapshotCodec.ts', async (importOriginal) => {
   const orig = await importOriginal<typeof import('./snapshotCodec.ts')>();
   return {
@@ -30,7 +30,7 @@ vi.mock('./snapshotCodec.ts', async (importOriginal) => {
       if (!gate.manual) return orig.unpackFrame(f);
       gate.started++;
       const text = await orig.unpackFrame(f);
-      await new Promise<void>((resolve) => gate.waiting.push(resolve));
+      await new Promise<void>((resolve) => gate.waiting.push({ text, go: resolve }));
       return text;
     },
   };
@@ -42,7 +42,7 @@ async function renderTurn(): Promise<void> {
   await until(() => gate.waiting.length === gate.started, 'started inflates parked');
   const go = gate.waiting.splice(0);
   gate.started -= go.length;
-  for (const r of go) r();
+  for (const w of go) w.go();
   for (let i = 0; i < 20; i++) await Promise.resolve(); // the turn's microtasks (drain, apply, ack)
 }
 
@@ -194,12 +194,13 @@ describe('S196 joiner-desync — REACH: host → codec → slow, impaired joiner
       p.deliverFrame(key!);
       p.deliverFrame(bogus);
       await until(() => gate.waiting.length === gate.started, 'both parked');
-      const [kRelease, dRelease] = gate.waiting.splice(0);
+      const parked = gate.waiting.splice(0);
       gate.started = 0;
-      dRelease!(); // the bogus delta becomes ready FIRST
+      const isBogus = (w: { text: string }): boolean => w.text.startsWith('{"f":1000000,');
+      parked.find(isBogus)!.go(); // the bogus delta becomes ready FIRST
       for (let i = 0; i < 20; i++) await Promise.resolve();
       expect(got, 'nothing applied while the keyframe is still inflating').toEqual([]);
-      kRelease!();
+      parked.find((w) => !isBogus(w))!.go();
       await p.joiner.snapFramesSettled('H');
       expect(got).toEqual([1]);
       const acks = p.takeAcks().map((a) => JSON.parse(a) as { f: number; k?: number });
