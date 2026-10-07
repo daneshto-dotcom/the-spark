@@ -9,7 +9,7 @@
  * path actually POSTs the re-run / the issue (a decision nobody acts on is a source-text guard).
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
@@ -177,9 +177,12 @@ describe('S196 audit HIGH-1 — the imported .mjs scripts survive a CRLF (core.a
     expect(read('../.gitattributes')).toMatch(/^\*\.mjs text eol=lf$/m);
   });
   it('REACH: a CRLF copy of each script still imports (what a Windows checkout hands vitest)', async () => {
-    // inside the repo (node_modules is gitignored and present wherever vitest runs): Vite's loader will not
-    // resolve a module under the OS temp dir
-    const dir = mkdtempSync(join(path('../node_modules'), '.spark-crlf-'));
+    // ⚠ inside the repo but NOT under node_modules: Vite will not resolve a module under the OS temp dir, and
+    // a node_modules path is externalised to plain Node, which tolerates a CRLF shebang — measured, that
+    // made this test pass with the shebang put back. `test-results-*/` is gitignored.
+    const base = path('../test-results-crlf');
+    mkdirSync(base, { recursive: true });
+    const dir = mkdtempSync(join(base, 'run-'));
     try {
       for (const s of SCRIPTS) {
         const crlf = readFileSync(path(s), 'utf8').replace(/\r\n/g, '\n').replace(/\n/g, '\r\n');
