@@ -1,8 +1,11 @@
 # S196 PROGRESS — boss-release (branch s196/boss-release)
 
 ## NEXT STEP (exact)
-- FIX ROUND: merged master 71cfa975 (no conflicts). tc 0, vitest 1 = endgameAudit TIMEOUT only (alone: 0, 18 passed), build 0 (1275.4 KiB). e2e RUNNING detached to
-  .tmp-gates/fr-{tc,vt,build,gating,render}.exit, then the FIX ROUND REPORT section below + final message.
+- NONE — fix round complete, awaiting re-audit + merge.
+- Fix-round gates on the tree merged with master 71cfa975 (exits from files .tmp-gates/fr-*.exit): typecheck 0 · vitest 1 =
+  ONLY src/state/endgameAudit.test.ts "Test timed out in 20000ms" (known load flake; alone: exit 0, 18 passed) — 632
+  files / 9510 passed otherwise · build 0 · e2e:gating 0 (72 passed) · e2e:render 0 (10 passed). Entry 1275.4 KiB vs
+  1263.3 with master's spawnerZoneRenderer on the same tree = +12.1 KiB. Bump: NONE (render-only).
 
 ## FIX ROUND REPORT (audit FIX FIRST: HIGH-1, LOW-1)
 - HIGH-1 (fixed): a joiner's clock steps BACK when a snapshot lands; both trackers re-primed on any step back (and the
