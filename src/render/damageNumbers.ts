@@ -543,6 +543,14 @@ export class DamageNumbers {
    */
   private readonly watchedStruct = new Map<string, StructWatched>();
   /**
+   * ⭐ S196 (joiner-lag, R196-P1) — the watch keys of shapes and connectors, built ONCE per id. `syncStructures`
+   * runs every frame over every shape and connector; it used to build `p:${id}` / `b:${id}` and a fresh watch
+   * object (plus a repair object and an ends tuple) for each, ~2 400 allocations a frame on a wave-10 board,
+   * while their pools only move when a snapshot lands. Dropped with the watch on a mass-clear epoch.
+   */
+  private readonly primKeys = new Map<PrimitiveId, string>();
+  private readonly bondKeys = new Map<number, string>();
+  /**
    * ⭐ S182 — the last mass-clear epoch this renderer has seen. See `World.structureWatchEpoch`.
    * Starts at 0, matching a fresh World, so a normal boot clears nothing.
    */
@@ -786,6 +794,8 @@ export class DamageNumbers {
     if (world.structureWatchEpoch !== this.watchEpoch) {
       this.watchEpoch = world.structureWatchEpoch;
       this.watchedStruct.clear();
+      this.primKeys.clear();
+      this.bondKeys.clear();
     }
     /*
      * ⭐⭐⭐ S179 (owner) — **A SHAPE THAT WAS REMOVED DID NOT TAKE A HIT, SO IT PRINTS NOTHING.**
@@ -865,32 +875,50 @@ export class DamageNumbers {
      * so the derivation sees them as first sightings and nothing prints twice.
      */
     const repairPieces: RepairPiece[] = [];
+    /*
+     * ⭐ S196 — the watch entry is UPDATED IN PLACE (same key, same Map position, the previous pool read
+     * first), and the repair seed / connector ends are passed flat instead of as per-call objects. What it
+     * computes is unchanged: the same prev value, the same delta, the same emit, in the same order.
+     */
     const track = (
       key: string, v: number, x: number, y: number, owner: PlayerId,
       rising: boolean, deathOnVanish: boolean,
-      repair?: { prim: PrimitiveId; ends?: readonly [PrimitiveId, PrimitiveId] },
+      /** The shape a repair would be credited to; `null` for a pool that is not repaired. */
+      repairPrim: PrimitiveId | null = null,
+      /** A connector's two shape ids; `null` for every other pool. */
+      endA: PrimitiveId | null = null, endB: PrimitiveId | null = null,
     ): void => {
       seen.add(key);
       const prev = this.watchedStruct.get(key);
-      this.watchedStruct.set(key, {
-        v, x, y, owner, rising, deathOnVanish, ...(repair?.ends !== undefined ? { ends: repair.ends } : {}),
-      });
-      if (prev === undefined) return; // first sighting is neither a hit nor a heal
-      if (repair !== undefined) {
-        const healed = rising ? prev.v - v : v - prev.v;
+      if (prev === undefined) {
+        const fresh: StructWatched = { v, x, y, owner, rising, deathOnVanish };
+        if (endA !== null && endB !== null) fresh.ends = [endA, endB];
+        this.watchedStruct.set(key, fresh);
+        return; // first sighting is neither a hit nor a heal
+      }
+      const pv = prev.v;
+      prev.v = v; prev.x = x; prev.y = y; prev.owner = owner; prev.rising = rising; prev.deathOnVanish = deathOnVanish;
+      delete prev.healed;
+      if (endA !== null && endB !== null) {
+        if (prev.ends === undefined || prev.ends[0] !== endA || prev.ends[1] !== endB) prev.ends = [endA, endB];
+      } else if (prev.ends !== undefined) delete prev.ends;
+      if (repairPrim !== null) {
+        const healed = rising ? pv - v : v - pv;
         if (healed > 0) {
-          repairPieces.push({ prim: repair.prim, amount: healed, bond: rising });
+          repairPieces.push({ prim: repairPrim, amount: healed, bond: rising });
           return;
         }
       }
-      const d = poolDelta(prev.v, v, rising);
+      const d = poolDelta(pv, v, rising);
       if (d !== null) this.emitAt(world, x, y, d.amount, d.kind, owner);
     };
 
     // SHAPES — `hp` out of PRIMITIVE_MAX_HP, which is 70 FIFTHS since S177 P1. Same ladder as a
     // creature, so this prints the same number a creature would for the same swing.
     for (const prim of world.primitives.values()) {
-      track(`p:${prim.id}`, prim.hp, prim.pos.x, prim.pos.y, prim.placedBy, false, true, { prim: prim.id });
+      let key = this.primKeys.get(prim.id);
+      if (key === undefined) this.primKeys.set(prim.id, (key = `p:${prim.id}`));
+      track(key, prim.hp, prim.pos.x, prim.pos.y, prim.placedBy, false, true, prim.id);
     }
 
     /*
@@ -901,11 +929,13 @@ export class DamageNumbers {
       const a = world.primitives.get(bond.aId);
       const b = world.primitives.get(bond.bId);
       if (a === undefined || b === undefined) continue;
+      let key = this.bondKeys.get(bond.id as unknown as number);
+      if (key === undefined) this.bondKeys.set(bond.id as unknown as number, (key = `b:${bond.id}`));
       track(
-        `b:${bond.id}`, bond.damageFifths,
+        key, bond.damageFifths,
         (a.pos.x + b.pos.x) / 2, (a.pos.y + b.pos.y) / 2,
         a.placedBy, true, false,
-        { prim: bond.aId, ends: [bond.aId, bond.bId] },
+        bond.aId, bond.aId, bond.bId,
       );
     }
     if (repairPieces.length > 0) this.emitDerivedRepairs(world, repairPieces, seen, breakEnds);
