@@ -17,7 +17,8 @@
   "deliberation_note": "No new Council pass (Rule 0 deviation, PDR §7): spec'd follow-ups of recorded S195 findings + researched NONET floor + owner-asked tower fx on the approved S192 visuals substrate; each tree independently audited.",
   "analyze_completed": false,
   "reflexion_entries_to_archive": [
-    "#s196-board-look: the portrait claim had sat 'unverified live' since S194 because injected screenshots never loaded atlases; driving REAL matches to POSTGAME both proved it and surfaced an unrelated overlap defect a fixture would never have produced (scores 301/298)."
+    "#s196-board-look: the portrait claim had sat 'unverified live' since S194 because injected screenshots never loaded atlases; driving REAL matches to POSTGAME both proved it and surfaced an unrelated overlap defect a fixture would never have produced (scores 301/298).",
+    "#s196-silent-drop: the S195 tree ruled the silent drop 'not reproduced here' because its blip was pc.close() (an SCTP abort the host hears); building a FAITHFUL silent drop (UDP blackhole) is what exposed the permanent split — a reproduction is only as good as its fidelity to the production failure."
   ],
   "budget_total": 1000000,
   "totals": {
@@ -45,12 +46,24 @@
       "branch": "s196/net-blip",
       "tier": "Full",
       "plan_file": ".claude/plans/2026-10-07_S196_BATCH_PDR.md",
-      "status": "in_progress",
-      "priority_state": "in_progress",
+      "status": "completed",
+      "priority_state": "completed",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
-      "check_completed": false
+      "check_completed": true,
+      "checkpoint_commit": "6907fb22",
+      "deploy": "S196-#2",
+      "real_context_tokens_at_close": 437454,
+      "real_context_pct_at_close": 43.75,
+      "check_method": "Builder reproduced the SILENT drop (local UDP blackhole relay, channels stay open, no SCTP abort): outage ending between the two sides' 5 s closes split the match permanently (~19 % natural, 4/4 stretched-timer); cause Trystero 0.25.2 detaches (destroyPeer:false) and the leftover pc keeps the far side's channel open, so 24 rejoin offers got 0 answers. Fix: transport closes a dropped peer's DEAD pc. Live after fix 12/12 + 6/6 no split. Independent audit CLEAN (5 mutations red; own live runs: unfixed 2/2 split, fixed 3/3 recover; predicate cannot pre-empt a self-heal). Merge owner added LOW-1 tripwire pinning the 3 upstream facts (mutation destroyPeer:true -> red) + LOW-2 note. Landing gates: typecheck 0, vitest 9232/0, build 1235.9, e2e:gating 67/67, e2e:lobby 5/5; pushed 6907fb22; verify-deploy --sha full 4/4.",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/net/transport.ts",
+          "needle": "export function shouldCloseDroppedPeerConnection"
+        }
+      ]
     },
     {
       "id": "BOARD",
@@ -148,8 +161,8 @@
       "branch": "s196/ui-5",
       "tier": "Full",
       "plan_file": ".claude/plans/2026-10-07_S196_BATCH_PDR.md",
-      "status": "approved",
-      "priority_state": "approved",
+      "status": "in_progress",
+      "priority_state": "in_progress",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",

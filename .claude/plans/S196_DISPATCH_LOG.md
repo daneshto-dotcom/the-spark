@@ -19,3 +19,7 @@
 - Leftover audit vite (pid 4148, port 34619) killed; folder `.claude/worktrees/audit-tower-fx` left on disk (git already deregistered it; the recursive delete is blocked by the destructive guard — owner OK needed, or the handoff prune). The PowerShell regex error in the listing command was MY diagnostic's escaping bug — benign, the kill succeeded.
 - s196/nonet-home fix round 1 re-audit: FIX FIRST — MED-A NEW (home-open flush can double-POST a queued run concurrently with an in-flight submit; worker dedupe not atomic). Round 2 sent: atomic server dedupe (INSERT OR IGNORE claim) + client per-board in-flight set. (Pattern held again: every fix round adds a defect.)
 - Queue now: team-art → **s196/boss-release** (R196-T2, after tower-fx lands) → s196/accounts-design → #3 ci → #4 net-cpu → #11 render-perf.
+- **DEPLOY S196-#2 `6907fb22`** — s196/net-blip (+ merge-owner LOW-1 tripwire, LOW-2 note). Gates typecheck 0 · vitest 9232 / 0 · build 1235.9 · e2e:gating 67/67 · e2e:lobby 5/5 · verify-deploy --sha full 4/4.
+- tower-fx fix round re-audit CLEAN (LOW-A 31–35-tick stall re-prime clears live flares — logged, cosmetic; LOW-B inherent). → landing now.
+- ui-5 builder DONE (tip 5451e504): click-offset ROOT = Pixi 8 EventSystem.mapPositionToPoint ignores the `object-fit: contain` letterbox (Controls had compensated since S39) → one `clientToCanvas` + `installLetterboxPointerMapping`; 140/140 matrix. → full audit.
+- Slot (net-blip landed) → s196/team-art opened.
