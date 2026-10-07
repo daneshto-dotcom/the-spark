@@ -49,8 +49,8 @@
   - typecheck **0**;
   - vitest **0** (631 files / 9478 passed, 14 skipped);
   - build **0**;
-  - e2e:gating and e2e:render: see `f-*.exit`. Before the last merge they were gating **0** (69 passed) and render
-    **0** (10 passed).
+  - e2e:gating **0** (72 passed);
+  - e2e:render **0** (10 passed), own per-worktree port.
 - **Entry:** 1273.1 / 1350 KiB. Same tree with master's spawnerZoneRenderer: 1261.5 → **+11.6 KiB**, all mine.
 - **Bump verdict: NONE.** Render-only: no sim, wire, hash or serialize change. It reads only synced state (spawner
   membership, creature id/type/owner/pos). Two builds that shake hands compute identical sims.
