@@ -28,3 +28,4 @@
 - **DEPLOY S196-#4 `5055efd5`** — s196/ui-5 click-offset fix (+ merge-owner LOW-1/LOW-2). Pushed on owner order ahead of the local gate run (builder + auditor gates green on current master). verify-deploy run 1: FAIL LIVE — local dist was the S196-#3 build (land4 build step had not run) = stale-artifact false fail, ruled; run 2 after the fresh build: 4/4 PASS.
 - NONET fix round 3 DONE (b02157c2: one atomic D1 batch; verified on Python sqlite3 3.50.4 against schema.sql — no npx wrangler download) → light re-audit 3 dispatched.
 - Slot (ui-5 landed) → s196/accounts-design opened (design only).
+- ⛔ PAUSED on owner order (limit imminent): all four agents told to commit + stop; resume point updated with resume steps.
