@@ -1,7 +1,7 @@
 # S196 PROGRESS — s196/ci
 
 ## NEXT STEP (top, always current)
-- GATES on merged tree: vitest --maxWorkers=3 running detached (.tmp-gates/vt-full-2.*), then build, then e2e:gating (own port 37710).
+- NEXT: e2e:gating on own port 37710 detached -> .tmp-gates/e2e-gating.log/.exit; then write FINAL REPORT at top of this file + final commit.
 
 ## Log
 - boot: merged master; progress file created.
@@ -23,3 +23,4 @@
 - T5 Sym I VERDICT: HEALTHY — local 3/3 (5.6 min), CI green on all 3 recent quarantine runs. Recommend (MINE) promoting it out of @quarantine-flaky into the lobby lane after one more green week.
 - GATE vitest --maxWorkers=3 on merged tree: exit 1 — 8 timeout-only reds (STACK_TRACE_ERROR = own per-test timeouts) in botFix x3, botPersonality x3, snapshotCodec.differential, s191Perf.differential; none in a file this branch touches; box heavily loaded (endgameAudit MED-1 17.1 s in this run). Re-running those 4 files alone -> .tmp-gates/vt-rerun.*
 - GATE build: exit 0, entry 1263.3 KiB / 1350 (this branch adds 0 runtime bytes). REAL verify-deploy on c78f5c58 (8-char --sha): fresh dist → exit 0 PASS (TURN-injection diagnosis); after `touch src/main.ts` → exit 3 "STALE LIVE … dist/index.html was built 30 s BEFORE src/main.ts last changed".
+- vitest rerun of the 4 timed-out files + endgameAudit, --maxWorkers=1: exit 0, 85/85 → the 8 reds were load timeouts (benign, ruled). Full-suite counts from the first full run on this branch: 9450 passed / 14 skipped / 0 failed.
