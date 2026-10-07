@@ -1,10 +1,8 @@
 # S196 PROGRESS — s196/joiner-desync
 
 ## NEXT STEP
-Fix committed (transport.ts receive pipeline). Running AFTER trace (.tmp-gates/lag-after.log) + codec tests
-(.tmp-gates/vt-codec.log). Then: update snapshotCodec.transport.test.ts burst/R2(b) cases for latest-wins; new
-snapshotCodec.backlog.test.ts (pickSnapFrame unit, REACH through linkedPair w/ slow inflate, negative, mutation);
-then gates.
+Gates running detached (.tmp-gates/gates.sh → typecheck, vitest, build, e2e:gating, e2e:lobby, e2e:protocol; each
+<name>.exit). Read exits; fix reds; write FINAL REPORT at top. Mutations M1-M3 DONE (see LOG).
 
 ## WHY THE JOINER WAS BEHIND (evidence: 2 real Chromium pages, real WebRTC, local relay)
 S195's snapshot codec decoded every received frame through ONE serial promise chain on the joiner: frame N+1's
@@ -20,3 +18,13 @@ BEFORE trace (`scripts/live-mp/live-joiner-lag.mjs`, joiner CPU 6x throttled, re
 
 ## LOG
 - boot: merged master c78f5c58 (no conflicts).
+- fix: transport.ts receive pipeline (concurrent inflate on arrival + latest-wins drain, pickSnapFrame static),
+  rx/tx counters (snapRxStats/snapTxStats). AFTER trace: lag median 39 ticks (0.6 s), max 120, flat; 218 frames applied
+  of 218, superseded 0, keyframes 5 / deltas 213, staleAcks 0 (same 6x CPU + impairment as BEFORE: 1509 and climbing).
+- tests: src/net/snapshotCodec.backlog.test.ts (6): pickSnapFrame decision x3 (incl. negative), REACH 5 fps joiner
+  80 frames 2 % loss 1-turn ack RTT (lag <= 4 frames; own tower + spent bank <= 3 joiner frames), LATEST WINS, NEGATIVE
+  (bogus newer delta cannot discard an inflating keyframe). transport.test R2(b) re-pointed at processSnapFrame; burst
+  test states the latest-wins contract.
+- mutations: M1 pre-fix transport.ts (master) -> REACH red: "applied 1..41 … expected 39 <= 4" (one frame per turn,
+  lag +1/turn = the bug). M2 pick OLDEST -> decision + LATEST WINS red. M3 ignore held-base -> both NEGATIVE red.
+- merged master 538476e0 (no conflicts).
