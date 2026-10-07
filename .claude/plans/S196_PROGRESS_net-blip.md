@@ -1,7 +1,7 @@
 # S196 PROGRESS — net-blip (branch s196/net-blip)
 
 ## NEXT STEP (top, always current)
-- Read S195_PROGRESS_net-mp.md, reconnect-hard-blip.spec.ts, reconnectPolicy.ts, transport.ts, scripts/live-mp/*; npm install running.
+- Fix in transport.ts (84f678d9; working tree clean). NOW: fixed runs F x6 (TAG=F, .tmp-gates/blip/F-*.log) running; typecheck 0; droppedPeerClose.test 11/11. THEN: mutation test (only after F finishes — dev server HMR), git merge master, full gates, spec header + RELAY_HEALTH note, final report.
 
 ## Log
 - BASELINE B2 (pre-fix, LIGHT_ON_FIRST_DROP, split metric = one side holds the peer, the other none, >= 30 s after LIGHT):
