@@ -327,12 +327,12 @@ The progress file and this document are the plan of record. When building starts
 ### 5.2 Apple App Store (only relevant if a game ever ships on iOS)
 - **EU (DMA), new single terms from 2026-10-01** (`developer.apple.com/support/dma-and-apps-in-the-eu/`, last updated 2026-08-18):
 
-  | Option | Standard rate | Small business |
-  |---|---|---|
-  | Apple in-app purchase | 26% | 15% |
-  | Alternative in-app payment | 20% | 10% |
-  | Link out to the web (sales within 7 days of the tap) | 15% | 10% |
-  | Apps distributed from alternative marketplaces or the web (Core Technology Commission) | 5% | — |
+| Option | Standard rate | Small business |
+|---|---|---|
+| Apple in-app purchase | 26% | 15% |
+| Alternative in-app payment | 20% | 10% |
+| Link out to the web (sales within 7 days of the tap) | 15% | 10% |
+| Apps distributed from alternative marketplaces or the web (Core Technology Commission) | 5% | — |
 
 - **United States:** since the 2025-04-30 contempt order in Epic v. Apple, apps may include buttons and links to web purchases. The Ninth Circuit (2025-12-11) vacated the zero-commission ban and sent the case back for a "reasonable" commission. Apple has proposed 15% standard and 5% small business on linked-out purchases (iClarified, 2026-08-14). The Supreme Court took up the contempt question on 2026-06-30 (Courthouse News / MacDailyNews, August 2026). **Unsettled as of today.**
 - **Multiplatform (Guideline 3.1.3(b)):** an app may let users access items bought on the web or other platforms, *including consumables in multiplatform games*, **provided those items are also offered as in-app purchases in the app** (Apple guidelines PDF / developer forums, read 2026-10-07).
