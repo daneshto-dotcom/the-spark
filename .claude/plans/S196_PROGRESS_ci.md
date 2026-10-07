@@ -1,7 +1,7 @@
 # S196 PROGRESS — s196/ci
 
 ## NEXT STEP (top, always current)
-- FIX ROUND: HIGH-1 done. NOW: LOW-1 (cancelled deploy w/ newer run → superseded), LOW-2 (refused rerun → alert w/ real status), LOW-3 (dedupe recently-closed issues) in ci-watchdog.mjs + tests.
+- FIX ROUND: HIGH-1 + LOW-1/2/3 done. NOW: git merge master, npm install, then typecheck / vitest --maxWorkers=3 / build to .tmp-gates/fr-*.exit, then report.
 
 ## FINAL REPORT
 - merge: master 538476e0 merged clean (489ac387), no conflicts. Bump verdict: NONE (no src runtime/wire change). Entry 1263.3 KiB (+0 from this branch).
@@ -39,3 +39,4 @@
 - GATE build: exit 0, entry 1263.3 KiB / 1350 (this branch adds 0 runtime bytes). REAL verify-deploy on c78f5c58 (8-char --sha): fresh dist → exit 0 PASS (TURN-injection diagnosis); after `touch src/main.ts` → exit 3 "STALE LIVE … dist/index.html was built 30 s BEFORE src/main.ts last changed".
 - vitest rerun of the 4 timed-out files + endgameAudit, --maxWorkers=1: exit 0, 85/85 → the 8 reds were load timeouts (benign, ruled). Full-suite counts from the first full run on this branch: 9450 passed / 14 skipped / 0 failed.
 - FIX HIGH-1 DONE: reproduced (CRLF working copies → 24/25 red, SyntaxError); shebang alone was the cause (CRLF without shebang → 25/25). Shebangs removed (both run only as `node <file>`: package.json verify-deploy, ci-watchdog.yml step), `.gitattributes` `*.mjs text eol=lf`. New guard + REACH (CRLF copy under gitignored test-results-crlf/ imports); first REACH draft under node_modules was VACUOUS (externalised to plain Node, passed with the shebang back) — moved, mutant now red with the real SyntaxError. CRLF working-copy proof after fix: 27/27 exit 0. Fresh checkout: i/lf w/lf attr/text eol=lf. (One benign error in the restore sequence: `git checkout --` after `git rm --cached` = pathspec not in index; redone with rm + checkout.)
+- FIX LOW-1/2/3 DONE (ci-watchdog.mjs): cancelled/timed_out deploy with a newer deploy run → superseded (newer lookup now also runs for cancelled deploys); refused re-run logs the real status and ALERTS unless the run is already running again (race); alert dedupe reads state=all (closed alerts are not re-filed). Tests 21/21 (+7); mutants: no-superseded, no-lookup, old 403 skip, open-only dedupe → each RED.
