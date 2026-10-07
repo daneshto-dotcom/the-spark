@@ -2242,14 +2242,17 @@ describe('⭐⭐ S195 §5d — THE TEAMS UPGRADE (s195/teams, PROTOCOL 69): ever
 });
 
 describe('⭐ S195 §5d — N19 team tiles (s195/team-tiles): both shipping flags read what the canon says', () => {
-  it('the manifest ships empty, pairs keep pair art, the seam blend is OFF', async () => {
+  it('the manifest ships empty, pairs keep pair art, the seam blend is ON (S196 R196-A1)', async () => {
     const z = await import('./render/zoneBackgroundRenderer.ts');
     expect(z.TEAM_TILE_RACES.length).toBe(0);
     expect(canonSays('`TEAM_TILE_RACES` ships EMPTY')).toBe(true);
     expect(z.TEAM_TILES_FOR_PAIRS).toBe(false);
     expect(canonSays('`TEAM_TILES_FOR_PAIRS` = `false`')).toBe(true);
-    expect(z.TEAM_SEAM_BLEND_LEGACY_ART).toBe(false);
-    expect(canonSays('`TEAM_SEAM_BLEND_LEGACY_ART` = `false`')).toBe(true);
+    expect(z.TEAM_SEAM_BLEND_LEGACY_ART).toBe(true);
+    expect(canonSays('`TEAM_SEAM_BLEND_LEGACY_ART` = `true`')).toBe(true);
+    // ⭐ S196 (R196-A2) — his trio pictures: the count the canon states is the manifest's.
+    expect(z.TEAM_TRIO_ART.length).toBe(27);
+    expect(canonSays('`TEAM_TRIO_ART` (27 of the 56 cards')).toBe(true);
     expect(canonSays('N19 plans six blendable tiles instead')).toBe(false);
   });
 });

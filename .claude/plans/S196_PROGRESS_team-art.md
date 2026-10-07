@@ -2,7 +2,7 @@
 
 PROMPTS READY: C:/Users/onesh/OneDrive/Desktop/SPARK_Team3_Backdrop_Prompts.html (also _from-desktop/SPARK_Team3_Backdrop_Prompts.html) - section #singles, 12 cards (6 races x 4P quadrant + 2P half), copy buttons, own progress counter; headless smoke: 0 page errors, counters 0/56 + 0/12, tick works.
 
-NEXT STEP: wire TEAM_TRIO_ART manifest + trioBackdropUrl + quarter crop (part ne/se/sw) in zoneBackgroundRenderer.ts zoneBackdropPieces; failed-url fallback; then tests (teamTrioArt.test.ts).
+NEXT STEP: mutation tests (M1 NW zone map, M2 failed-wrapper, M3 flag, M4 positional->set) logged to .tmp-gates/mutate.log; then full gates; then screenshots.
 
 ## Log
 - merged master b35368c6 (tower-fx) at boot, no conflicts.
@@ -11,3 +11,4 @@ NEXT STEP: wire TEAM_TRIO_ART manifest + trioBackdropUrl + quarter crop (part ne
 
 ## TRIO MAPPING (file -> NE / SE / SW), verified by eye S196
 qwb0Y D/D/D (1) · Y209P D/D/Mu (2) · 7u6BS D/D/Na (3) · Xn4YJ D/D/Or (4) · Cti5A D/D/Va (5) · GIlwP D/D/Zo (6) · mTNsB D/Mu/Mu (7) · F9nFS D/Mu/Na (8) · bxt40 D/Mu/Or (9) · gOsXj D/Mu/Va (10) · b0OyK D/Mu/Zo (11) · CMK8y D/Na/Na (12) · OsCDw D/Na/Or (13) · **card 14 D/Na/Va: hqBp3 = 0 bytes, MISSING** · T7xpW D/Na/Zo (15) · 9vbUs D/Or/Or (16, drawn disc on the S seam) · O8ULO D/Or/Va (17) · 06oWF D/Or/Zo (18) · XFhrY D/Va/Va (19) · 00Z0A D/Va/Zo (20) · Vafnh D/Zo/Zo (21) · XEOoT Mu/Mu/Mu (22) · 0nA6Y Mu/Mu/Na (23) · KHeex Mu/Mu/Or (24) · EeN9B Mu/Mu/Va (25, 1712x1152) · oLzl8 Mu/Mu/Zo (26) · l5Ren Mu/Na/Na (27) · mLOs2 Mu/Na/Or (28) · `mLOs2 (1)` = byte-identical duplicate. Unidentified: none.
+- item 2b+3 DONE: TEAM_TRIO_ART manifest (27) + trioBackdropUrl + quarter crop (`ne`/`se`/`sw`, no nw) + failed->fallback; TEAM_SEAM_BLEND_LEGACY_ART = true; teamTrioArt.test.ts (new) + re-pins in teamTiles/teamBackdrop/canon tests + SPARK_CANON.md 5d BACKDROPS (canon.test binds the flag + the 27). 6 affected files: 168 passed. README at public/art/race-zones/teams/README.md.
