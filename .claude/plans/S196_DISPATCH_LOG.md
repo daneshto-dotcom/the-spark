@@ -53,3 +53,4 @@
 - joiner-lag builder DONE 6b975510 (MINIMAL joiner wave-10 frame 15.8→8.9 ms median, p95 66.8→21.2, long tasks 62→10; render-only) → audit. ⚠ NEW FINDING from its profile: a CPU-starved JOINER was PROMOTED TO HOST mid-match (runHostTick + transmitSnapshot in its profile) — split-brain risk, possibly part of the playtest symptoms → new tree s196/false-migration (owner rule: new bug = new worktree).
 - render-perf audit FIX FIRST (test-only MED-1: real holdForLobby caller untested; LOW-1 cycle check). Fix round sent. joiner-lag → audit; false-migration builder dispatched.
 - boss-release re-audit CLEAN; MED-1 step-back tolerance 12 too tight for lagging joiners → small fix round (60 + tests + derive keep exclusion).
+- win-bar audit CLEAN → builder authorized to do the 70→71 bump (ten sites) + 4 comment LOWs on its branch. ci audit FIX FIRST: HIGH-1 CRLF shebang breaks its two new test files on every Windows checkout (+ watchdog LOW-1..3) → fix round.
