@@ -29,3 +29,5 @@
 - NONET fix round 3 DONE (b02157c2: one atomic D1 batch; verified on Python sqlite3 3.50.4 against schema.sql — no npx wrangler download) → light re-audit 3 dispatched.
 - Slot (ui-5 landed) → s196/accounts-design opened (design only).
 - ⛔ PAUSED on owner order (limit imminent): all four agents told to commit + stop; resume point updated with resume steps.
+- land4 (ui-5 post-push confirmation): tc 0 · vt 1 = 2 FAIL line(s), endgameAudit load-timeout class (see above) · build 0 · e2e:gating 0. S196-#4 already verified 4/4.
+- Paused acks: accounts-design 060e88c6 · boss-release ea21a788 (code+tests done; gates/GIFs/bench owed) · NONET re-audit 3 (verdict pending, nothing wrong so far, gates not run) · team-art (ack pending at its next tool round). Hourly auto-resume check scheduled (minute :17, session-only).
