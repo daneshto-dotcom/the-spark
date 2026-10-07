@@ -302,6 +302,18 @@ describe('S192 T1 — the Trystero restart bug the workaround targets is still t
     expect(peer.match(/type: "rollback"/g)).toHaveLength(2);
   });
 
+  // ⭐ S196 net-blip (audit LOW-1) — `shouldCloseDroppedPeerConnection` (transport.ts) closes a dead peer's
+  // RTCPeerConnection on leave. Its safety argument rests on THREE upstream facts; a Trystero patch that changes
+  // any of them must turn this red, because then the close either kills a link Trystero would re-adopt, or
+  // silently becomes dead code and the S196 permanent split comes back.
+  it('S196: a dropped peer is only DETACHED after a 5 s re-checked timer, and leave fires before teardown', () => {
+    const peer = core('dist/peer.mjs');
+    expect(peer).toContain('const disconnectedCloseDelayMs = 5e3;');
+    expect(peer).toMatch(/disconnectedCloseTimer = null;\s*if \(pc\.connectionState === "disconnected" \|\| pc\.iceConnectionState === "disconnected"\) emitClose\(\);/);
+    expect(core('dist/shared-peer.mjs')).toContain('close: () => this.clear(appId, peerId, { destroyPeer: false })');
+    expect(core('dist/room.mjs')).toMatch(/if \(wasActive\) listeners\.onPeerLeave\?\.\(id\);\s*onPeerLeave\(id\);/);
+  });
+
   it('pooled offers still go stale at 57.3 s and are restarted from a Date.now() age', () => {
     expect(core('dist/offer-pool.mjs')).toContain('const offerTtl = 57333;');
     const strategy = core('dist/strategy.mjs');
