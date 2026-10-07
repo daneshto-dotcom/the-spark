@@ -65,7 +65,7 @@ export function isStarvedCandidate(job) {
 
 /**
  * @param {{workflowName: string, conclusion: string|null, attempt: number, starvedJobs: string[],
- *          newerDeployRun: boolean}} r
+ *          newerDeployRun: boolean | 'unknown'}} r
  * @returns {{action: 'none'|'rerun'|'alert'|'superseded', reason: string}}
  */
 export function decide(r) {
@@ -75,8 +75,13 @@ export function decide(r) {
   }
   const isDeploy = r.workflowName === DEPLOY_WORKFLOW;
   if (r.starvedJobs.length > 0) {
-    if (isDeploy && r.newerDeployRun) {
+    if (isDeploy && r.newerDeployRun === true) {
       return { action: 'superseded', reason: `starved (${r.starvedJobs.join(', ')}) but a newer deploy run exists — re-running would publish an older bundle` };
+    }
+    // ⭐ S196 audit LOW-B — the newer-run lookup FAILED: re-running could publish an older bundle, and staying
+    // silent could leave the site stale. Neither is safe, so a human gets the call.
+    if (isDeploy && r.newerDeployRun === 'unknown') {
+      return { action: 'alert', reason: `starved (${r.starvedJobs.join(', ')}), and whether a newer deploy exists could not be read — NOT re-run automatically` };
     }
     if (r.attempt < MAX_ATTEMPTS) {
       return { action: 'rerun', reason: `starved: ${r.starvedJobs.join(', ')} never got a hosted runner (attempt ${r.attempt}/${MAX_ATTEMPTS})` };
@@ -86,7 +91,8 @@ export function decide(r) {
   if (isDeploy && (r.conclusion === 'cancelled' || r.conclusion === 'timed_out')) {
     // ⭐ S196 audit LOW-1 — a queued deploy cancelled because a NEWER push took the `pages-deploy` group is
     // routine, not a silent death: the newer run is the one that matters (and gets its own look).
-    if (r.newerDeployRun) {
+    // ⭐ LOW-B: only a CONFIRMED newer run supersedes; 'unknown' (API error) falls through to the alert.
+    if (r.newerDeployRun === true) {
       return { action: 'superseded', reason: `deploy ended ${r.conclusion}, but a newer deploy run exists — that run is the one to judge` };
     }
     return { action: 'alert', reason: `deploy ended ${r.conclusion} (not starved) — a cancelled run sends no mail, so the site may be stale` };
@@ -94,9 +100,14 @@ export function decide(r) {
   return { action: 'none', reason: `conclusion ${r.conclusion} — an ordinary red, GitHub's own failure mail covers it` };
 }
 
-/** The issue title, one per run id, so a re-fire of the watchdog never opens a duplicate. */
-export function alertTitle(workflowName, runId) {
-  return `[ci-watchdog] ${workflowName} run ${runId} needs a human`;
+/**
+ * The issue title = the dedupe key: one alert per run ATTEMPT. ⭐ S196 audit LOW-A — it was per run id, and
+ * dedupe reads closed issues, so: deploy X cancelled → alert → a human re-runs X (as the alert advises) and
+ * closes it → the re-run dies too → the closed alert matched and the watchdog stayed SILENT over a stale site.
+ * A new attempt is a new event and files its own alert.
+ */
+export function alertTitle(workflowName, runId, attempt) {
+  return `[ci-watchdog] ${workflowName} run ${runId} attempt ${attempt} needs a human`;
 }
 
 /* ─────────────────────────────────────────── I/O ─────────────────────────────────────────── */
@@ -128,14 +139,15 @@ async function starvedJobsOf(run) {
   return out;
 }
 
+/** @returns {Promise<boolean | 'unknown'>} — 'unknown' on an API error (LOW-B: never re-run, but DO alert). */
 async function newerDeployRunExists(run) {
   const list = await gh(`/actions/workflows/${run.workflow_id}/runs?branch=${encodeURIComponent(run.head_branch)}&per_page=20`);
-  if (!list.ok) return true; // ⛔ fail SAFE: unknown → never re-run a deploy that might be stale
+  if (!list.ok) return 'unknown';
   return list.body.workflow_runs.some((x) => x.id !== run.id && Date.parse(x.created_at) > Date.parse(run.created_at));
 }
 
 async function openAlert(run, reason) {
-  const title = alertTitle(run.name, run.id);
+  const title = alertTitle(run.name, run.id, run.run_attempt);
   // ⭐ S196 audit LOW-3 — dedupe against CLOSED alerts too (state=all, most recently updated first): one alert
   // per run id, ever. Open-only meant a human closing it was undone by the next 30-min sweep for ~3 h.
   const seen = await gh('/issues?state=all&sort=updated&direction=desc&per_page=100');
