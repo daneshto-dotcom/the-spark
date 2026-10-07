@@ -13,7 +13,8 @@
  *   SPARK_URL=http://localhost:<own port>/ RELAY=ws://127.0.0.1:<rp> DARK_MS=8000 node scripts/live-mp/live-silent-blip.mjs
  * Env: DARK_MS (default 8000) · OBSERVE_S (default 200 — past RECONNECT_GIVE_UP_MS) · BLOCK_TORRENT=1 (close the
  * public tracker sockets so nostr is the only strategy) · TRACE=<dir> (writes timeline json) · LIGHT_ON_FIRST_DROP=1
- * (stay dark until the FIRST side's Trystero close fires, then light at once — aims at the asymmetric window where one
+ * SLOW_CLOSE=host|join (+SLOW_CLOSE_MS, default 9000) stretches that side's 5 s Trystero close — see mk().
+ * LIGHT_ON_FIRST_DROP: (stay dark until the FIRST side's Trystero close fires, then light at once — aims at the asymmetric window where one
  * side has dropped the peer and the other has not; DARK_MS is then only the upper bound).
  */
 import { chromium } from 'playwright';
@@ -79,6 +80,15 @@ const mk = async (name, forced) => {
   await p.addInitScript(INIT, {});
   await p.addInitScript(TRACER);
   if (forced) await p.addInitScript(FORCE_THROUGH_RELAY, { ctrl });
+  // SLOW_CLOSE=<host|join>: stretch THAT page's 5000 ms timeouts (Trystero's `disconnectedCloseDelayMs`) to
+  // SLOW_CLOSE_MS — a model of two machines whose ICE notices the outage at different times, which is what lets one
+  // side drop the peer while the other's ICE recovers first. Makes the split window deterministic instead of ~20 %.
+  if (process.env.SLOW_CLOSE === name) {
+    await p.addInitScript((ms) => {
+      const st = window.setTimeout;
+      window.setTimeout = function (fn, d, ...r) { return st.call(this, fn, d === 5000 ? ms : d, ...r); };
+    }, Number(process.env.SLOW_CLOSE_MS ?? 9000));
+  }
   p.on('console', (m) => {
     const t = m.text();
     if (/ice-poll|relay sockets attached|getRelaySockets/.test(t)) return;
