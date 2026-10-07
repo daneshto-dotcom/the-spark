@@ -1,7 +1,7 @@
 # S196 PROGRESS — render-perf (branch s196/render-perf)
 
 ## NEXT STEP (top, always current)
-F3 bench: `SPARK_PERF=1 npx playwright test e2e/render-bench.spec.ts --reporter=list` (detached, log .tmp-gates/bench1.log, out .tmp-gates/render-bench.json); note machine load. Then merge master, gates.
+git merge master → npm install → gates (typecheck, vitest --maxWorkers=3, build, e2e:gating, e2e:render) detached with exit files → self-audit → final report at top.
 
 ## Log
 - boot: merged master 7a596837 (fast-forward of plans/session-state only).
@@ -20,3 +20,9 @@ F3 bench: `SPARK_PERF=1 npx playwright test e2e/render-bench.spec.ts --reporter=
 - diag3 RESULT (fixed code, 2 × 7 000-tick bots matches): title0 residual 472 → title1 809 → title2 809 (Δ0 across the second cycle). pooled 477→1201→1205. live textures 42→151→175 (+24 in cycle 2: nagas t3 sheets + 4× each of 5 POT unlabelled sizes = filter TexturePool buckets). First match adds one-time ~+337 hidden lazily-built UI (racePicker 59, bot-setup cards ~120, Text 52...). VERDICT F1: NO display-object leak; growth = fx pool high-water (bounded) + one-time lazy UI + lazy race sheets/filter pool; textures census was counting null slots. Real retention = L1 backdrops (fixed).
 - render-heap.spec: residual census, pooled≤poolCap, C1→C2 title cycle (CYCLE_RESIDUAL_TOL 25, CYCLE_TICKS 240, cap 75 s), SETUP_AND_SAMPLES_MS 240→300 s (soak lane: 3 480 s = 58 min exactly — ci.e2eLanes passes; NO lanes edit). Diag spec moved out of e2e/ (its @diag tag failed the lane-tag test — the expected guard).
 - SOAK (patched render-heap.spec, local) exit 0, 9.0 min: window 3 069 ticks, residual Δ1 vs limit 36, pooled 1036→1040 of cap 19 200, live textures 118→122; CYCLE: 255 ticks second match, residual 808→808 (Δ0), pooled 1040→1042, live textures 118→119 (slots 122→127).
+- F3 BENCH (real GPU: ANGLE D3D11 RTX 4070 Ti SUPER; machine NOT quiet: CPU 100% from other trees' processes, 28 node procs; the swiftshader first attempt was killed — software GL at a few fps is not a player's machine). Realistic board: 19 blueprints (every kind, 4 seats/races), horde ~130-138 creatures. Run 1 (8 rounds) + run 2 (10 rounds, paired per-round medians). Render CPU = Pixi render + renderer-sync block (median ms):
+  run2: HIGH 5.0 | HIGH+legacy 4.8 | LOW 4.9 | LOW+legacy 4.5 | MINIMAL 4.4 | MINIMAL+legacy 4.5 ; fx sprites HIGH ~171, LOW ~165.
+  paired Δ (mean ±95% CI / median): HIGH−legacy +0.37±0.83 / +0.4 ; LOW−legacy +0.71±0.35 / +0.55 ; MINIMAL−MINIMAL+legacy +0.04±0.12 / 0.0 ; MINIMAL−HIGH+legacy(=?fx=legacy) −0.73±0.91 / −0.3.
+  run1 medians: HIGH 5.3 vs legacy 4.8 (+0.5), LOW 4.7 vs 4.3 (+0.4), MINIMAL 4.5 vs 4.3 (+0.2 noise).
+  Whole-frame medians Δ HIGH: +0.1 (run2) / +0.6 (run1). Means are tail-driven on this loaded box (run1 HIGH mean Δ +1.7).
+  VERDICT: ~+0.4–0.5 ms render CPU on HIGH (inside +1.0 and the owner's 1.4); MINIMAL ≈ 0 over legacy (cheaper than ?fx=legacy by the bond cache). No cuts. ⚠ CPU only: the bloom's GPU cost is not in these clocks.
