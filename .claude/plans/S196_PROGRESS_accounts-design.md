@@ -1,7 +1,7 @@
 # S196 PROGRESS — s196/accounts-design (DESIGN + RESEARCH tree, builds nothing)
 
 ## NEXT STEP (top, always current) — PAUSED for usage limit
-1. CNC survey DONE (.tmp-gates/survey_cnc.md, spot-verified). Legacy survey agent running. Payments sources DONE (.tmp-gates/payments_sources.md). NOW: writing .claude/plans/S196_ACCOUNTS_DESIGN.md (Legacy section placeholder until survey lands; if it dies, survey Game/founding-realm by hand).
+1. DESIGN DOC WRITTEN (.claude/plans/S196_ACCOUNTS_DESIGN.md). NEXT: self-audit pass, then HTML copy to C:/Users/onesh/OneDrive/Desktop/SPARK_Accounts_Design.html, then final report at top of this file.
 2. Read (READ-ONLY, `git show`, never checkout/edit) the Pitch Masters plan: repo `Extension Projects/Pitch Masters`, branch `notes/s196-one-login-network`, file `docs/ONE_LOGIN_GAME_NETWORK.md`.
 3. Payments web research (Valve rev share + in-game purchase/steering rules, Apple/Google + EU DMA/US external links, Supremacy 1914 routing, own-site desktop download, Stripe/Paddle/MoR EU VAT) — cite + date each source.
 4. Write `.claude/plans/S196_ACCOUNTS_DESIGN.md` (one-screen owner summary on top) + HTML copy to `C:\Users\onesh\OneDrive\Desktop\SPARK_Accounts_Design.html`. Commit every 5 min.
