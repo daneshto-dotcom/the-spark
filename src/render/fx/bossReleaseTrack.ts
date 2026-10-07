@@ -155,28 +155,32 @@ export class BossReleaseTracker {
     }
     this.bossesSeen = seen;
 
-    // 4 · match: each unreleased fall claims the nearest unclaimed sighting of its race + owner, in the window.
-    //     A TOTAL ORDER: squared distance, then the smaller creature id.
+    // 4 · match. ⛔ A GLOBAL TOTAL ORDER, NOT GREEDY PER FALL: every (fall, sighting) pair in range is ranked by
+    //     squared distance, then spawner id, then creature id, and taken nearest-first. Greedy per fall would let
+    //     whichever fall the map iterates first steal a boss that walked out of its neighbour — and Map order is
+    //     insertion order, which need not agree between the host and a peer that joined later (CLAUDE.md).
     const r2 = BOSS_RELEASE_MATCH_PX * BOSS_RELEASE_MATCH_PX;
+    const pairs: Array<{ f: BossTowerFall; b: BossSighting; d: number }> = [];
     for (const f of this.falls) {
       if (f.released || Math.abs(tick - f.startTick) > BOSS_RELEASE_MATCH_TICKS) continue;
-      let best = -1;
-      let bestD = Infinity;
-      let bestId = Infinity;
-      for (let i = 0; i < this.sightings.length; i++) {
-        const b = this.sightings[i]!;
+      for (const b of this.sightings) {
         if (b.race !== f.race || b.owner !== f.owner) continue;
         if (Math.abs(b.tick - f.startTick) > BOSS_RELEASE_MATCH_TICKS) continue;
         const dx = b.x - f.anchorX;
         const dy = b.y - f.anchorY;
         const d = dx * dx + dy * dy;
-        if (d > r2) continue;
-        if (d < bestD || (d === bestD && b.id < bestId)) { best = i; bestD = d; bestId = b.id; }
+        if (d <= r2) pairs.push({ f, b, d });
       }
-      if (best >= 0) {
-        f.released = true;
-        this.sightings.splice(best, 1);
+    }
+    if (pairs.length > 0) {
+      pairs.sort((p, q) => p.d - q.d || p.f.spawnerId - q.f.spawnerId || p.b.id - q.b.id);
+      const claimed = new Set<number>();
+      for (const p of pairs) {
+        if (p.f.released || claimed.has(p.b.id)) continue;
+        p.f.released = true;
+        claimed.add(p.b.id);
       }
+      this.sightings = this.sightings.filter((b) => !claimed.has(b.id));
     }
 
     // 5 · prune: sightings out of the window, falls past the crumble
