@@ -98,9 +98,13 @@ export function deployPathspecs(yml) {
   // CRLF, and a bare \n anchor matched NOTHING on the first attempt — the third time the
   // CRLF trap bit an edit in this session. \s also swallows newlines, which makes an
   // indentation matcher quietly wrong.
-  const block = yml.match(/\r?\n[ \t]{4}paths:\r?\n((?:[ \t]{6}-[ \t]*'[^']+'\r?\n)+)/);
+  // ⛔ S196 — AND COMMENT LINES INSIDE THE LIST. S162 P6 put a 6-line `#` comment between 'public/**' and
+  // 'scripts/**'; this matcher stopped at the first comment, so since S162 it returned ['src', 'public']
+  // ONLY — the RUN carrier's "no run is OWED" would have waved through a commit that changed nothing but
+  // scripts/, index.html, vite.config.ts, tsconfig.json or package*.json. Found by S196's own test.
+  const block = yml.match(/\r?\n[ \t]{4}paths:\r?\n((?:[ \t]{6}(?:-[ \t]*'[^']+'|#[^\r\n]*)\r?\n)+)/);
   if (block === null) return null;
-  const globs = [...block[1].matchAll(/-\s*'([^']+)'/g)].map((m) => m[1]);
+  const globs = [...block[1].matchAll(/^[ \t]*-\s*'([^']+)'/gm)].map((m) => m[1]);
   return globs.map((g) => g.replace(/\/\*\*$/, ''));
 }
 
@@ -124,7 +128,8 @@ export function newestMtime(root, paths) {
 /**
  * ⭐ S196 — was `dist/` built from what this checkout holds? STALE iff a BUILD INPUT is newer than
  * `dist/index.html` (Vite writes it last). The inputs are deploy.yml's own paths filter minus `.github/`
- * (the workflow file never reaches the bundle). A checkout, merge or edit after the last build moves an
+ * and `scripts/` (the workflow file and the gate scripts never reach the bundle — `vite.config.ts` imports
+ * nothing from scripts/; editing this very script must not make a fresh dist/ read as stale). A checkout, merge or edit after the last build moves an
  * input's mtime past the build's — exactly the S196-#4 case (#4 merged, #3's dist/ still on disk).
  * ⚠ One-directional, and it says so: a `dist/` NEWER than every input is not thereby proven fresh (built on
  * another branch, then a checkout that touched no input) — that case falls through to the ordinary LIVE
@@ -139,7 +144,7 @@ export function localBuildFreshness(root = '.') {
   }
   const specs = deployPathspecs(readFileSync(wf, 'utf8'));
   if (specs === null) return { known: false, stale: false, detail: 'could not parse the deploy.yml paths filter' };
-  const inputs = specs.filter((p) => !p.startsWith('.github/'));
+  const inputs = specs.filter((p) => !p.startsWith('.github/') && p !== 'scripts');
   const built = statSync(index).mtimeMs;
   const newest = newestMtime(root, inputs);
   if (newest === null) return { known: false, stale: false, detail: 'no build inputs found' };
