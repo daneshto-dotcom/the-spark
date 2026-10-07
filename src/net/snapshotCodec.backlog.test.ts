@@ -20,6 +20,9 @@ import { linkedPair, prng, until, type LinkedPair } from './snapshotCodec.fixtur
 import { encodeDelta, packFrame, segmentSnapshotMessage } from './snapshotCodec.ts';
 import { NetTransport } from './transport.ts';
 import { wireNumberReplacer } from '../state/save.ts';
+import { runHostTick } from '../state/hostTick.ts';
+import { startC5Match } from '../state/c5WaveFiveBoard.fixtures.ts';
+import { HostSync } from './sync.ts';
 
 const gate = { manual: false, started: 0, waiting: [] as Array<{ text: string; go: () => void }> };
 vi.mock('./snapshotCodec.ts', async (importOriginal) => {
@@ -210,6 +213,63 @@ describe('S196 joiner-desync — REACH: host → codec → slow, impaired joiner
       const acks = p.takeAcks().map((a) => JSON.parse(a) as { f: number; k?: number });
       expect(acks.some((a) => a.k === 1), 'the bogus delta asks for a keyframe').toBe(true);
       expect(acks.some((a) => a.f > 0), 'the keyframe is acked').toBe(true);
+    } finally {
+      gate.manual = false;
+    }
+  });
+});
+
+/*
+ * ⭐ S196 PLAYTEST-2 lead ("existing creatures FROZEN on the joiner for 30 s while new entities still land"): the
+ * same freeze shows on the HOST in a real bots match, in every BUILD phase and only there — the sim parks creatures
+ * through BUILD and stages the next wave's births (SPAWNING, ticksInState 0) — measured by a probe recorded in the
+ * progress file. So the dumps describe BUILD, not the wire. This case pins the wire half anyway: during FIGHT, the
+ * changes to EXISTING creatures (pos, state, ticksInState) reach a slow joiner through deltas, frame after frame.
+ */
+describe('S196 joiner-desync — REACH: existing creatures keep moving on a slow joiner during FIGHT', { timeout: 300_000 }, () => {
+  it('every applied snapshot carries the host’s creatures exactly, the joiner stays within 4 frames, and EXISTING creatures do change', async () => {
+    const { world: w, bots, deps, state } = startC5Match(false);
+    while (w.tick < 5_500) { bots.tick(w); runHostTick(w, deps, state); } // into wave 1's FIGHT
+    expect(w.matchPhase).toBe('FIGHT');
+    const p = await slowJoinerPair();
+    const sync = new HostSync();
+    const hostCreatures = new Map<number, string>();
+    let applied: { seq: number; creatures: string } | null = null;
+    let prevApplied: Map<number, string> | null = null;
+    let changedExisting = 0;
+    p.joiner.on((m) => {
+      if (m.kind !== 'NETSNAPSHOT') return;
+      const cs = ((m.snapshot as unknown as { creatures?: Array<{ id: number }> }).creatures ?? []);
+      applied = { seq: m.snapshotSeq, creatures: JSON.stringify(cs) };
+      const now = new Map(cs.map((c) => [c.id, JSON.stringify(c)] as const));
+      if (prevApplied !== null) for (const [id, t] of now) if (prevApplied.has(id) && prevApplied.get(id) !== t) changedExisting++;
+      prevApplied = now;
+    });
+    try {
+      let seq = 0;
+      let pendingAcks: string[] = [];
+      for (let frame = 1; frame <= 120; frame++) {
+        for (let k = 0; k < 6; k++) { bots.tick(w); runHostTick(w, deps, state); }
+        const msg = sync.buildSnapshotMessage(w, 0, 'm.1');
+        seq = msg.snapshotSeq;
+        hostCreatures.set(seq, JSON.stringify(JSON.parse(JSON.stringify(msg.snapshot, wireNumberReplacer)).creatures ?? []));
+        const before = p.hostRoom.actions.get('snap')!.sent.length;
+        p.host.send(msg);
+        await until(() => p.hostRoom.actions.get('snap')!.sent.length > before, 'host transmitted');
+        for (const f of p.takeFrames()) p.deliverFrame(f);
+        if (frame % 2 === 0) {
+          await renderTurn();
+          for (const a of pendingAcks) p.deliverAck(a);
+          pendingAcks = p.takeAcks();
+          const a = applied as { seq: number; creatures: string } | null;
+          expect(a).not.toBeNull();
+          expect(seq - a!.seq).toBeLessThanOrEqual(4);
+          expect(a!.creatures, `seq ${a!.seq}: the joiner's creatures differ from the host's`).toBe(hostCreatures.get(a!.seq));
+        }
+      }
+      expect(w.matchPhase).toBe('FIGHT');
+      // Anti-vacuity: modifications to EXISTING creatures genuinely flowed (not just additions).
+      expect(changedExisting).toBeGreaterThan(20);
     } finally {
       gate.manual = false;
     }
