@@ -1,7 +1,10 @@
 # S196 PROGRESS — boss-release (branch s196/boss-release)
 
 ## NEXT STEP (exact)
-- NONE — complete, awaiting independent audit + merge.
+- FIX ROUND (audit FIX FIRST): HIGH-1 joiner clock steps back a few ticks per snapshot -> tracker re-primes / prunes
+  falls. Fix in bossReleaseTrack.observe (tolerate step-back <= BOSS_RELEASE_MATCH_TICKS, new match = World object change or
+  gameState != PLAYING, clamp age >= 0, never prune on tick < startTick) + same in SpawnerZoneRenderer.trackBirths; tests
+  with the real joiner per-step loop. LOW-1: endlessDynasty mummies boss at keep -> exclude sightings near owner's keep.
 
 ## FINAL REPORT
 - **Tip:** see the last commit on `s196/boss-release`. Merges: master fb8f6b42 → 485dbddc, then 2722124c. No conflicts in either.
