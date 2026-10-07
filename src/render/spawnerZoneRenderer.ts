@@ -403,7 +403,7 @@ export class SpawnerZoneRenderer {
       if (foot === null) continue;
       if (isConcealed(foot.x, foot.y, anchor.placedBy)) continue;
       const cfg = getDefenderConfig(d.kind);
-      const act = defenderSigAct(d.state, d.ticksInState, d.nextFireTick, world.tick, cfg.fireIntervalTicks, cfg.windupTicks, DEFENDER_FIRE_HOLD_TICKS);
+      const act = defenderSigAct(d.state, d.ticksInState, d.nextFireTick, world.tick, cfg.fireIntervalTicks, DEFENDER_FIRE_HOLD_TICKS);
       towerSignatureFx(sinks, kind, anchor.id as unknown as number, foot.x, foot.y, foot.w, foot.h, world.tick, low, act.actAge, act.charge, null);
     }
   }

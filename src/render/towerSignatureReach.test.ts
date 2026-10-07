@@ -149,7 +149,7 @@ describe('S196 REACH (end to end) — a really-built tower gets its signature', 
       let charge = 0;
       if (d !== undefined) {
         const cfg = getDefenderConfig(d.kind);
-        ({ actAge, charge } = defenderSigAct(d.state, d.ticksInState, d.nextFireTick, w.tick, cfg.fireIntervalTicks, cfg.windupTicks, DEFENDER_FIRE_HOLD_TICKS));
+        ({ actAge, charge } = defenderSigAct(d.state, d.ticksInState, d.nextFireTick, w.tick, cfg.fireIntervalTicks, DEFENDER_FIRE_HOLD_TICKS));
       }
       if (sp !== undefined) {
         let born = -Infinity;

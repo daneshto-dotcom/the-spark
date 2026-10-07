@@ -94,17 +94,19 @@ export function towerSigFlare(actAge: number): number {
 /**
  * ⭐ A DEFENDER'S ACT, from its synced FSM. PURE.
  *   · `actAge` — ticks since it entered FIRE (FIRE, then RECOVER which follows it), else `TOWER_SIG_NO_ACT`;
- *   · `charge` 0..1 — how close the next shot is: 0 right after one, rising to 1 at `nextFireTick`, 1 while
- *     winding up (or, for a tower with a visible wind-up, the wind-up's own progress).
+ *   · `charge` 0..1 — how close the next shot is: 0 from the shot through RECOVER, then rising to 1 at
+ *     `nextFireTick` (RECOVER's end re-arms it one interval out), held at 1 while waiting for a target and
+ *     through the WIND-UP. ⛔ CONTINUOUS ON PURPOSE: an earlier cut restarted the wind-up at 0, so the stink
+ *     tower's fumes thinned abruptly the moment it began to throw (a pop, found in the self-audit).
  */
 export function defenderSigAct(
   state: string, ticksInState: number, nextFireTick: number, tick: number,
-  fireIntervalTicks: number, windupTicks: number, fireHoldTicks: number,
+  fireIntervalTicks: number, fireHoldTicks: number,
 ): { actAge: number; charge: number } {
   switch (state) {
     case 'FIRE': return { actAge: ticksInState, charge: 0 };
     case 'RECOVER': return { actAge: fireHoldTicks + ticksInState, charge: 0 };
-    case 'WINDUP': return { actAge: TOWER_SIG_NO_ACT, charge: windupTicks > 0 ? clamp01(ticksInState / windupTicks) : 1 };
+    case 'WINDUP': return { actAge: TOWER_SIG_NO_ACT, charge: 1 };
     case 'IDLE': {
       const left = nextFireTick - tick;
       return { actAge: TOWER_SIG_NO_ACT, charge: fireIntervalTicks > 0 ? clamp01(1 - left / fireIntervalTicks) : 1 };

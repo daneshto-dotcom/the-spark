@@ -147,14 +147,29 @@ describe('S196 — the act arithmetic (pure)', () => {
     expect(towerSigFlare(-5)).toBe(0);
     expect(towerSigFlare(TOWER_SIG_FLARE_TICKS / 2)).toBeCloseTo(0.25);
   });
-  it('defenderSigAct: FIRE/RECOVER carry the act age; IDLE charges toward nextFireTick; WINDUP is its own progress', () => {
-    expect(defenderSigAct('FIRE', 3, 0, 100, 225, 3, DEFENDER_FIRE_HOLD_TICKS)).toEqual({ actAge: 3, charge: 0 });
-    expect(defenderSigAct('RECOVER', 2, 0, 100, 225, 3, DEFENDER_FIRE_HOLD_TICKS)).toEqual({ actAge: DEFENDER_FIRE_HOLD_TICKS + 2, charge: 0 });
-    expect(defenderSigAct('IDLE', 0, 1225, 1000, 225, 3, 12).charge).toBe(0);
-    expect(defenderSigAct('IDLE', 0, 1000 + 225 / 2, 1000, 225, 3, 12).charge).toBeCloseTo(0.5);
-    expect(defenderSigAct('IDLE', 50, 900, 1000, 225, 3, 12)).toEqual({ actAge: TOWER_SIG_NO_ACT, charge: 1 });
-    expect(defenderSigAct('WINDUP', 10, 0, 0, 240, 20, 12).charge).toBe(0.5);
-    expect(defenderSigAct('DORMANT', 10, 0, 0, 240, 20, 12)).toEqual({ actAge: TOWER_SIG_NO_ACT, charge: 0 });
+  it('defenderSigAct: FIRE/RECOVER carry the act age; IDLE charges toward nextFireTick; WINDUP holds full', () => {
+    expect(defenderSigAct('FIRE', 3, 0, 100, 225, DEFENDER_FIRE_HOLD_TICKS)).toEqual({ actAge: 3, charge: 0 });
+    expect(defenderSigAct('RECOVER', 2, 0, 100, 225, DEFENDER_FIRE_HOLD_TICKS)).toEqual({ actAge: DEFENDER_FIRE_HOLD_TICKS + 2, charge: 0 });
+    expect(defenderSigAct('IDLE', 0, 1225, 1000, 225, 12).charge).toBe(0);
+    expect(defenderSigAct('IDLE', 0, 1000 + 225 / 2, 1000, 225, 12).charge).toBeCloseTo(0.5);
+    expect(defenderSigAct('IDLE', 50, 900, 1000, 225, 12)).toEqual({ actAge: TOWER_SIG_NO_ACT, charge: 1 });
+    expect(defenderSigAct('WINDUP', 10, 0, 0, 240, 12).charge).toBe(1);
+    expect(defenderSigAct('DORMANT', 10, 0, 0, 240, 12)).toEqual({ actAge: TOWER_SIG_NO_ACT, charge: 0 });
+  });
+  it('⛔ the charge is CONTINUOUS through a whole fire cycle (no pop at the wind-up or the re-arm)', () => {
+    // a stink tower's real cycle: IDLE ramps to nextFireTick, WINDUP 20, FIRE hold, RECOVER, IDLE re-armed
+    const interval = 240;
+    let prev = defenderSigAct('IDLE', 0, 1000, 1000 - 1, interval, 12).charge;
+    const step = (c: number): void => { expect(Math.abs(c - prev)).toBeLessThanOrEqual(1 / 20 + 1e-9); prev = c; };
+    step(defenderSigAct('IDLE', 0, 1000, 1000, interval, 12).charge); // due: 1
+    for (let t = 0; t < 20; t++) step(defenderSigAct('WINDUP', t, 1000, 1001 + t, interval, 12).charge);
+    // FIRE drops it to 0 — the shot IS the discharge (the flare carries that beat), so that edge is allowed
+    expect(defenderSigAct('FIRE', 0, 1000, 1021, interval, 12).charge).toBe(0);
+    prev = 0;
+    for (let t = 0; t < 30; t++) step(defenderSigAct('RECOVER', t, 1000, 1033 + t, interval, 12).charge);
+    // RECOVER's end re-arms nextFireTick one interval out: IDLE starts at 0 and ramps
+    for (let t = 0; t <= interval; t += 12) step(defenderSigAct('IDLE', t, 1063 + interval, 1063 + t, interval, 12).charge);
+    expect(prev).toBe(1);
   });
 });
 
