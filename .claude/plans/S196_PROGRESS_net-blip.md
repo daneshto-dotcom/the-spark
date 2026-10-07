@@ -4,6 +4,9 @@
 - transport.ts RESTORED (working tree clean). Dev server on 49915 is DOWN (died during SBj#2). NOW: mutation test (vitest only), git merge master, gates (typecheck, vitest --maxWorkers=3, build), e2e gating + lobby on Playwright's own hashed port, hard-blip spec x3 on own port. THEN final report.
 
 ## Log
+- MUTATION: (1) `pc.close()` removed -> droppedPeerClose.test 3 REACH tests RED (exit 1, .tmp-gates/vt-mutant.log);
+  (2) the `shouldCloseDroppedPeerConnection` guard removed (always close) -> 3 NEGATIVE tests RED (exit 1, vt-mutant2.log).
+  Source restored byte-identical (git status clean).
 - ⭐ SLOW_CLOSE PRE-FIX (SBh/SBj, served NO, same setup as SFh/SFj): 4/4 SPLIT — SBh x2: joiner dropped, host never;
   reconnect attempts every 35 s to +189/+191 s, splitForS 186/217. SBj x2: host dropped, joiner never; host terminal from
   +29 s to the end, splitForS 218/188. (SBj#2: the dev server process died at +20 s — ERR_CONNECTION_REFUSED on vite's HMR
