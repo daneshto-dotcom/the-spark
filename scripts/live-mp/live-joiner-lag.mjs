@@ -30,7 +30,7 @@ const cleanup = () => { for (const k of kids) { try { k.kill(); } catch { /* */ 
 process.on('exit', cleanup);
 
 // 1. local Nostr relay
-const relayProc = spawn(process.execPath, ['scripts/live-mp/local-nostr-relay.mjs'], { stdio: ['ignore', 'pipe', 'inherit'] });
+const relayProc = spawn(process.execPath, ['scripts/live-mp/local-nostr-relay.mjs'], { stdio: ['ignore', 'pipe', 'inherit'], env: { ...process.env, PORT: '0' } });
 kids.push(relayProc);
 const wsUrl = await new Promise((res, rej) => {
   const to = setTimeout(() => rej(new Error('nostr relay did not start')), 15000);
