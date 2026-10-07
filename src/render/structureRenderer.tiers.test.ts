@@ -551,13 +551,28 @@ describe('S196 — MINIMAL defers motion, never structure', () => {
     expect(sortedBuckets(r)).toEqual(sortedBuckets(freshLow));
   });
 
-  it('no bucket starves: stalest first, so a bucket that keeps moving is still redrawn', () => {
+  it('no bucket starves: stalest first, even while more buckets than the budget never stop shaking', () => {
     const { w, r } = moved(5);
-    const target = [...w.primitives.values()][0] as unknown as P;
-    for (let f = 0; f < 120; f++) {
-      target.pos.y += f % 2 === 0 ? 2 : -2; // one corner never stops shaking
+    r.sync(w);
+    // the LOWEST-keyed buckets shake every frame, more of them than the budget can serve: a key-ordered queue
+    // would hand them the whole budget forever and never reach the rest
+    const keys = [...internals(r).bondBuckets.keys()].sort((a, b) => a - b);
+    const hot = new Set(keys.slice(0, BUDGET * 2));
+    const keyOf = (b: B): number => Math.floor((Math.round(b.a.pos.x) + Math.round(b.b.pos.x)) / 2 / BOND_CACHE_CELL_PX) * 1024
+      + Math.floor((Math.round(b.a.pos.y) + Math.round(b.b.pos.y)) / 2 / BOND_CACHE_CELL_PX);
+    const hotBonds = ([...w.bonds.values()] as unknown as B[]).filter((b) => hot.has(keyOf(b)));
+    expect(hotBonds.length).toBeGreaterThan(BUDGET * 2);
+    for (let f = 0; f < 3 * keys.length; f++) {
+      for (const b of hotBonds) b.restLength *= f % 2 === 0 ? 0.97 : 1 / 0.97; // stress flickers: motion only
       r.sync(w);
     }
+    // every bucket that is NOT still shaking is current: none was starved by the shaking ones
+    const fresh0 = new StructureRenderer(app, new ContainerStub() as never);
+    fresh0.sync(w);
+    const stale = [...internals(r).bondBuckets.entries()]
+      .filter(([k, b]) => !hot.has(k) && opsOf(b.g) !== opsOf(internals(fresh0).bondBuckets.get(k)?.g ?? new GraphicsRec()))
+      .map(([k]) => k);
+    expect(stale, 'every quiet bucket got its turn').toEqual([]);
     settleCache(r, w);
     const fresh = new StructureRenderer(app, new ContainerStub() as never);
     fresh.sync(w);
