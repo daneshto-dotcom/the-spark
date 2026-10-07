@@ -1,7 +1,7 @@
 # S196 PROGRESS — tower-fx (branch s196/tower-fx)
 
 ## NEXT STEP (exact)
-- NONE — tree complete, awaiting the independent audit + merge. (Tip = the commit that carries this line.)
+- FIX ROUND (audit): HIGH-1 client-side birth tracking (first-seen frame, skip first sync) + peer round-trip test; MED-1 drop t9 flare + README; LOW-1 LOW-tier reach test. Then merge master, restart vite, gates.
 
 ## FINAL REPORT
 - Merges: master c8239570 → 9ddf5027 (plans only) → 7e9d241c (board-look: matchBoardLayout + its test). No conflicts.
