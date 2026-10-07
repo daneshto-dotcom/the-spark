@@ -1,4 +1,4 @@
-NEXT STEP: NONE — fix round complete; awaiting re-audit / merge owner.
+NEXT STEP: FIX ROUND 2 — MED-A: (1) worker atomic run-id claim via INSERT OR IGNORE changes, (2) client per-board in-flight set; tests + mutation; merge master; gates.
 
 # FIX ROUND REPORT (audit: FIX FIRST — MED-1, LOW-1, LOW-2 only)
 - MED-1: `RemoteLeaderboard.flushAllPending` + `flushAllPendingRuns()` (arcadeLeaderboard.ts) and `pendingBoardIds()` (arcadeScores.ts). Every board's queue is flushed after any successful submit AND on every NONET home open (`NonetHome.show`). Expired runs are pruned unsent; sent ids are removed from a fresh read so a run queued mid-flight is kept. Tests in src/nonet/pendingFlush.test.ts (5): daily delivered on home open (real page), stage delivered via a submit to another board, still-offline keeps the run, NEGATIVE expired run not sent, mid-flight run kept. Mutations: delete the submit-side call → stage test RED; delete the home-open call → daily test RED.
