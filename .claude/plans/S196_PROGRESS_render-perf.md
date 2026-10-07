@@ -1,7 +1,7 @@
 # S196 PROGRESS — render-perf (branch s196/render-perf)
 
 ## NEXT STEP (top, always current)
-git merge master → npm install → gates (typecheck, vitest --maxWorkers=3, build, e2e:gating, e2e:render) detached with exit files → self-audit → final report at top.
+Gates script .tmp-gates/gates.sh in flight (e2e:gating then e2e:render; exit files .tmp-gates/g-e2e.exit / g-render.exit; g-all.done when finished). When done: read exits → write FINAL REPORT at top → commit. If resumed and g-all.done is missing: re-run only `npm run e2e:gating` / `npm run e2e:render` with exit files.
 
 ## Log
 - boot: merged master 7a596837 (fast-forward of plans/session-state only).
@@ -26,3 +26,4 @@ git merge master → npm install → gates (typecheck, vitest --maxWorkers=3, bu
   run1 medians: HIGH 5.3 vs legacy 4.8 (+0.5), LOW 4.7 vs 4.3 (+0.4), MINIMAL 4.5 vs 4.3 (+0.2 noise).
   Whole-frame medians Δ HIGH: +0.1 (run2) / +0.6 (run1). Means are tail-driven on this loaded box (run1 HIGH mean Δ +1.7).
   VERDICT: ~+0.4–0.5 ms render CPU on HIGH (inside +1.0 and the owner's 1.4); MINIMAL ≈ 0 over legacy (cheaper than ?fx=legacy by the bond cache). No cuts. ⚠ CPU only: the bloom's GPU cost is not in these clocks.
+- GATES (merged master 8b60bdcf): install 0 · typecheck 0 · vitest 1 = 4 TIMEOUT-only reds in 3 files (structureRenderer.tiers memory fuzz 20 s, bondTargetIndex.differential 120 s, endgameAudit ×2 known flake) on a 100%-CPU machine → each re-run ALONE exit 0 (19/6/18 pass). Verdict: load timeouts, benign. Full suite 9474 pass / 14 skip / 639 files. build 0 → entry 1264.3 KiB / 1350.
