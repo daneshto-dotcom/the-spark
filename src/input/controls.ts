@@ -47,7 +47,7 @@ import { lookupCombo } from '../combos.ts';
 import type { Spark } from '../game/spark.ts';
 import type { Primitive } from '../game/primitive.ts';
 import { componentOf } from '../game/structure.ts';
-import { cssToCanvasCoords } from '../render/lobbyScreen.ts';
+import { clientToCanvas } from './pointerMapping.ts';
 import { dispatch, isNetworked } from '../state/world.ts';
 import { canStampAt } from '../state/blueprintLegality.ts';
 // ⭐ S195 N6 — "if you have enough resources": the SAME affordability predicate the footer card and the
@@ -2406,15 +2406,12 @@ export class Controls {
   // aligned, especially around the edges"). cssToCanvasCoords (lobbyScreen.ts)
   // computes the letterbox-aware uniform scale so the cursor is visually
   // coincident with the OS cursor at every viewport aspect.
+  //
+  // ⭐ S196 (ui-5) — now through `clientToCanvas` (input/pointerMapping.ts), the SAME function the Pixi
+  // event system was patched to use. Until S196 only this path was letterbox-aware; every Pixi
+  // `pointertap` control was offset by up to the letterbox bar (the owner's "click way to the left").
   private updateCursor(e: PointerEvent): void {
-    const rect = this.app.canvas.getBoundingClientRect();
-    const { x, y } = cssToCanvasCoords(
-      rect,
-      CANVAS_WIDTH,
-      CANVAS_HEIGHT,
-      e.clientX,
-      e.clientY,
-    );
+    const { x, y } = clientToCanvas(this.app.canvas.getBoundingClientRect(), e.clientX, e.clientY);
     this.cursor.x = x;
     this.cursor.y = y;
   }

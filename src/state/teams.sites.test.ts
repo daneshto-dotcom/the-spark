@@ -134,6 +134,7 @@ const PINNED_PREDICATE: Readonly<Record<string, number>> = {
   'render/damageNumbers.ts': 4,
   'render/matchBoardModel.ts': 1, // S194 — the stat board stars the winner's whole TEAM
   'render/goblinRenderer.ts': 1, // S194 — master's lifesteal motes come from the nearest ENEMY creature (visuals-racial)
+  'render/hoverHighlight.ts': 1, // ⭐ S196 ui-5 — the (OFF) hover ring is cyan on a TEAMMATE's castle/unit, red on an enemy's
   'render/wallRenderer.ts': 1,
   'render/zoneBackgroundRenderer.ts': 4, // ⭐ S195 — the team backdrop plan: a pair half is two TEAMMATES (+ the team-size count); N19: every trio race has a tile (+ a seam blends only between TEAMMATES)
   'state/bossSkills.ts': 1,

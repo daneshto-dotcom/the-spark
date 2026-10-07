@@ -19,7 +19,8 @@
   "reflexion_entries_to_archive": [
     "#s196-board-look: the portrait claim had sat 'unverified live' since S194 because injected screenshots never loaded atlases; driving REAL matches to POSTGAME both proved it and surfaced an unrelated overlap defect a fixture would never have produced (scores 301/298).",
     "#s196-silent-drop: the S195 tree ruled the silent drop 'not reproduced here' because its blip was pc.close() (an SCTP abort the host hears); building a FAITHFUL silent drop (UDP blackhole) is what exposed the permanent split — a reproduction is only as good as its fidelity to the production failure.",
-    "#s196-host-only-tests: tower-fx's flare tests were all green and all on a HOST world; the joiner never saw a flare because the field it read is zeroed on the wire. Any render effect that reads sim state needs one host->snapshot->peer round-trip test, or it proves the host only."
+    "#s196-host-only-tests: tower-fx's flare tests were all green and all on a HOST world; the joiner never saw a flare because the field it read is zeroed on the wire. Any render effect that reads sim state needs one host->snapshot->peer round-trip test, or it proves the host only.",
+    "#s196-click-offset: a long-standing 'click way to the left' bug lived for many sessions because every e2e ran at exactly 1920x1080, the one size where Pixi's per-axis mapping and the letterbox math agree; the owner's 'half screen / other monitors' was the whole diagnosis."
   ],
   "budget_total": 1000000,
   "totals": {
@@ -174,12 +175,24 @@
       "branch": "s196/ui-5",
       "tier": "Full",
       "plan_file": ".claude/plans/2026-10-07_S196_BATCH_PDR.md",
-      "status": "in_progress",
-      "priority_state": "in_progress",
+      "status": "completed",
+      "priority_state": "completed",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
-      "check_completed": false
+      "check_completed": true,
+      "checkpoint_commit": "5055efd5",
+      "deploy": "S196-#4",
+      "real_context_tokens_at_close": 487922,
+      "real_context_pct_at_close": 48.79,
+      "check_method": "Builder: click-offset ROOT = Pixi 8 EventSystem.mapPositionToPoint stretches x/y over the object-fit:contain letterboxed canvas box (Controls compensated since S39); one clientToCanvas + installLetterboxPointerMapping; before half-screen castle 0/4 hit, toolbar window +82..92 px x; after 140/140 matrix; census of every pointer-conversion site; e2e click-offset spec; UI census REACH rows; hover-highlight prototype OFF. Independent audit CLEAN (own Playwright repro at 960x1080/1920x947@1.5/1280x1024@1.25: fixed hits, install commented -> miss; mutations red). Merge owner LOW-1 (coalesced/predicted tokens + stated e.x gap) and LOW-2 (Pixi caller tripwire; pointer-path mutation -> exactly that test red, file restored byte-identical). Pushed on owner order 5055efd5; verify-deploy 1st run FAIL LIVE = stale local dist (build step not yet run) -> after fresh build 4/4 PASS.",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/input/pointerMapping.ts",
+          "needle": "installLetterboxPointerMapping"
+        }
+      ]
     },
     {
       "id": "TEAMART",
