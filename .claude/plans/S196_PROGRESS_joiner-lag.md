@@ -1,7 +1,7 @@
 # S196 PROGRESS — s196/joiner-lag
 
 ## ⏭ NEXT STEP
-FIX ROUND (audit MED-1): add bond identity to BondDraw, fold into hashBondShape only; swap repro tests (new id + reused id); fuzz compares structural hash every frame with swap mutation; fix comment; LOW-1 doc line at motionRedrawsPerFrame. Then merge master + gates.
+FIX ROUND: MED-1 + LOW-1 committed (mutation: dropping identity turns 3 tests red). NOW: merge master, npm install, gates typecheck + vitest + build + e2e:render (.tmp-gates/fr-*.exit), then report.
 
 ## FINAL REPORT
 - Gates: typecheck 0 · vitest 0 (633 files / 9492 passed / 15 skipped) · build 0 (entry 1265.2 KiB / cap 1350; this tree's src share ~1–2 KiB) · e2e:gating 0 (72 passed, 1 skipped) · e2e:render 0 (10 passed)
