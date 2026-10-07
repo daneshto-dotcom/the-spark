@@ -149,7 +149,9 @@ describe('S196 joiner-desync — the decision: pickSnapFrame', () => {
   });
 });
 
-describe('S196 joiner-desync — REACH: host → codec → slow, impaired joiner', () => {
+// 80 real deflates + inflates per case: ~2 s alone, past vitest's 20 s default under a loaded 3-worker suite.
+// Deterministic (no wall clock in any assertion), so a longer budget changes nothing it proves.
+describe('S196 joiner-desync — REACH: host → codec → slow, impaired joiner', { timeout: 120_000 }, () => {
   it('a 5 fps joiner on a lossy, delayed link stays within a few frames of the host, and sees its own tower + spent bank within ~1 s', async () => {
     const p = await slowJoinerPair();
     try {
