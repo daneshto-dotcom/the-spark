@@ -1,7 +1,7 @@
 # S196 PROGRESS — boss-release (branch s196/boss-release)
 
 ## NEXT STEP (exact)
-- FIX ROUND: fixes + tests + mutations DONE. NEXT: `git merge master`, npm install, then gates detached to
+- FIX ROUND: merged master 71cfa975 (no conflicts), npm install 0. Gates RUNNING detached to
   .tmp-gates/fr-{tc,vt,build,gating,render}.exit, then the FIX ROUND REPORT section below + final message.
 
 ## FIX ROUND REPORT (audit FIX FIRST: HIGH-1, LOW-1)
