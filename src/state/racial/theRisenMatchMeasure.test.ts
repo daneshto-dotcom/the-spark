@@ -38,7 +38,7 @@ const Z = asPlayerId(1);
 const stubControls = { state: { kind: 'Idle' }, applyPerSubstep() {} } as unknown as Controls;
 
 describe.skipIf(!MEASURE)('S196 MEASURE — THE RISEN in a real bots match', () => {
-  it('classifies every enemy creature death by the credit THE RISEN sees', () => {
+  it('classifies every enemy creature death by the credit THE RISEN sees', { timeout: 600_000 }, () => {
     const w = makeWorld(0x196);
     w.gameState = 'TITLE';
     const races = ['orcs', 'zombies', 'vampires', 'nagas'] as const;
