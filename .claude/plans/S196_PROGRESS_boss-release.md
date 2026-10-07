@@ -1,11 +1,28 @@
 # S196 PROGRESS — boss-release (branch s196/boss-release)
 
 ## NEXT STEP (exact)
-- FIX ROUND: code fixes for HIGH-1 (bossReleaseTrack + trackBirths, sameTimeline) and LOW-1 (keep exclusion) DONE;
-  unit tests re-pinned (24 green). NEXT: add joiner REAL-clock reach tests — in src/render/bossReleaseReach.test.ts
-  (peer world.tick++ per frame, snapshots reset to host tick → step back) and in src/render/towerSignatureReach.test.ts
-  (birth flare on a step-back frame); then mutations (revert sameTimeline tolerance; restore `tick < f.startTick` prune;
-  drop nearOwnKeep), merge master, gates.
+- FIX ROUND: fixes + tests + mutations DONE. NEXT: `git merge master`, npm install, then gates detached to
+  .tmp-gates/fr-{tc,vt,build,gating,render}.exit, then the FIX ROUND REPORT section below + final message.
+
+## FIX ROUND REPORT (audit FIX FIRST: HIGH-1, LOW-1)
+- HIGH-1 (fixed): a joiner's clock steps BACK when a snapshot lands; both trackers re-primed on any step back (and the
+  release tracker pruned `tick < startTick`). New `sameTimeline()` (bossReleaseTrack.ts): primed = same World object &&
+  PLAYING && -PEER_CLOCK_STEP_BACK_TICKS(12, MINE) <= gap <= forward cap. Big jumps (900->10) and forward gaps still re-prime.
+  Falls are never pruned for tick < startTick; drawn ages clamp at 0. SAME FIX in SpawnerZoneRenderer.trackBirths (birth
+  flare), its actAge clamped >= 0.
+  Tests: unit (step back keeps fall + catches a release ON a step-back frame + no prune below start; new World / not
+  PLAYING re-prime; past-tolerance re-prime); reach `bossReleaseReach` joiner REAL clock loop (tick++ x7 then snapshot
+  +6, 16 snapshots, every frame in the window draws the release); `towerSignatureReach` joiner REAL clock birth flare on
+  a step-back frame + still flaring after the next snapshot.
+  Mutations: H1a tolerance reverted to `gap >= 0` -> 3 RED (unit + both reach); H1b prune `tick < startTick` restored ->
+  unit RED; NM World identity ignored -> new-match unit RED. H1c (birth actAge clamp removed) -> GREEN: ruled
+  defence-in-depth — births and falls only appear on snapshot frames and a snapshot never lowers the tick below an earlier
+  snapshot's, so `tick < born` is unreachable on a peer; the clamp stays for safety.
+- LOW-1 (fixed): the false comment is corrected (ENDLESS DYNASTY raises a mummies Pharaoh within 46 px of its keep); a boss
+  first seen within BOSS_RELEASE_KEEP_EXCLUDE_PX (50, MINE) of its OWNER's keep is never a sighting. Test: Pharaoh 40 px from
+  the keep with a broken mummies tower in range -> no release; control at 60 px -> release. Mutation L1 (drop the
+  exclusion) -> RED.
+- Hygiene: bossRelease.test.ts had mixed CRLF/LF lines from an earlier patch; normalised.
 
 ## FINAL REPORT
 - **Tip:** see the last commit on `s196/boss-release`. Merges: master fb8f6b42 → 485dbddc, then 2722124c. No conflicts in either.
