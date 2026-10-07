@@ -1,4 +1,10 @@
-NEXT STEP: fix round — MED-1, LOW-1, LOW-2 done + mutation-checked; merge master then gates (typecheck, vitest, build, e2e:gating) -> report.
+NEXT STEP: NONE — fix round complete; awaiting re-audit / merge owner.
+
+# FIX ROUND REPORT (audit: FIX FIRST — MED-1, LOW-1, LOW-2 only)
+- MED-1: `RemoteLeaderboard.flushAllPending` + `flushAllPendingRuns()` (arcadeLeaderboard.ts) and `pendingBoardIds()` (arcadeScores.ts). Every board's queue is flushed after any successful submit AND on every NONET home open (`NonetHome.show`). Expired runs are pruned unsent; sent ids are removed from a fresh read so a run queued mid-flight is kept. Tests in src/nonet/pendingFlush.test.ts (5): daily delivered on home open (real page), stage delivered via a submit to another board, still-offline keeps the run, NEGATIVE expired run not sent, mid-flight run kept. Mutations: delete the submit-side call → stage test RED; delete the home-open call → daily test RED.
+- LOW-1: e2e/nonet-home.spec.ts writes to the Desktop only with NONET_SHOTS=1; default is test-results/nonet-home (verified: the default run wrote nothing to the Desktop).
+- LOW-2: e2e "one RANKED daily per device per UTC day" solves a DAILY through the real keyboard + solve handler, asserts spark.nonet.daily.v1 = the day, then the next DAILY is ZEN with boardId null. Mutation: delete `saveDailySolvedKey(day)` in main.ts → RED (Expected "20261007", Received null).
+- Merged master acddf2de, no conflicts. Gates on the merged tree: typecheck 0 · build 0 (entry 1244.3 KiB) · vitest exit 1 = 7 TIMEOUT-only failures in firstTowerSpeed / endgameAudit / voltkinResummon (they ran alongside e2e on a shared machine); those 3 files re-run alone 45/45 exit 0 = BENIGN · e2e:gating 70/70 exit 0.
 
 # FINAL REPORT — s196/nonet-home (backlog #16: Option A, then Option B per R196-D2)
 - Option A checkpoint 1cf7f3b8; final tip = the commit carrying this report. Master merged twice (b7f1891d, 9ddf5027), no conflicts.
