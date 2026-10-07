@@ -31,3 +31,4 @@
 - ⛔ PAUSED on owner order (limit imminent): all four agents told to commit + stop; resume point updated with resume steps.
 - land4 (ui-5 post-push confirmation): tc 0 · vt 1 = 2 FAIL line(s), endgameAudit load-timeout class (see above) · build 0 · e2e:gating 0. S196-#4 already verified 4/4.
 - Paused acks: accounts-design 060e88c6 · boss-release ea21a788 (code+tests done; gates/GIFs/bench owed) · NONET re-audit 3 (verdict pending, nothing wrong so far, gates not run) · team-art (ack pending at its next tool round). Hourly auto-resume check scheduled (minute :17, session-only).
+- ✅ RESUMED 16:53 (limit reset 16:50 — it was the org MONTHLY spend limit with a session window). team-art 51cc60c0 (PROMPTS READY on Desktop), boss-release ea21a788, accounts-design 060e88c6 (2 surveys died → re-run), NONET re-audit 3 — all resumed by SendMessage.

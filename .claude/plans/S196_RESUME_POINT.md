@@ -1,6 +1,6 @@
 # S196 RESUME POINT — read this FIRST after a usage limit (merge owner)
 
-## ⛔ PAUSED 2026-10-07 on OWNER ORDER: *"commit and save all work and pause all existing work … Continue from where we left off. When limit resets, so go."*
+## ✅ RESUMED 2026-10-07 16:53 (limit reset 16:50; all four agents resumed by message). Was: PAUSED on OWNER ORDER: *"commit and save all work and pause all existing work … Continue from where we left off. When limit resets, so go."*
 **TO RESUME (no need to ask the owner — he pre-approved continuing):**
 1. `git status` clean on master; check each worktree's `git log -1` + the TOP of its progress file.
 2. Resume each paused agent by SendMessage (same session) — or, in a new session, dispatch a fresh agent with that tree's brief (in this session's transcript / the PDR §2) + its progress file: **team-art**, **boss-release**, **accounts-design** (builders), and the **NONET re-audit 3** (auditor, worktree `.claude/worktrees/reaudit3-nonet` @ b02157c2, verdict file `.tmp-audit/REAUDIT3_nonet-home.md`).
