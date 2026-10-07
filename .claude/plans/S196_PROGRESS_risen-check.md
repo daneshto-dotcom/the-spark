@@ -1,6 +1,6 @@
 # S196 PROGRESS — s196/risen-check
 
-**NEXT STEP:** typecheck 0, build 0 (1263.3 KiB, my delta 0 — tests only). vitest + e2e running detached (.tmp-gates); then final report.
+**NEXT STEP:** vitest full: 3 files red, ALL timeouts (botFix, firstTowerSpeed, endgameAudit) — re-running alone (.tmp-gates/rerun.*); e2e running (.tmp-gates/e2e.*). Then final report.
 
 ## VERDICT (draft): NO SIM DEFECT. THE RISEN fires through the real host tick in every shape tested.
 - Static: the ONLY production `damageCreature` caller is `damageEntity` (damage.ts:308), which resolves ONE `KillCredit` at the blow
