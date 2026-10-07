@@ -130,6 +130,9 @@ let sawLost = false;
 const seen = new Set();
 let lastJoinTick = pre.join.tick;
 let stallSince = null;
+// ⛔ the SPLIT signature: one side still holds the peer while the other has none (and is not mid-handshake).
+let asymSince = null;
+let asymMaxS = 0;
 for (let i = 0; i < OBSERVE_S; i++) {
   await join.waitForTimeout(1000);
   const [hv, jv] = [await vis(host), await vis(join)];
@@ -149,6 +152,10 @@ for (let i = 0; i < OBSERVE_S; i++) {
     log('RECOVERED — joiner ticks advancing, both sides see a peer, no overlay');
   }
   if (!advancing) stallSince ??= Date.now(); else stallSince = null;
+  if (!relay.isDark() && (h.peers > 0) !== (j.peers > 0)) {
+    asymSince ??= Date.now();
+    asymMaxS = Math.max(asymMaxS, (Date.now() - asymSince) / 1000);
+  } else asymSince = null;
   if (recoveredAt !== null && (Date.now() - BLIP) / 1000 > recoveredAt + 8) break;
 }
 clearTimeout(lightAt);
@@ -156,7 +163,7 @@ const end = { host: await S(host), join: await S(join), relay: relay.stats() };
 log('END', JSON.stringify(end));
 log('END host:', JSON.stringify(await vis(host)));
 log('END join:', JSON.stringify(await vis(join)));
-const result = { DARK_MS, recoveredAtS: recoveredAt, sawLost, joinFrozenForS: stallSince ? (Date.now() - stallSince) / 1000 : 0, end };
+const result = { DARK_MS, recoveredAtS: recoveredAt, sawLost, splitForS: Math.round(asymMaxS), split: asymMaxS >= 30, joinFrozenForS: stallSince ? (Date.now() - stallSince) / 1000 : 0, end };
 console.log('RESULT', JSON.stringify(result));
 if (process.env.TRACE) writeFileSync(`${process.env.TRACE}/silent-blip-${DARK_MS}-${T0}.log`, timeline.join('\n') + '\nRESULT ' + JSON.stringify(result) + '\n');
 await b.close();
