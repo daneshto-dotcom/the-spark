@@ -39,7 +39,7 @@ import { blueprintBill } from '../state/blueprints.ts';
 import { makeCastleBank } from '../state/castleBank.ts';
 import { T9_BOSS_TYPE, T9_TOWER_IDS } from '../state/t9BossIds.ts';
 import type { RaceId } from '../state/races.ts';
-import { razePrimitives } from '../state/world.ts';
+import { razePrimitives } from '../state/razePrimitives.ts';
 import { towerMembersAt } from '../state/towerMembers.ts';
 import '../state/godlyRecipes/registerAll.ts';
 import { __resetTowerCoverForTests, beginTowerCoverFrame } from './towerCover.ts';
@@ -103,8 +103,11 @@ function hostWithBossTower(centre: Vec2 = { x: 520, y: 420 }): Host {
 /** The REAL release: hold nothing, just bring the deadline to now and run one real host tick. */
 function release(h: Host): void {
   const sp = h.w.creatureSpawners.get(h.spawnerId as never)!;
+  // a spawner emits only in FIGHT (BUILD re-aligns its deadline to now); the release is due this tick
+  h.w.matchPhase = 'FIGHT';
   sp.nextSpawnTick = h.w.tick;
   tick(h.w, h.st, 1);
+  h.w.matchPhase = 'BUILD';
 }
 function toPeer(host: World, peer: World, local: PlayerId = P0): void {
   applyNetSnapshot(JSON.parse(JSON.stringify(netSnapshot(host))), peer);
@@ -261,12 +264,12 @@ describe('S196 R196-T2 REACH (host → snapshot → peer) — the boss release i
 
   it('⛔ an ENEMY boss tower releasing in FOG draws nothing on the peer; the same release in vision does', async () => {
     const run = async (cursor: Vec2) => {
-      const h = hostWithBossTower({ x: 1700, y: 950 });
+      const h = hostWithBossTower();
       const peer = makeWorld(0x5196);
       toPeer(h.w, peer, P1);
       peer.matchPhase = 'BUILD';
       // the peer is seat 1 watching seat 0's tower; warm with the cursor ON the tower so the atlas + foot land
-      const warmRig = peerRig(peer, { x: 1700, y: 950 });
+      const warmRig = peerRig(peer, { x: 520, y: 420 });
       await warm(warmRig.frame, peer);
       const rig = { frame: () => { beginConcealmentFrame(peer, cursor); beginTowerCoverFrame(peer); warmRig.towers.sync(peer); install(); warmRig.zone.sync(peer); return all(); } };
       h.w.tick += 6; toPeer(h.w, peer, P1); peer.matchPhase = 'BUILD';
@@ -277,12 +280,12 @@ describe('S196 R196-T2 REACH (host → snapshot → peer) — the boss release i
       const f = rig.frame();
       return { f, foot, h, concealed: isConcealed(foot.x, foot.y, P0) };
     };
-    const dark = await run({ x: 100, y: 100 });
+    const dark = await run({ x: 1850, y: 1000 });
     expect(dark.concealed, 'fixture: the enemy tower\'s foot is in fog').toBe(true);
     expect(subset(releaseOnly(dark.h.race, dark.h.spawnerId, dark.foot, 0), dark.f), 'released in fog: drew it').toBe(0);
     expect(dark.f.filter((e) => e.tex === 'smoke').length, 'crumbled in fog: drew it').toBe(0);
     __resetTowerCoverForTests();
-    const lit = await run({ x: 1700, y: 950 });
+    const lit = await run({ x: 520, y: 420 });
     expect(lit.concealed, 'fixture: the cursor lights the tower').toBe(false);
     const exp = releaseOnly(lit.h.race, lit.h.spawnerId, lit.foot, 0);
     expect(subset(exp, lit.f), 'released in vision: the peer draws it').toBe(exp.length);
