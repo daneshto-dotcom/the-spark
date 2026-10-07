@@ -18,10 +18,11 @@ import {
   BOSS_CRUMBLE_FX_TICKS, BOSS_RELEASE_TICKS, bossCrumbleFx, bossReleaseFx, type BossReleaseSinks,
 } from './bossReleaseFx.ts';
 import {
-  BOSS_RELEASE_DEV, BOSS_RELEASE_KEEP_EXCLUDE_PX, BOSS_RELEASE_MATCH_PX, PEER_CLOCK_STEP_BACK_TICKS, BOSS_RELEASE_MATCH_TICKS, BOSS_RELEASE_PRIME_GAP_TICKS, BossReleaseTracker,
+  BOSS_RELEASE_DEV, BOSS_RELEASE_KEEP_EXCLUDE_PX, BOSS_RELEASE_KEEP_MARGIN_PX, BOSS_RELEASE_MATCH_PX, PEER_CLOCK_STEP_BACK_TICKS, BOSS_RELEASE_MATCH_TICKS, BOSS_RELEASE_PRIME_GAP_TICKS, BossReleaseTracker,
 } from './bossReleaseTrack.ts';
 import { recordingSink, type FxEmitRecord } from './emitter.ts';
 import { castleAnchor } from '../../state/gatherers/gatherer.ts';
+import { DYNASTY_PHARAOH_SPREAD } from '../../state/racial/endlessDynasty.ts';
 
 /* ── a hand-made world: only what the tracker reads ─────────────────────────────────────────── */
 
@@ -106,7 +107,7 @@ describe('S196 R196-T2 — the release DERIVER', () => {
     expect(gap.current().length).toBe(0);
     const back = run([[900, [tower], []], [10, [], [bossAt()]]]);
     expect(back.current().length).toBe(0);
-    const pastTolerance = run([[100, [tower], []], [100 - PEER_CLOCK_STEP_BACK_TICKS - 1, [], [bossAt()]]]);
+    const pastTolerance = run([[200, [tower], []], [200 - PEER_CLOCK_STEP_BACK_TICKS - 1, [], [bossAt()]]]);
     expect(pastTolerance.current().length, 'a step back past the tolerance is a new timeline').toBe(0);
     // and a fall in flight is dropped by a gap (it would otherwise jump to a stale age)
     const drop = run([[100, [tower], []], [106, [], [bossAt()]], [106 + BOSS_RELEASE_PRIME_GAP_TICKS + 1, [], [bossAt()]]]);
@@ -128,6 +129,17 @@ describe('S196 R196-T2 — the release DERIVER', () => {
     expect(tr3.current()[0]!.startTick).toBe(109);
   });
 
+  it('⛔⭐ S196 re-audit MED-1 — a LAGGING joiner: the clock steps back 25 and then 55 ticks and tracking continues', () => {
+    // the release lands, then a 25-tick step back (a ~400 ms late snapshot), then a 55-tick one (~900 ms)
+    const tr = run([[100, [tower], []], [106, [], [bossAt()]], [130, [], [bossAt()]], [105, [], [bossAt()]], [130, [], [bossAt()]], [160, [], [bossAt()]], [105, [], [bossAt()]]]);
+    expect(tr.current().length, 'the release survived both step-backs').toBe(1);
+    expect(tr.current()[0]!.released).toBe(true);
+    // and a release that lands right AFTER a 55-tick step back is still caught (the tracker stayed primed)
+    const tr2 = run([[200, [tower], []], [225, [tower], []], [250, [tower], []], [195, [], [bossAt()]]]);
+    expect(tr2.current()[0]?.released, 'released on the frame after a 55-tick step back').toBe(true);
+    expect(PEER_CLOCK_STEP_BACK_TICKS).toBeGreaterThanOrEqual(55);
+  });
+
   it('⛔ a NEW MATCH re-primes: a different World object, or the world not PLAYING', () => {
     const tr = new BossReleaseTracker();
     tr.observe(world(100, [tower], []), footOf);
@@ -142,13 +154,14 @@ describe('S196 R196-T2 — the release DERIVER', () => {
 
   it('⛔ S196 audit LOW-1 — an ENDLESS DYNASTY Pharaoh rising at its own keep is never a release', () => {
     const keep = castleAnchor(0, 'PITCH_2P' as never);
-    const near: T = { ...tower, race: 'mummies', x: keep.x + 80, y: keep.y };
+    const near: T = { ...tower, race: 'mummies', x: keep.x + BOSS_RELEASE_KEEP_EXCLUDE_PX + 10, y: keep.y };
     const pharaoh = (dx: number): B => ({ id: 77, race: 'mummies', owner: 0, x: keep.x + dx, y: keep.y });
     // the tower is broken (no boss of its own) while a dynasty Pharaoh rises 40 px from the keep, in range of it
     expect(run([[100, [near], []], [106, [], [pharaoh(40)]]]).current()[0]!.released).toBe(false);
-    // control: the same boss 60 px out (past the exclusion) does read as the release
-    expect(run([[100, [near], []], [106, [], [pharaoh(60)]]]).current()[0]!.released).toBe(true);
-    expect(BOSS_RELEASE_KEEP_EXCLUDE_PX).toBeGreaterThanOrEqual(46); // DYNASTY_PHARAOH_SPREAD
+    // control: the same boss just past the exclusion (and 5 px from the tower's anchor) does read as the release
+    expect(run([[100, [near], []], [106, [], [pharaoh(BOSS_RELEASE_KEEP_EXCLUDE_PX + 5)]]]).current()[0]!.released).toBe(true);
+    expect(BOSS_RELEASE_KEEP_EXCLUDE_PX, 're-audit LOW-3: derived from the dynasty spread').toBe(DYNASTY_PHARAOH_SPREAD + BOSS_RELEASE_KEEP_MARGIN_PX);
+    expect(BOSS_RELEASE_KEEP_EXCLUDE_PX).toBeGreaterThan(DYNASTY_PHARAOH_SPREAD);
   });
 
   it('⭐ two towers of one seat releasing in one tick each claim their OWN boss (nearest, then smaller id)', () => {

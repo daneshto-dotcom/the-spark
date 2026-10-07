@@ -33,10 +33,13 @@
  * of its owner's keep is never a release.
  *
  * ⚠ "FIRST SEEN", NOT "YOUNG". Like `SpawnerZoneRenderer.trackBirths`, a creature is new when it is absent from
- * the previous tracked frame. And the tracker is UNPRIMED on its first frame and re-primes on a NEW MATCH (a
- * different `World` object, or the world not PLAYING — the S194 F1 boundaries, `towerHealthHold.ts`), after a
+ * the previous tracked frame. And the tracker is UNPRIMED on its first frame and re-primes on a NEW MATCH, after a
  * forward gap (a join, a stretch in legacy/MINIMAL where it does not run) or a LARGE backwards jump: a mid-match
  * joiner sees nothing replayed for a tower that had already gone, and no boss already on the board reads as released.
+ * ⚠ THE NEW-MATCH BOUNDARY IS THE TITLE RESET, NOT THE WORLD OBJECT (S196 re-audit MED-1). The client keeps ONE
+ * `World` for the whole session; a match ends POSTGAME → TITLE, where `SpawnerZoneRenderer.clear()` calls `reset()`,
+ * and any frame not PLAYING re-primes. The World-identity check is kept only as a belt (a test harness, a future
+ * world swap) — it is not what separates two matches in the shipped client.
  *
  * ⛔ S196 audit HIGH-1 — A SMALL STEP BACK IS NORMAL ON A JOINER, NOT A NEW MATCH. The client steps `world.tick++`
  * every sim step and each snapshot then sets `world.tick = snap.tick` (`save.ts` `applySnapshotCore`), so the clock
@@ -61,6 +64,7 @@ import { T9_TOWER_SPRITE_PX } from '../towerFrames.ts';
 import { BOSS_CRUMBLE_FX_TICKS } from './bossReleaseFx.ts';
 import { fxSeed } from './emitter.ts';
 import { castleAnchor } from '../../state/gatherers/gatherer.ts';
+import { DYNASTY_PHARAOH_SPREAD } from '../../state/racial/endlessDynasty.ts';
 
 /** A release may be seen up to this many ticks either side of the vanish (two 10 Hz snapshots). MINE. */
 export const BOSS_RELEASE_MATCH_TICKS = 12;
@@ -70,18 +74,32 @@ export const BOSS_RELEASE_MATCH_TICKS = 12;
  */
 export const BOSS_RELEASE_MATCH_PX = 96;
 /**
- * How far a joiner's clock may step BACK when a snapshot lands and still count as the same, primed timeline. The
- * client runs ahead of the last snapshot by at most a snapshot interval or two (6 ticks at 10 Hz) plus jitter. Shared
- * with `SpawnerZoneRenderer.trackBirths` (S196 audit HIGH-1). MINE.
+ * How far a joiner's clock may step BACK when a snapshot lands and still count as the same, primed timeline. Shared
+ * with `SpawnerZoneRenderer.trackBirths` (S196 audit HIGH-1). ⚠ MINE — 60 ticks (1 s).
+ *
+ * ⛔ WHY NOT SMALL (S196 re-audit MED-1). The client runs its own clock ahead with NO bound (`main.ts`, the client
+ * step does `world.tick++` every sim step), and a snapshot then sets it back to the host's tick. Snapshots are ~6 host
+ * ticks apart, so the step back equals however long the last snapshot was late: any gap over ~300 ms stepped back
+ * more than the first value (12), re-primed the tracker and wiped the release and every in-flight birth flare — on
+ * exactly the lagging joiners this fixes. 60 covers a one-second network stall. Widening is safe because a NEW match
+ * is not detected from the clock at all (the title reset + the PLAYING check do that); this only decides how big a
+ * backwards step is still "the same match a moment ago". A larger jump (a host migration rewinding further, a stall
+ * of more than a second) re-primes, which drops at most one in-flight 2.5 s effect.
  */
-export const PEER_CLOCK_STEP_BACK_TICKS = 12;
+export const PEER_CLOCK_STEP_BACK_TICKS = 60;
 /**
- * A boss first seen within this many px of its OWNER's keep is never a release: ENDLESS DYNASTY raises Pharaohs there
- * (46 px spread — `DYNASTY_PHARAOH_SPREAD`). S196 audit LOW-1. MINE.
+ * The margin past `DYNASTY_PHARAOH_SPREAD` within which a boss at its owner's keep is not a release — a Pharaoh may
+ * have walked a snapshot's worth before this client first sees it. ⚠ MINE.
  */
-export const BOSS_RELEASE_KEEP_EXCLUDE_PX = 50;
+export const BOSS_RELEASE_KEEP_MARGIN_PX = 30;
 /**
- * Is this frame on the same, primed timeline as the last one? Same `World`, PLAYING, and the clock moved by
+ * A boss first seen within this many px of its OWNER's keep is never a release: ENDLESS DYNASTY raises Pharaohs there.
+ * DERIVED from the dynasty's own spread (S196 re-audit LOW-3), so a wider court cannot outgrow the exclusion. S196 audit
+ * LOW-1.
+ */
+export const BOSS_RELEASE_KEEP_EXCLUDE_PX = DYNASTY_PHARAOH_SPREAD + BOSS_RELEASE_KEEP_MARGIN_PX;
+/**
+ * Is this frame on the same, primed timeline as the last one? Same `World` (a belt — see the header), PLAYING, and the clock moved by
  * `-PEER_CLOCK_STEP_BACK_TICKS ..= +maxForward` (S196 audit HIGH-1). PURE.
  */
 export function sameTimeline(sameWorld: boolean, playing: boolean, gap: number, maxForward: number): boolean {

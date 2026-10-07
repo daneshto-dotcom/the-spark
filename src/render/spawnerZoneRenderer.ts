@@ -370,7 +370,7 @@ export class SpawnerZoneRenderer {
   private readonly lastBirth = new Map<number, number>();
   /** The tick of the last tracked frame; NaN = never (not primed). */
   private birthTrackTick = Number.NaN;
-  /** ⛔ S196 audit HIGH-1 — the match the tracking belongs to (a different World = a new match). */
+  /** ⛔ S196 audit HIGH-1 — a belt only: the shipped client keeps one World; a new match is the title `clear()` + not PLAYING. */
   private birthTrackWorld: World | null = null;
 
   /** One tracking pass: fills `lastBirth`. */
@@ -381,7 +381,8 @@ export class SpawnerZoneRenderer {
      * ⛔ S196 audit HIGH-1 — primed by a recent previous frame of the SAME match. It used to require `gap >= 0`, but a
      * joiner's clock steps BACK a few ticks whenever a snapshot lands (`save.ts` sets `world.tick = snap.tick` after the
      * client ran ahead), so every snapshot re-primed it and a joiner missed every birth that arrived on a step-back
-     * frame. Now: a new World, not PLAYING, a forward gap or a LARGE backwards jump re-primes; a small step back does not.
+     * frame. Now: not PLAYING (and the title `clear()`), a forward gap or a backwards jump past `PEER_CLOCK_STEP_BACK_TICKS`
+     * (60 — a one-second stall) re-primes; a smaller step back does not. A different World object also re-primes (a belt).
      */
     const primed = sameTimeline(world === this.birthTrackWorld, world.gameState === 'PLAYING', gap, TOWER_SIG_BIRTH_PRIME_GAP_TICKS);
     this.birthTrackWorld = world;

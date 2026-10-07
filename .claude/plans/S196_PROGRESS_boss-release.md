@@ -1,6 +1,10 @@
 # S196 PROGRESS — boss-release (branch s196/boss-release)
 
 ## NEXT STEP (exact)
+- SMALL FIX ROUND (re-audit CLEAN): MED-1 PEER_CLOCK_STEP_BACK_TICKS 12->60 + 25/55-tick test + doc fix; LOW-3 keep
+  exclusion derived (DYNASTY_PHARAOH_SPREAD + 30); applied via .tmp-gates/fix5.py, unit run in flight. NEXT: LOW-1 joiner
+  run-ahead-then-lower-snapshot test in src/render/bossReleaseReach.test.ts; birth flare 55-tick test in
+  towerSignatureReach.test.ts; mutation tolerance->12; then typecheck + `npx vitest run src/render` + build to .tmp-gates/sf-*.exit.
 - NONE — fix round complete, awaiting re-audit + merge.
 - Fix-round gates on the tree merged with master 71cfa975 (exits from files .tmp-gates/fr-*.exit): typecheck 0 · vitest 1 =
   ONLY src/state/endgameAudit.test.ts "Test timed out in 20000ms" (known load flake; alone: exit 0, 18 passed) — 632
