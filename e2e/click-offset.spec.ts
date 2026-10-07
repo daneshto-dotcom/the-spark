@@ -39,7 +39,7 @@ interface TargetResult {
   hit: boolean;
 }
 
-interface CfgResult { cfg: Cfg; titleSoloHit: boolean; targets: TargetResult[]; nearMissHovered: boolean }
+interface CfgResult { cfg: Cfg; titleSoloHit: boolean; targets: TargetResult[]; nearMissHovered: boolean; speedClickSpent: boolean }
 
 type SparkWin = Window & { __SPARK__?: Record<string, unknown> };
 
@@ -126,7 +126,11 @@ async function probe(browser: Browser, cfg: Cfg): Promise<CfgResult> {
     // The shape-pull slots are the owner's "spiral" — slot 0 and the last one (left/right ends of the strip).
     aims.push({ name: 'castle pull slot 0', kind: 'slots', i: 0, ...pts.slotCenters[0] });
     aims.push({ name: 'castle pull slot (last)', kind: 'slots', i: pts.slotCenters.length - 1, ...pts.slotCenters[pts.slotCenters.length - 1] });
-    aims.push({ name: 'castle build tile 0', kind: 'tiles', i: 0, ...pts.structureCenters[0] });
+    // The BUILD grid ships OFF (`CASTLE_BUILD_GRID_ENABLED = false`) while `getUiPoints` still reports
+    // `structureCenters` for it — aim at a tile only when one was actually constructed.
+    const tileCount = await page.evaluate(() =>
+      ((window as SparkWin).__SPARK__!.castlePanel as { tiles: unknown[] }).tiles.length);
+    if (tileCount > 0) aims.push({ name: 'castle build tile 0', kind: 'tiles', i: 0, ...pts.structureCenters[0] });
 
     for (const a of aims) {
       await hoverCanvas(page, a.x, a.y);
@@ -141,6 +145,24 @@ async function probe(browser: Browser, cfg: Cfg): Promise<CfgResult> {
       const cp = (window as SparkWin).__SPARK__!.castlePanel as Record<string, { hover: boolean }[]>;
       return cp.rows.some((x) => x.hover) || cp.slots.some((x) => x.hover) || cp.tiles.some((x) => x.hover);
     });
+
+    // ── a REAL CLICK, not only a hover: SPEED at its visual centre must spend (pointertap reached) ──
+    const scoreOf = (): Promise<number> => page.evaluate(() => {
+      const w = (window as SparkWin).__SPARK__!.world as { scoreByPlayer: Map<number, number>; localPlayerId: number };
+      return w.scoreByPlayer.get(w.localPlayerId) ?? 0;
+    });
+    const scoreBefore = await scoreOf();
+    const sp = await canvasToCss(page, pts.rowCenters[speed].x, pts.rowCenters[speed].y);
+    await page.mouse.move(sp.x, sp.y);
+    await page.waitForTimeout(80);
+    await page.mouse.down();
+    await page.waitForTimeout(60);
+    await page.mouse.up();
+    let speedClickSpent = false;
+    for (let i = 0; i < 40 && !speedClickSpent; i++) {
+      await page.waitForTimeout(100);
+      speedClickSpent = (await scoreOf()) < scoreBefore;
+    }
 
     // ── footer tier chips (Controls path) — the comparison row ──
     const chips = await page.evaluate(() => {
@@ -160,7 +182,7 @@ async function probe(browser: Browser, cfg: Cfg): Promise<CfgResult> {
       }, c.complexity);
       targets.push({ name: `footer tier chip ${c.complexity}`, aim: { x: cx, y: cy }, ...ptr, hit });
     }
-    return { cfg, titleSoloHit, targets, nearMissHovered };
+    return { cfg, titleSoloHit, targets, nearMissHovered, speedClickSpent };
   } finally {
     await ctx.close();
   }
@@ -172,7 +194,7 @@ const fmt = (r: CfgResult): string =>
       `${r.cfg.w}x${r.cfg.h}@${r.cfg.dpr}\t${t.name}\thit=${t.hit ? 'Y' : 'N'}` +
       `\tpixiΔ=(${(t.pixi.x - t.aim.x).toFixed(0)},${(t.pixi.y - t.aim.y).toFixed(0)})` +
       `\tcontrolsΔ=(${(t.controls.x - t.aim.x).toFixed(0)},${(t.controls.y - t.aim.y).toFixed(0)})`)
-    .join('\n') + `\n${r.cfg.w}x${r.cfg.h}@${r.cfg.dpr}\ttitle SOLO click hit=${r.titleSoloHit ? 'Y' : 'N'}\tnear-miss hovered=${r.nearMissHovered ? 'Y' : 'N'}`;
+    .join('\n') + `\n${r.cfg.w}x${r.cfg.h}@${r.cfg.dpr}\ttitle SOLO click hit=${r.titleSoloHit ? 'Y' : 'N'}\tnear-miss hovered=${r.nearMissHovered ? 'Y' : 'N'}	SPEED click spent=${r.speedClickSpent ? 'Y' : 'N'}`;
 
 /** The gating subset: the owner's half-screen, a laptop at 125 %, a toolbar-eaten 1080p window at 150 %. */
 const GATING: Cfg[] = [
@@ -195,6 +217,7 @@ test.describe('S196 click offset — every target reached at real window sizes',
         expect(Math.abs(t.pixi.y - t.controls.y), `${t.name} pixi/controls y`).toBeLessThan(1.5);
       }
       expect(r.nearMissHovered, '6 px outside the castle panel hovers nothing').toBe(false);
+      expect(r.speedClickSpent, 'a real click on SPEED at its visual centre spent the score').toBe(true);
     });
   }
 });
