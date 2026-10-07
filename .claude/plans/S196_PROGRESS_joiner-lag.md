@@ -1,10 +1,10 @@
 # S196 PROGRESS — s196/joiner-lag
 
 ## ⏭ NEXT STEP
-e2e:gating + e2e:render running detached (.tmp-gates/gate-e2e-gating.exit / gate-e2e-render.exit). When both exit: fill the gate line below, commit, send final report. If told joiner-desync landed: git merge master, npm install, re-run the after-profile (SPARK_LAG_TAG=after2 ... see AFTER section) + gates.
+DONE — all gates green. Only remaining: when joiner-desync lands on master, git merge master + npm install, re-run after-profile (SPARK_LAG_TAG=after2) and the gates.
 
-## FINAL REPORT (draft — gate line pending)
-- Gates: typecheck 0 · vitest 0 (633 files / 9492 passed / 15 skipped) · build 0 (entry 1265.2 KiB / cap 1350; this tree's src share ~1–2 KiB) · e2e:gating 0 (72 passed, 1 skipped) · e2e:render PENDING
+## FINAL REPORT
+- Gates: typecheck 0 · vitest 0 (633 files / 9492 passed / 15 skipped) · build 0 (entry 1265.2 KiB / cap 1350; this tree's src share ~1–2 KiB) · e2e:gating 0 (72 passed, 1 skipped) · e2e:render 0 (10 passed)
 - Bump verdict: NONE — render-only (graphicsTier knob, structureRenderer cache, comboView memo, keystone MINIMAL snap, damageNumbers watch in place); no wire, no hash, no sim read changed.
 - MINE (owner questions): MINIMAL `motionRedrawsPerFrame` = 3 (connectors on a shaking structure trail it by a few frames on MINIMAL only; recommend keep) · `MINIMAL_LINK_SNAP_PX` = 4 (keystone link ends on a 4 px grid on MINIMAL; recommend keep).
 - Handed to other trees: (1) sudokuOverlay redraws 2 Graphics every frame mid-match (~1–2 % of a MINIMAL frame) — ARCADE, off-limits; (2) `lookupCombo` builds a template-string key per call and the sim/joiner (`tickGameState` scoring, ~1–2 %) still pays it — src/combos.ts owner; (3) the replay harness bypasses the codec, so inflate/splice cost is NOT in these numbers — joiner-desync tree; (4) a CPU-starved joiner was PROMOTED to host mid-run in the harness (runHostTick + transmitSnapshot in a joiner profile, S196 first matrix) — worth a look by the net tree (host-liveness under main-thread starvation); (5) HUD scoreboard Text re-rasters ~0.7/frame (texSubImage2D ~4 %) — left alone while the score-staleness bug is open.
