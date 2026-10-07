@@ -35,8 +35,8 @@ import type { CreatureType } from '../state/creatures/creature.ts';
 import type { RaceId } from '../state/races.ts';
 import type { World } from '../state/worldTypes.ts';
 import {
-  CONTENT, CONTINUE_RECT, GRAPHS_SLOTS, OV_COLUMNS, PANEL, PP_LINE_H, graphsLayout, matrixCells,
-  overviewLayout, playerLayout, plotRect, pointX, tabAt, tabIndex, tabRects, unitLinesThatFit,
+  CONTENT, CONTINUE_RECT, GRAPHS_SLOTS, LINE_LABEL_GAP, OV_COLUMNS, PANEL, PP_LINE_H, graphsLayout, matrixCells,
+  overviewLayout, playerLayout, plotRect, pointX, spreadLabelBottoms, tabAt, tabIndex, tabRects, unitLinesThatFit,
   type BoardTab, type OvColumnKey, type Rect,
 } from './matchBoardLayout.ts';
 import {
@@ -584,7 +584,9 @@ export class MatchBoard {
           const x = pointX(P, n, hw);
           g.moveTo(x, P.y).lineTo(x, P.y + P.h).stroke({ color: INK, width: 1, alpha: 0.45 });
         }
-        for (const s of gr.series) {
+        // ⭐ S196 — the end labels are spread so two lines finishing level never print one name over the other.
+        const endBottoms = spreadLabelBottoms(gr.series.map((s) => yAt(s.values[n - 1] ?? 0) - 6), LINE_LABEL_GAP, P.y + P.h - 2);
+        gr.series.forEach((s, si) => {
           if (n > 1) {
             g.moveTo(pointX(P, n, 0), yAt(s.values[0] ?? 0));
             for (let i = 1; i < n; i++) g.lineTo(pointX(P, n, i), yAt(s.values[i] ?? 0));
@@ -596,9 +598,9 @@ export class MatchBoard {
           // The line's end carries its label, so a reader never has to map colours back to the legend.
           const end = this.texts.take(s.label, 13, s.color);
           end.anchor.set(1, 1);
-          end.position.set(pointX(P, n, n - 1) - 6, yAt(s.values[n - 1] ?? 0) - 6);
+          end.position.set(pointX(P, n, n - 1) - 6, endBottoms[si]!);
           this.fit(end, LEGEND_LABEL_MAX);
-        }
+        });
         break;
       }
       case 'bars': {

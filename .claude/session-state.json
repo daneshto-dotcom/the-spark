@@ -16,7 +16,9 @@
   "unlock_source": "user",
   "deliberation_note": "No new Council pass (Rule 0 deviation, PDR §7): spec'd follow-ups of recorded S195 findings + researched NONET floor + owner-asked tower fx on the approved S192 visuals substrate; each tree independently audited.",
   "analyze_completed": false,
-  "reflexion_entries_to_archive": [],
+  "reflexion_entries_to_archive": [
+    "#s196-board-look: the portrait claim had sat 'unverified live' since S194 because injected screenshots never loaded atlases; driving REAL matches to POSTGAME both proved it and surfaced an unrelated overlap defect a fixture would never have produced (scores 301/298)."
+  ],
   "budget_total": 1000000,
   "totals": {
     "turns": 0,
@@ -56,12 +58,24 @@
       "branch": "s196/board-look",
       "tier": "Full",
       "plan_file": ".claude/plans/2026-10-07_S196_BATCH_PDR.md",
-      "status": "in_progress",
-      "priority_state": "in_progress",
+      "status": "completed",
+      "priority_state": "completed",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
-      "check_completed": false
+      "check_completed": true,
+      "checkpoint_commit": "7e9d241c",
+      "deploy": "S196-#1",
+      "real_context_tokens_at_close": 362549,
+      "real_context_pct_at_close": 36.25,
+      "check_method": "Builder verified portraits live (6 real vs-bots matches to POSTGAME, atlas textures on portrait sprites) + 18 Desktop screenshots; fixed SCORE RACE label overlap (spreadLabelBottoms). Independent audit CLEAN (trial-merge gates typecheck 0 / vitest 9220 / build 1235.5; mutation of label y -> 2 red; 20k fuzzed inputs 0 violations); 4 LOWs, LOW-1 comment fixed by merge owner. Landing gates on merged master: typecheck 0, vitest 1 (endgameAudit MED-1 30.3s timeout under 2-tree load; alone 18/18 exit 0 = benign), build 0 (1235.5 KiB), e2e:gating 67/67 exit 0. Pushed 7e9d241c; verify-deploy --sha full 4/4.",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/render/matchBoardLayout.ts",
+          "needle": "export function spreadLabelBottoms"
+        }
+      ]
     },
     {
       "id": "NONET",
