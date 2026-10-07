@@ -9,3 +9,6 @@
 - Blender 5.2.2 LTS installed (winget exit 0; `C:\Program Files\Blender Foundation\Blender 5.2\blender.exe --version` verified). Voltkin pilot deferred (R196-D1).
 - board-look builder DONE (tip 9b6cd789: portraits verified live, SCORE RACE label-overlap fix, gates green, +0.0 KiB) → independent audit dispatched (detached worktree audit-board-look).
 - NEW tree queued (R196-A2): s196/team-art. Slot order when the next tree lands: #12 ui-5 → team-art → #3 ci → #4 net-cpu → #11 render-perf. (Cap stays 4: the owner is generating trios first, so the 12-prompt sheet is not blocking him yet.)
+- **DEPLOY S196-#1 `7e9d241c`** — s196/board-look (+ LOW-1 comment). Gates: typecheck 0 · vitest 1 → endgameAudit MED-1 30.3 s timeout under load, alone 18/18 = benign (⚠ FINDING for #3 CI: this test sits ~15–20 s against a 20 s cap and reds whenever trees run beside it) · build 0 (1235.5) · e2e:gating 67/67 · verify-deploy --sha full 4/4. Context 362,549 (36.3 % GREEN).
+- s196/nonet-home builder DONE (tip 52ec48f9, Option A + B campaign, +8.0 KiB) → full audit dispatched. OWNER ACTION pending at its landing: leaderboard worker redeploy (public server — ask first).
+- Slot → #12 s196/ui-5 opened.
