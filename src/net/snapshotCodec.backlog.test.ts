@@ -17,7 +17,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { NetMessage, NetSnapshotMsg } from './protocol.ts';
 import { linkedPair, prng, until, type LinkedPair } from './snapshotCodec.fixtures.ts';
-import { encodeDelta, packFrame, segmentSnapshotMessage } from './snapshotCodec.ts';
+import { MAX_INFLATING_PER_SENDER, encodeDelta, packFrame, segmentSnapshotMessage } from './snapshotCodec.ts';
 import { NetTransport } from './transport.ts';
 import { wireNumberReplacer } from '../state/save.ts';
 import { runHostTick } from '../state/hostTick.ts';
@@ -270,6 +270,123 @@ describe('S196 joiner-desync — REACH: existing creatures keep moving on a slow
       expect(w.matchPhase).toBe('FIGHT');
       // Anti-vacuity: modifications to EXISTING creatures genuinely flowed (not just additions).
       expect(changedExisting).toBeGreaterThan(20);
+    } finally {
+      gate.manual = false;
+    }
+  });
+});
+
+/*
+ * ⛔ S196 FIX ROUND — the independent audit of this tree.
+ *   MED-1: inflates start on arrival, so (a) nobody but the snapshot authority is ever inflated, and (b) one sender
+ *          has at most MAX_INFLATING_PER_SENDER in flight, the newest extra frame held.
+ *   LOW-2: "newest" is the highest frame id, not the latest arrival.
+ *   LOW-3: a disconnect while frames are inflating delivers nothing afterwards.
+ */
+describe('S196 joiner-desync audit — inflate is bounded and authority-only; newest = highest fid; disconnect drops in-flight', { timeout: 120_000 }, () => {
+  /** Release turns until everything from H is applied or dropped. */
+  async function settle(p: LinkedPair): Promise<void> {
+    let done = false;
+    void p.joiner.snapFramesSettled('H').then(() => { done = true; });
+    for (let i = 0; i < 100 && !done; i++) await renderTurn();
+    expect(done, 'settled').toBe(true);
+  }
+  const seqsOf = (p: LinkedPair): number[] => {
+    const got: number[] = [];
+    p.joiner.on((m) => { if (m.kind === 'NETSNAPSHOT') got.push(m.snapshotSeq); });
+    return got;
+  };
+
+  it('MED-1(b) — 50 deflate bombs from the authority: never more than MAX_INFLATING_PER_SENDER in flight, and the newest legitimate frame still applies', async () => {
+    const p = await slowJoinerPair();
+    const got = seqsOf(p);
+    const quiet = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      const bomb = await packFrame('a'.repeat(1 << 20), true); // 1 MiB of text in ~1 KiB
+      expect(bomb.byteLength).toBeLessThan(8 * 1024);
+      for (let i = 0; i < 50; i++) p.deliverFrame(bomb);
+      p.host.send(snap(1));
+      await until(() => p.hostRoom.actions.get('snap')!.sent.length > 0, 'keyframe sent');
+      p.deliverFrame(p.takeFrames()[0]!);
+      await until(() => gate.waiting.length === gate.started, 'parked');
+      expect(gate.started, 'inflates actually started').toBe(MAX_INFLATING_PER_SENDER);
+      await settle(p);
+      const st = p.joiner.snapRxStats();
+      expect(st.maxInflating).toBeLessThanOrEqual(MAX_INFLATING_PER_SENDER);
+      expect(MAX_INFLATING_PER_SENDER).toBe(4);
+      // 4 bombs inflated, 46 superseded unread (45 bombs + nothing else), the held newest = the real keyframe.
+      expect(st.superseded).toBe(46);
+      expect(got).toEqual([1]);
+    } finally {
+      quiet.mockRestore();
+      gate.manual = false;
+    }
+  });
+
+  it('MED-1(a) — a sender that is NOT the snapshot authority is never inflated (joiner: a stranger; host: everyone)', async () => {
+    const p = await slowJoinerPair();
+    const got = seqsOf(p);
+    try {
+      const evil = await packFrame('a'.repeat(1 << 20), true);
+      for (let i = 0; i < 50; i++) p.joinerRoom.actions.get('snap')!.onMessage!(evil, { peerId: 'EVIL' });
+      // On the host `session.hostPeerId` is null, so nobody is the authority.
+      p.host.isSnapshotAuthority = () => false;
+      p.hostRoom.actions.get('snap')!.onMessage!(evil, { peerId: 'J' });
+      for (let i = 0; i < 10; i++) await Promise.resolve();
+      expect(gate.started, 'not one inflate began').toBe(0);
+      expect(p.joiner.snapRxStats().refused).toBe(50);
+      expect(p.host.snapRxStats().refused).toBe(1);
+      expect(got).toEqual([]);
+      // ⛔ NEGATIVE — the authority's own frames still flow.
+      p.host.send(snap(1));
+      await until(() => p.hostRoom.actions.get('snap')!.sent.length > 0, 'keyframe sent');
+      p.deliverFrame(p.takeFrames()[0]!);
+      await settle(p);
+      expect(got).toEqual([1]);
+    } finally {
+      gate.manual = false;
+    }
+  });
+
+  it('LOW-2 — frames delivered as [newer, older] in one turn apply the NEWER (highest fid), not the later arrival', async () => {
+    const p = await slowJoinerPair();
+    const got = seqsOf(p);
+    try {
+      p.host.send(snap(1));
+      await until(() => p.hostRoom.actions.get('snap')!.sent.length > 0, 'k1');
+      const [older] = p.takeFrames();
+      p.host.send(snap(2));
+      await until(() => p.hostRoom.actions.get('snap')!.sent.length > 1, 'k2');
+      const [newer] = p.takeFrames();
+      p.deliverFrame(newer!);
+      p.deliverFrame(older!);
+      await settle(p);
+      expect(got).toEqual([2]);
+    } finally {
+      gate.manual = false;
+    }
+  });
+
+  it('LOW-3 — a disconnect while frames are still inflating: nothing reaches the handlers afterwards', async () => {
+    const p = await slowJoinerPair();
+    const got = seqsOf(p);
+    try {
+      p.host.send(snap(1));
+      await until(() => p.hostRoom.actions.get('snap')!.sent.length > 0, 'k1');
+      p.deliverFrame(p.takeFrames()[0]!);
+      await until(() => gate.waiting.length === gate.started && gate.started === 1, 'parked');
+      p.joiner.disconnect();
+      await renderTurn();
+      for (let i = 0; i < 20; i++) await Promise.resolve();
+      expect(got).toEqual([]);
+      // ⛔ NEGATIVE (anti-vacuity) — the same frame with no disconnect is applied.
+      const q = await slowJoinerPair();
+      const got2 = seqsOf(q);
+      q.host.send(snap(1));
+      await until(() => q.hostRoom.actions.get('snap')!.sent.length > 0, 'k1b');
+      q.deliverFrame(q.takeFrames()[0]!);
+      await settle(q);
+      expect(got2).toEqual([1]);
     } finally {
       gate.manual = false;
     }
