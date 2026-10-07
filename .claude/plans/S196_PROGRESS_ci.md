@@ -1,7 +1,7 @@
 # S196 PROGRESS — s196/ci
 
 ## NEXT STEP (top, always current)
-- FIX ROUND: merged master 07390b45 -> c7fc9048 clean, npm 0, typecheck 0. NOW: vitest running detached (.tmp-gates/fr-vt.*), then build (.tmp-gates/fr-build.*), then report.
+- FIX ROUND DONE (HIGH-1, LOW-1/2/3). Merged master 07390b45 clean. Gates on the merged tree: typecheck 0 · vitest --maxWorkers=3 0 = 9524 passed / 15 skipped / 0 failed (636 files) · build 0 (entry 1264.3 KiB; +0 from this branch). Waiting for re-audit.
 
 ## FINAL REPORT
 - merge: master 538476e0 merged clean (489ac387), no conflicts. Bump verdict: NONE (no src runtime/wire change). Entry 1263.3 KiB (+0 from this branch).
