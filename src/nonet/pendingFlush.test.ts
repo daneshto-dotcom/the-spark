@@ -140,12 +140,13 @@ describe('S196 MED-A — a queued run is never in two OUTSTANDING POSTs (client 
     const remote = new RemoteLeaderboard('https://lb.example');
     const submitting = remote.submit('nonet', 'DAN', 70_000); // POST [r1, new] outstanding…
     await settle();
-    await remote.flushAllPending(); // …and the NONET home opens (ESC during SAVING…)
+    const flushing = remote.flushAllPending(); // …and the NONET home opens (ESC during SAVING…)
+    await settle();
     expect(net.posts.length).toBe(1);
     expect(net.posts[0]!.ids[0]).toBe('r1');
     expect(new Set(allIds(net.posts)).size).toBe(allIds(net.posts).length); // no id twice
     net.releaseAll();
-    await submitting;
+    await Promise.all([submitting, flushing]);
     await settle();
     expect(loadPending('nonet')).toEqual([]);
   });
