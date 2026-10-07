@@ -84,3 +84,4 @@ BEFORE trace (`scripts/live-mp/live-joiner-lag.mjs`, joiner CPU 6x throttled, re
 - fix-round gates (merged master f549b5ea): typecheck 0 · vitest 0 (9501 passed, 15 skipped). build/e2e running.
 - build 0 (entry 1266.2 KiB on merged master) · e2e:gating 0 (72 passed, 1 skipped). lobby/protocol running.
 - e2e:lobby 0 (5) · e2e:protocol 0 (2). Live trace next (lag-fr.log).
+- ⛔ FIX-ROUND LIVE TRACE RED: lag grows (828 snaps); joiner applied 1, 4 inflates never finish, then refused climbs (hostPeerId dropped after starvation?). Investigating (lag-fr.log).
