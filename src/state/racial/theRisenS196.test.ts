@@ -93,6 +93,15 @@ function runUntilGone(w: World, victim: CreatureId, cap = 2400): number {
   throw new Error(`fixture: victim ${victim} survived ${cap} ticks`);
 }
 
+/**
+ * ⚠ FIXTURE — the S156 initiative roll decides a duel, and a measured first draft LOST two of them (the
+ * zombie died, the enemy walked off and vanished at a keep: not a kill, so nothing rose — correctly). A
+ * deep pool on the killer makes the duel's outcome the one under test. Its blow is unchanged.
+ */
+function sturdy(w: World, id: CreatureId): void {
+  w.creatures.get(id)!.ehp = 100_000;
+}
+
 /** Births on the kill tick, minus the castle cadence if it happened to fire on that tick. */
 function raisedAt(w: World, killTick: number): number {
   return risenOn(w, killTick).length - (castleEmitsOnTick(0, killTick) ? 1 : 0);
@@ -128,26 +137,31 @@ describe('S196 THE RISEN — REACH through runHostTick, the shapes his match had
     ['the zombie boss', T9_BOSS_TYPE.zombies as CreatureType],
   ])('%s kills an enemy castle soldier → one risen', (_label, type) => {
     const w = match([{ race: 'zombies' }, { race: 'orcs' }]);
-    spawnAt(w, P0, type, 960, 540);
+    const z = spawnAt(w, P0, type, 960, 540);
     const victim = spawnAt(w, P1, 'raceUnit', 975, 540);
+    sturdy(w, z);
     const t = runUntilGone(w, victim);
+    expect(w.creatures.has(z), 'the killer is still standing — the victim fell to it').toBe(true);
     expect(raisedAt(w, t)).toBe(1);
   });
 
   it('⛔ NEGATIVE — a GOBLIN owned by the zombie seat kills the same soldier → nobody rises', () => {
     const w = match([{ race: 'zombies' }, { race: 'orcs' }]);
-    spawnAt(w, P0, 'goblinMelee', 960, 540);
+    const g = spawnAt(w, P0, 'goblinMelee', 960, 540);
     const victim = spawnAt(w, P1, 'raceUnit', 975, 540);
+    sturdy(w, g);
     const t = runUntilGone(w, victim);
+    expect(w.creatures.has(g)).toBe(true);
     expect(raisedAt(w, t)).toBe(0);
   });
 
   it('⛔ NEGATIVE — the seat took HP at the wave-1 draft (no perk) → the same soldier kill raises nobody', () => {
     const w = match([{ race: 'zombies' }, { race: 'orcs' }], 'hp');
-    spawnAt(w, P0, 'raceUnit', 960, 540);
+    const z = spawnAt(w, P0, 'raceUnit', 960, 540);
     const victim = spawnAt(w, P1, 'raceUnit', 968, 540);
-    // run until the ENEMY soldier is gone (either side may win the roll — repeat duels until it is ours)
+    sturdy(w, z);
     const t = runUntilGone(w, victim);
+    expect(w.creatures.has(z)).toBe(true);
     expect(raisedAt(w, t)).toBe(0);
   });
 });
@@ -161,15 +175,11 @@ describe('S196 THE RISEN — 2v2 (teams)', () => {
   it('the roster teams land on the world, and an ENEMY-team kill through runHostTick raises one', () => {
     const w = match(teams);
     expect(w.teams).toEqual([0, 0, 1, 1]);
-    spawnAt(w, P0, 'raceUnit', 960, 540);
+    const z = spawnAt(w, P0, 'raceUnit', 960, 540);
     const victim = spawnAt(w, P2, 'raceUnit', 968, 540);
-    let t = -1;
-    // the S156 roll may hand the duel to the enemy; re-seed duels until a zombie wins one
-    for (let k = 0; k < 8 && t < 0; k++) {
-      try { t = runUntilGone(w, victim, 600); } catch { /* fixture retry below */ }
-      if (t < 0) break;
-    }
-    expect(t).toBeGreaterThan(0);
+    sturdy(w, z);
+    const t = runUntilGone(w, victim);
+    expect(w.creatures.has(z)).toBe(true);
     expect(raisedAt(w, t)).toBe(1);
   });
 
