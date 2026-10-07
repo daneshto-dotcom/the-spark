@@ -36,7 +36,8 @@ function sinks(): Sinks { return { ground: recordingSink(), top: recordingSink()
 function all(s: Sinks): FxEmitRecord[] { return [...s.ground.out, ...s.top.out, ...s.shade.out]; }
 function draw(kind: TowerSigKind, tick: number, opts: { low?: boolean; actAge?: number; charge?: number; race?: RaceId | null; id?: number } = {}): Sinks {
   const s = sinks();
-  towerSignatureFx(s, kind, opts.id ?? 7, FOOT.x, FOOT.y, FOOT.w, FOOT.h, tick, opts.low ?? false, opts.actAge ?? TOWER_SIG_NO_ACT, opts.charge ?? 0.5, opts.race ?? 'orcs');
+  const race = 'race' in opts ? opts.race ?? null : 'orcs';
+  towerSignatureFx(s, kind, opts.id ?? 7, FOOT.x, FOOT.y, FOOT.w, FOOT.h, tick, opts.low ?? false, opts.actAge ?? TOWER_SIG_NO_ACT, opts.charge ?? 0.5, race);
   return s;
 }
 const lum = (out: FxEmitRecord[]): number => out.reduce((a, e) => a + e.alpha * e.w * e.h, 0);
@@ -181,6 +182,7 @@ function towerWorld(recipeId: GodlyId, owner = P0, at = { x: 400, y: 450 }) {
 }
 /** One frame of the real renderer with the tower's building drawn (a published foot) or not. */
 function frame(w: any, opts: { withFoot?: boolean; legacy?: boolean; tick?: number } = {}): Sinks {
+  __resetTowerCoverForTests(); // each frame stands alone (no group history leaks between fixtures)
   const r = new SpawnerZoneRenderer({} as never, new Container());
   const t = opts.tick ?? 4000;
   w.tick = t - 1;
