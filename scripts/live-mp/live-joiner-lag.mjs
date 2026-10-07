@@ -81,6 +81,9 @@ const S = (p) => p.evaluate(() => {
     // staleness. The seq pair is the exact measure: host's last built snapshotSeq vs the joiner's last received one.
     hostSeq: typeof s?.hostSync?.currentSeq === 'function' ? s.hostSync.currentSeq() : null,
     rxSeq: tr?.lastSeq ?? null,
+    // internals of the receive pipeline (the latched authority's entry), for diagnosis
+    rxq: (() => { const out = {}; for (const [id, r] of tr?.rxPeers ?? []) out[id.slice(0, 6)] = { q: r.queue.map((e) => (e.done ? (e.text === null ? 'E' : 'D') : '.')).join(''), inf: r.inflating, held: r.held !== null, last: r.lastFid, ring: r.ring.size }; return out; })(),
+    hostPeer: s?.session?.hostPeerId ?? null,
     rx: typeof tr?.snapRxStats === 'function' ? tr.snapRxStats() : null,
     tx: typeof tr?.snapTxStats === 'function' ? tr.snapTxStats() : null,
     shapes: s?.world?.primitives?.size ?? -1,
@@ -113,7 +116,7 @@ try {
     const row = { s, hostTick: h.tick, joinTick: j.tick, lagTicks: h.tick - j.tick, lagSnaps: h.hostSeq !== null && j.rxSeq !== null ? h.hostSeq - j.rxSeq : null, joinFps: j.frames - prevJ.frames, rx: j.rx, tx: h.tx, relay: relay.stats() };
     prevJ = j;
     rows.push(row);
-    if (s % 5 === 0 || s === 1) log(JSON.stringify({ s, hostTick: h.tick, joinTick: j.tick, lagTicks: row.lagTicks, lagS: (row.lagTicks / 60).toFixed(1), lagSnaps: row.lagSnaps, joinFps: row.joinFps, rx: j.rx, tx: h.tx }));
+    if (s % 2 === 0 || s === 1) log(JSON.stringify({ s, hostTick: h.tick, joinTick: j.tick, lagTicks: row.lagTicks, lagS: (row.lagTicks / 60).toFixed(1), lagSnaps: row.lagSnaps, joinFps: row.joinFps, rx: j.rx, tx: h.tx, rxq: j.rxq }));
   }
   const tail = rows.slice(-10).map((r) => r.lagTicks).sort((a, b) => a - b);
   const result = { label: process.env.LABEL ?? '', CPU, IMPAIR, medianLagTicksLast10: tail[Math.floor(tail.length / 2)], maxLagTicks: Math.max(...rows.map((r) => r.lagTicks)), maxLagSnaps: Math.max(...rows.map((r) => r.lagSnaps ?? -1)), meanFps: rows.reduce((a, r) => a + r.joinFps, 0) / rows.length, endRx: rows.at(-1)?.rx, endTx: rows.at(-1)?.tx };
