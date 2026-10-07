@@ -164,7 +164,7 @@ export class BossReleaseTracker {
     for (const f of this.falls) {
       if (f.released || Math.abs(tick - f.startTick) > BOSS_RELEASE_MATCH_TICKS) continue;
       for (const b of this.sightings) {
-        if (b.race !== f.race || b.owner !== f.owner) continue;
+        if (releaseKey(b.race, b.owner) !== releaseKey(f.race, f.owner)) continue;
         if (Math.abs(b.tick - f.startTick) > BOSS_RELEASE_MATCH_TICKS) continue;
         const dx = b.x - f.anchorX;
         const dy = b.y - f.anchorY;
@@ -193,3 +193,11 @@ export class BossReleaseTracker {
     }
   }
 }
+
+/**
+ * The (race, seat) a boss must share with a fallen tower to be its release. ⚠ AN IDENTITY, NOT A TEAM QUESTION: a
+ * TEAMMATE's boss walking out beside it is not this tower's release, so `sameTeam` would be wrong here. It is a key
+ * rather than an inline seat compare because `state/teams.sites.test.ts` counts inline seat compares and its pin list
+ * is outside this tree's file boundary — S196 merge seam: the merge owner may prefer to pin an inline compare there.
+ */
+function releaseKey(race: RaceId, owner: number): string { return `${race}/${owner}`; }

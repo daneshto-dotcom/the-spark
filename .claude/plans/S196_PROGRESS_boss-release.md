@@ -1,9 +1,8 @@
 # S196 PROGRESS — boss-release (branch s196/boss-release)
 
 ## NEXT STEP (exact)
-- PAUSED by owner order (usage limit). Code + tests DONE and committed (typecheck 0; bossRelease.test 23 + reach 7 green; M1-M4 RED).
-  A detached gate chain (vitest --maxWorkers=3 then build -> .tmp-gates/g1-vt.exit / g1-build.exit) was started BEFORE the
-  typing fix; its vitest result may be stale -> RE-RUN all gates on resume.
+- RESUMED: merged master fb8f6b42 (485dbddc, no conflicts). Pre-pause vitest found a REAL red: teams.sites census
+  (seat compare in bossReleaseTrack) -> fixed via releaseKey (identity, documented merge seam). Now: dev seam + capture.
 - NEXT (capture, nothing written yet): write `.tmp-gates/cap/capture.spec.ts` + `.tmp-gates/cap/pw.config.ts`
   (testDir .tmp-gates/cap, viewport 1920x1080, webServer `npx vite --port 27196 --strictPort`, reuseExistingServer:false so
   vite is fresh). In the spec: `page.clock.install()` before goto; bootSolo (copy from e2e/tower-art.spec.ts); per race:
