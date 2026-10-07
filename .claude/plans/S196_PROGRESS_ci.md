@@ -1,7 +1,7 @@
 # S196 PROGRESS — s196/ci
 
 ## NEXT STEP (top, always current)
-- T3: tickClock.spec.ts:21 CI starvation — read failing E2E run logs (gh run view --log-failed), then spec.
+- T3: implement fix plan in e2e/tickClock.spec.ts; run it --repeat-each=3 locally on own port + with CPU throttle if possible.
 
 ## Log
 - boot: merged master; progress file created.
@@ -12,3 +12,5 @@
 - T1 full suite --maxWorkers=3 (new file): exit 0, 9450 passed / 14 skipped, 629 files. R194-27 5.4 s, MED-1 6.6 s (was 17–30 s under load). T1 DONE.
 - T2 cause: run 37368664339 attempt 1 — build job runner_name "", 0 steps, cancelled 20:16:01→20:31:04, annotation "The job was not acquired by Runner of type hosted even after multiple attempts" = GitHub hosted-pool acquisition failure, NOT our YAML (timeout-minutes 30, concurrency started fine). Same minute: all 7 e2e jobs of 37368664346 identical. Only incident in last 200 runs.
 - T2 DONE: .github/workflows/ci-watchdog.yml (+ .mjs beside it) — workflow_run on Deploy+E2E + 30-min cron sweep; re-runs only jobs with the "not acquired by Runner" annotation (cancelled, 0 steps, no runner), max 3 attempts, never re-runs a deploy with a newer deploy run (would publish an older bundle), opens a deduped issue at the cap or on a non-starved cancelled/timed_out deploy. src/ci.watchdog.test.ts 12/12; 3 mutants (no annotation gate / no superseded guard / no POST) each RED. Real run 37368664339 probe: build=starved, deploy(skipped)=not.
+- T3 cause (run 37626384765 trace, playwright-report artifact): tickClock RED on EVERY master E2E run checked (14/14 failing runs; the gating `e2e` lane is red on master every push since ≥10-04), and its 3×90 s attempts push the lane into the 900 s globalTimeout. Frozen negative = mirror shape, budget 4×30+60 = 180 frames of the LIVE page; with two SwiftShader game pages running the live page renders ~1.8 fps (frames 66→183 over 65 s) ⇒ 180 frames ≈ 100 s > the 90 s test timeout. Deterministic on CI, invisible locally (GPU).
+  FIX PLAN: close the live context after the REACH half; the frozen fixture becomes a no-render stub page (about:blank + pinned __SPARK__.world.tick) clocking ITSELF, so the frame budget runs at headless rAF rate; negative runs BOTH production shapes (self 60/false = successor simulates, 30/true = mirror).
