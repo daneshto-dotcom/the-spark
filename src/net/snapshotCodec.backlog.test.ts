@@ -113,7 +113,8 @@ async function runOpening(p: LinkedPair, opts: { frames: number; perTurn: number
     lagAtEnd: opts.frames - (got.at(-1) ?? 0),
     applied: got,
     towerSeenAfterTurns: towerAt === null || placedTurn === null ? null : towerAt - placedTurn,
-    superseded: p.joiner.snapRxStats().superseded,
+    // Optional-called so this file still RUNS against the pre-fix transport (the mutation check in the progress file).
+    superseded: (p.joiner as Partial<Pick<NetTransport, 'snapRxStats'>>).snapRxStats?.().superseded ?? -1,
   };
 }
 
