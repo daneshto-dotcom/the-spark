@@ -63,3 +63,5 @@
 - joiner-lag re-audit CLEAN (fog-swap leak closed, verified by auditor's own test) → builder adds that test (LOW-B), then lands.
 - **DEPLOY S196-#8 `9bb489ec`** boss-release. 4/4. Context 811,164.
 - **DEPLOY S196-#9 `329a0fcc`** ci. 4/4. Context 821,329.
+- joiner-desync DoS-round re-audit CLEAN (authority check before inflate, cap 16 [MINE, above measured peak 14], per-frame 2 MiB inflate cap bounds a hostile host to 32 MiB, highest-id apply; refused frames still count as wire traffic for false-migration). Lands next after joiner-lag.
+- false-migration audit FIX FIRST: MED-1 hidden host + peer churn keeps the claim clock fresh (any-message liveness) → judge by snapshot arrival only; MED-3 binary snap stamp untested; LOW-2/4 → fix round (after merging master incl. joiner-desync).
