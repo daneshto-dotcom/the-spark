@@ -1,7 +1,7 @@
 # S196 PROGRESS — s196/ci
 
 ## NEXT STEP (top, always current)
-- DONE. Waiting for the independent audit / merge owner. Nothing in flight.
+- FIX ROUND (audit FIX FIRST): HIGH-1 shebang+CRLF -> remove shebangs, .gitattributes *.mjs eol=lf, CRLF-checkout proof; LOW-1 superseded cancelled deploy; LOW-2 refused rerun alert; LOW-3 dedupe closed issues. NOW: HIGH-1.
 
 ## FINAL REPORT
 - merge: master 538476e0 merged clean (489ac387), no conflicts. Bump verdict: NONE (no src runtime/wire change). Entry 1263.3 KiB (+0 from this branch).
