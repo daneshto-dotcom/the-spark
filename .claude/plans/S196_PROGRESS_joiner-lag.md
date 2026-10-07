@@ -1,7 +1,7 @@
 # S196 PROGRESS — s196/joiner-lag
 
 ## ⏭ NEXT STEP
-Baseline profile running: SPARK_LAG_FOG=1 SPARK_LAG_TIERS=HIGH,LOW,MINIMAL waves 5,10 throttles 4,6 PROFILE=1 -> .tmp-gates/prof-base.log. Then read top-self tables, fill the WHERE table, pick fixes.
+Baseline matrix running (.tmp-gates/runmatrix.sh base -> .tmp-gates/prof-base-w*-*.log, raw .cpuprofile in .tmp-gates/lag). Machine at 100% load (8 trees) => use profile SHARES + interleaved A/B, not absolute fps. Candidate fixes: bond cache redraw rate on MINIMAL, damage-number Text uploads, goblin/chewer/healthbar Graphics, keystone telegraph on MINIMAL.
 
 ## WHERE THE JOINER'S TIME GOES
 (pending)

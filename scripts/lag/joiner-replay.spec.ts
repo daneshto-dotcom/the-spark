@@ -224,6 +224,7 @@ test('S195 N9 — joiner cost of a wave-N board, replayed at 10 Hz', async ({ br
           await joiner.waitForTimeout(MEASURE_MS);
           if (PROFILE) {
             const { profile } = await cdp.send('Profiler.stop') as unknown as { profile: CpuProfile };
+            writeFileSync(join(DIR, `profile-${process.env.SPARK_LAG_TAG ?? 'x'}-w${wave}-${fx}-${thr}x.cpuprofile`), JSON.stringify(profile));
             console.log(`PROFILE ${info.project.name} w${wave} ${fx} ${thr}x:
 ${topSelf(profile, 30)}`);
             console.log(`INCLUSIVE (src files) ${info.project.name} w${wave} ${fx} ${thr}x:` + String.fromCharCode(10) + topInclusive(profile, 40, /\.ts:/));
