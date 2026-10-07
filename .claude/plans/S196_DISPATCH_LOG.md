@@ -58,3 +58,4 @@
 - queue-edit audit CLEAN → small round (LOW-1/2 tests, LOW-3 ENQUEUE/CANCEL shape guard); bump 71→72 after win-bar lands. boss-release small fix round DONE d70cc641 (tolerance 60, clamp pinned, exclusion derived) → land after render-perf.
 - joiner-lag audit FIX FIRST: MED-1 bond identity missing from the structural hash → a same-count same-look swap (sever+place, FOG SWAP = info leak, reused id) waits 25 frames on MINIMAL → fix round. queue-edit small round DONE c11b7778 (waits for 71 to bump 72). ci fix round DONE 052f1083 → re-audit.
 - **DEPLOY S196-#7 `07390b45`** — s196/render-perf. verify-deploy 4/4.
+- ci re-audit CLEAN; small round for LOW-A (per-attempt dedupe — closed alert silenced a repeat failure) + LOW-B (API error must alert). boss-release merged; merge owner mutation tolerance 60→12 → 2 red, restored; landing gates s196-land8.
