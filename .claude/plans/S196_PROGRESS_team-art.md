@@ -2,7 +2,7 @@
 
 PROMPTS READY: C:/Users/onesh/OneDrive/Desktop/SPARK_Team3_Backdrop_Prompts.html (also _from-desktop/SPARK_Team3_Backdrop_Prompts.html) - section #singles, 12 cards (6 races x 4P quadrant + 2P half), copy buttons, own progress counter; headless smoke: 0 page errors, counters 0/56 + 0/12, tick works.
 
-NEXT STEP (PAUSED for usage limit): e2e:gating was started detached (`npm run e2e:gating > .tmp-gates/e2e.log; echo $? > .tmp-gates/e2e.exit`) and may have been killed — if .tmp-gates/e2e.exit is missing or the run was interrupted, RE-RUN it; read the exit from the file. Then `git merge master` + re-run typecheck/vitest/build if master moved; then write the FINAL REPORT at the top of this file. Done so far: prompts, 27 trios wired, flag ON, tests + 5 mutations red, typecheck 0 (typecheck2), vitest 1 timeout-only red (endgameAudit.test.ts, re-run alone 18/18 = BENIGN), build 0 entry 1252.3/1350 KiB, check:atlas N/A (does not cover race-zones), screenshots + README at C:/Users/onesh/OneDrive/Desktop/SPARK_S196_TeamArt.
+NEXT STEP: re-run gates on merged tree (master fb8f6b42 merged, no conflicts): typecheck/vitest/build/e2e:gating into .tmp-gates/m-*.{log,exit}; then FINAL REPORT. Pre-merge: e2e:gating exit 0 (67 passed, 10.7 m); typecheck 0; vitest 1 timeout-only red (endgameAudit, alone 18/18 BENIGN); build 0 entry 1252.3 KiB.
 
 ## Log
 - merged master b35368c6 (tower-fx) at boot, no conflicts.
