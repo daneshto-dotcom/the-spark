@@ -2455,7 +2455,9 @@ Network routes: ${v.detail}`;
       get arcadeRunOverlay() { return arcadeRunOverlay; },
       // ⭐ S196 #16 — the NONET home's live geometry, and which mode/board the live run is on.
       get nonetHome() { return nonetHome; },
-      get arcadeRunInfo() { return arcadeRun === null ? null : { mode: arcadeRun.mode, boardId: arcadeRun.boardId, phase: arcadeRun.phase }; },
+      get arcadeRunInfo() { return arcadeRun === null ? null : { mode: arcadeRun.mode, boardId: arcadeRun.boardId, phase: arcadeRun.phase, stage: arcadeRun.stage, puzzleIndex: arcadeRun.puzzleIndex }; },
+      // ⭐ S196 Option B — the live arcade grid, so e2e can SOLVE a stage through the real keyboard path (DEV only).
+      get arcadeNonetPuzzle() { return arcadeNonet === null ? null : { givens: [...arcadeNonet.puzzle.givens], solution: [...arcadeNonet.puzzle.solution] }; },
       // S77 P2 — fog-exemption e2e: sync a global-reach entity + assert it renders
       // through the fog (aboveFogLayer sits above the fog container).
       get potatoRenderer() { return potatoRenderer; },
