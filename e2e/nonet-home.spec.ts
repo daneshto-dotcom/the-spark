@@ -135,3 +135,30 @@ test.describe('@visual S196 Option B — the NONET campaign', () => {
     await page.keyboard.press('Escape');
   });
 });
+
+test.describe('@visual S196 LOW-2 — one RANKED daily per device per UTC day, through the real solve path', () => {
+  test('solving a DAILY marks the day; the next DAILY that day plays UNRANKED (ZEN, no board)', async ({ page }) => {
+    test.setTimeout(120_000);
+    await openHome(page);
+    await page.evaluate(() => { try { localStorage.removeItem('spark.nonet.daily.v1'); } catch { /* fresh */ } });
+    await door(page, 'daily');
+    await page.waitForTimeout(2000);
+    const first = await page.evaluate(() => (window as unknown as Spark).__SPARK__.arcadeRunInfo);
+    expect(first).toMatchObject({ mode: 'DAILY', phase: 'RUNNING' });
+    expect(first!.boardId).toMatch(/^nonet:d\d{8}$/);
+    const day = first!.boardId!.slice('nonet:d'.length);
+
+    await solveLiveGrid(page);
+    await expect.poll(async () => (await page.evaluate(() => (window as unknown as Spark).__SPARK__.arcadeRunInfo))?.phase, { timeout: 5_000 }).toBe('ENTER_INITIALS');
+    // THE LINE UNDER TEST: main.ts's solve handler marks the day as played on this device.
+    expect(await page.evaluate(() => localStorage.getItem('spark.nonet.daily.v1'))).toBe(day);
+
+    await page.keyboard.press('Escape'); // leave the initials → home
+    await expect.poll(async () => (await homePoints(page))?.open ?? false, { timeout: 5_000 }).toBe(true);
+    await door(page, 'daily');
+    await page.waitForTimeout(1500);
+    // Same day, second DAILY: the same grid, but untimed and on NO board.
+    expect(await page.evaluate(() => (window as unknown as Spark).__SPARK__.arcadeRunInfo)).toMatchObject({ mode: 'ZEN', boardId: null });
+    await page.keyboard.press('Escape');
+  });
+});
