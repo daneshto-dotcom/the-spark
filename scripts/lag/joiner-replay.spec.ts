@@ -233,7 +233,7 @@ ${topSelf(profile, 30)}`);
             const w = g.__SPARK__.world;
             const lt = (window as unknown as { __lagLong: { n: number; ms: number } }).__lagLong;
             return { longTasks: lt.n, longTaskMs: Math.round(lt.ms), handle: [...g.__lag.handle], raf: [...g.__lag.raf], frame: [...g.__SPARK__.frameMs].slice(-600),
-              counts: { creatures: w.creatures.size, primitives: w.primitives.size, bonds: w.bonds.size } };
+              counts: { creatures: w.creatures.size, primitives: w.primitives.size, bonds: w.bonds.size }, isHost: (w as unknown as { isHost: boolean }).isHost };
           });
           const st1 = await readStats();
           const cacheLine = `tier ${st1.tier} stored ${st1.stored} urls ${st1.urls} cache frames ${st1.frames - st0.frames} buckets ${st1.buckets - st0.buckets} redrawn ${st1.redraws - st0.redraws}`;
@@ -257,6 +257,9 @@ ${topSelf(profile, 30)}`);
             longFrames: got.raf.filter((x) => x > 50).length, renderer, counts: got.counts,
             idleFpsMed: +pct(idleFps, 0.5).toFixed(1), idleFpsP5: +pct(idleFps, 0.05).toFixed(1), idleFrameMsMed: +pct(idle.frame, 0.5).toFixed(2),
           };
+          // ⛔ S196 joiner-lag — a starved joiner can be PROMOTED to host mid-run (seen: runHostTick +
+          // transmitSnapshot in a "joiner" profile). Its numbers then measure a HOST; refuse them.
+          if (got.isHost) throw new Error(`joiner was PROMOTED to host during w${wave} ${fx} ${thr}x — run contaminated, discard`);
           const want = (JSON.parse(seqs[0]!) as { snapshot: { primitives?: unknown[] } }).snapshot.primitives?.length ?? 0;
           if (Math.abs(got.counts.primitives - want) > Math.max(5, want * 0.1)) {
             throw new Error(`injected board NOT applied: page has ${got.counts.primitives} primitives, recording has ${want}`);
