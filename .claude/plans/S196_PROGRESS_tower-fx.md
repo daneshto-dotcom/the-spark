@@ -1,7 +1,41 @@
 # S196 PROGRESS — tower-fx (branch s196/tower-fx)
 
 ## NEXT STEP (exact)
-- FIX ROUND: code+tests DONE (HIGH-1, MED-1, LOW-1; mutations M4/M5/M6 caught), README fixed, merged master dfbb5cb5. NOW: recapture (.tmp-gates/fx/final2.sh) -> deliver.py into Desktop, then gates (.tmp-gates/finalgates.sh), then fix-round report.
+- NONE — fix round complete, awaiting re-audit + merge.
+
+## FIX ROUND REPORT (audit: FIX FIRST → HIGH-1, MED-1, LOW-1)
+- **HIGH-1 (fixed): the birth flare now fires on joiners.** `SpawnerZoneRenderer.trackBirths` records when THIS
+  client first SEES a creature with a given `sourceSpawnerId`; `spawnedAtTick` is no longer read.
+  - It runs every fx frame.
+  - It is unprimed on its first frame, and re-primes when the gap is > `TOWER_SIG_BIRTH_PRIME_GAP_TICKS` (30), when
+    the clock goes backwards (a new match), or on `clear()` (title return). A mid-match joiner therefore sees no flares.
+  - The false claims are corrected: `towerSignatureFx.ts` header, `spawnerZoneRenderer` docblock, Desktop README.
+  - Tests:
+    - `towerSignatureReach.test.ts` crosses the wire: host → `netSnapshot` → JSON → `applyNetSnapshot` on a fresh
+      peer → the peer's `StructureRampRenderer` + `SpawnerZoneRenderer`. It asserts:
+      - `spawnedAtTick` is 0 on the peer;
+      - the join frame draws exactly the idle signature, with 2 goblins already standing;
+      - a quiet snapshot stays idle;
+      - a goblin minted on the host flares the peer: the exact drawer sprite set at actAge 0.
+    - Unit tests: the first-seen flare at age 0 and 6, then idle after it; another spawner's creature does not flare
+      this tower. The negative covers the first frame, a gap and a clock reset.
+- **MED-1 (fixed): the tier-9 flare path is removed.** `boss9` passes flare 0 / NO_ACT, and `bossSeal` no longer
+  takes a flare. The always-on seal and motif are kept.
+  - Test: boss9 output is identical with or without an actAge.
+  - The README claim is replaced with "no flash" and an owner question. The six t9 ACTING close-ups are deleted, and
+    every board was recaptured (fresh vite).
+- **LOW-1 (fixed): a test now drives the real renderer at both quality settings.** Through `setFxHighQualityRuntime`,
+  LOW must emit < 0.8 × HIGH sprites.
+- **Mutations, all caught (RED), each restored with status clean:**
+  - M4 `lastBirth.set(sid, c.spawnedAtTick)` (the old reading) → 2 red, including the peer round trip;
+  - M5 `primed = true` → 2 red: the join negative and the peer join frame;
+  - M6 `low = false` → the LOW test red.
+- Merged master dfbb5cb5 (plans only; no conflicts).
+- Gates on the merged tree (exit codes in `.tmp-gates/final-*.exit`): typecheck **0** · vitest **0** (617 files / 9288 passed,
+  14 skipped) · build **0** · e2e:gating **0** (67 passed) · e2e:render **0** (10 passed).
+- Entry: **1250.0 KiB** / 1350 (+14.5 KiB vs boot 1235.5).
+- Bump: still **NONE** (render-only; no wire or sim change).
+- Left alone as instructed: LOW-2, LOW-3.
 
 ## FINAL REPORT
 - Merges: master c8239570 → 9ddf5027 (plans only) → 7e9d241c (board-look: matchBoardLayout + its test). No conflicts.
