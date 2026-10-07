@@ -1,7 +1,7 @@
 # S196 PROGRESS — s196/ci
 
 ## NEXT STEP (top, always current)
-- FIX ROUND: HIGH-1 + LOW-1/2/3 done. NOW: git merge master, npm install, then typecheck / vitest --maxWorkers=3 / build to .tmp-gates/fr-*.exit, then report.
+- FIX ROUND: merged master 07390b45 -> c7fc9048 clean, npm 0, typecheck 0. NOW: vitest running detached (.tmp-gates/fr-vt.*), then build (.tmp-gates/fr-build.*), then report.
 
 ## FINAL REPORT
 - merge: master 538476e0 merged clean (489ac387), no conflicts. Bump verdict: NONE (no src runtime/wire change). Entry 1263.3 KiB (+0 from this branch).
