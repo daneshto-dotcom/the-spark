@@ -1,24 +1,10 @@
 # S196 PROGRESS — boss-release (branch s196/boss-release)
 
 ## NEXT STEP (exact)
-- Captures RUNNING (`npx playwright test -c .tmp-gates/cap/pw.config.ts`, CAP_MODE=after then before; exits in
-  .tmp-gates/cap-after.exit / cap-before.exit; raw PNGs in Desktop/SPARK_S196_BossRelease/raw). Then: GIFs via Pillow,
-  bench (`BENCH_OUT=.tmp-gates/bench.json npx playwright test -c .tmp-gates/cap/pw.config.ts bench`), e2e:gating + e2e:render,
-  final vitest/build (g2-* exits: tc 0 / vt ? / build ?), README, report.
-- NEXT (capture, nothing written yet): write `.tmp-gates/cap/capture.spec.ts` + `.tmp-gates/cap/pw.config.ts`
-  (testDir .tmp-gates/cap, viewport 1920x1080, webServer `npx vite --port 27196 --strictPort`, reuseExistingServer:false so
-  vite is fresh). In the spec: `page.clock.install()` before goto; bootSolo (copy from e2e/tower-art.spec.ts); per race:
-  set `w.players.get(0).raceId = race`, seedBank(shape,9), click 9 chip + card, place at canvas (420,400), wait ~4 s for
-  the sprite; `page.clock.pauseAt(fakeNow+50)`; trigger release: `w.matchPhase='FIGHT'; sp.nextSpawnTick=w.tick`;
-  `clock.runFor(17)`; `w.matchPhase='BUILD'`; then 16 screenshots with `clock.runFor(150)` between (9 ticks each);
-  `w.creatures.clear()` before the next race. Crop around the tower + assemble GIFs with Pillow (python) into
-  C:/Users/onesh/OneDrive/Desktop/SPARK_S196_BossRelease/. BEFORE = same run with `this.syncBossReleases(world);` line
-  commented out in src/render/spawnerZoneRenderer.ts (restore with git checkout after).
-- Bench: `__SPARK__.fx.benchRender(frames)` + `__SPARK__.frameMs` exist (src/dev/fxLab.ts). For interleaved on/off add a
-  dev knob object in bossReleaseTrack.ts (e.g. `export const BOSS_RELEASE_DEV = { off: false }`, checked in
-  syncBossReleases), toggled via `await import('/src/render/fx/bossReleaseTrack.ts')` in the page; add a test that it
-  defaults false and nothing in src writes it. Then gates: typecheck, vitest, build (entry KiB), e2e:gating, e2e:render
-  (own port), git merge master first. Then README + final report.
+- Captures DONE (Desktop/SPARK_S196_BossRelease: 6 GIFs, strips, 1920x1080 PNGs, BEFORE orcs/demons). Bench RUNNING
+  (.tmp-gates/bench.exit, bench-orcs.json). Then e2e:gating + e2e:render (own port, detached, exits to .tmp-gates/e2e-*.exit),
+  README in the Desktop folder, final report at top of this file. Gates on merged tree so far: tc 0, vitest 0 (624 files /
+  9388 passed), build 0 (entry 1264.1 KiB; my modules ~11.7 KiB minified standalone). Census fix done.
 
 ## Log
 - boot: worktree on b35368c6 + master merged; progress file created.
