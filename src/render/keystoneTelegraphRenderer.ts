@@ -36,6 +36,14 @@ const PULSE_PERIOD_TICKS = 42; // ~0.7s at 60 Hz — one hub→neighbor sweep
 const PULSE_RADIUS = 3;
 const PULSE_ALPHA = 0.55; // subtle
 const LINK_TINT_ALPHA = 0.1; // faint persistent link line under the pulse
+/**
+ * ⭐ S196 (joiner-lag) — MINIMAL snaps the link lines' ends to this grid (px), for the drawing AND its hash.
+ * At 1 px a joiner redrew the whole telegraph almost every frame: every shape is interpolated every frame, so
+ * one shaking structure anywhere moved a rounded endpoint. A 1 px line at 10 % alpha that sits up to 2 px off
+ * a shape's centre is not visible; a redraw every frame on a slow PC is. ⚠ MINE.
+ */
+export const MINIMAL_LINK_SNAP_PX = 4;
+const snapLink = (v: number): number => Math.round(v / MINIMAL_LINK_SNAP_PX) * MINIMAL_LINK_SNAP_PX;
 
 /**
  * One traveling pulse: from a hub's shared endpoint prim (fromX,fromY) out to the far end of the blessed
@@ -173,10 +181,10 @@ export class KeystoneTelegraphRenderer {
       let h = 0x811c9dc5;
       // S196 — folded inline: the old `for (const v of [ … ])` built a five-element array per pulse per frame.
       for (const p of pulses) {
-        h = Math.imul(h ^ Math.round(p.fromX), 0x01000193) >>> 0;
-        h = Math.imul(h ^ Math.round(p.fromY), 0x01000193) >>> 0;
-        h = Math.imul(h ^ Math.round(p.toX), 0x01000193) >>> 0;
-        h = Math.imul(h ^ Math.round(p.toY), 0x01000193) >>> 0;
+        h = Math.imul(h ^ snapLink(p.fromX), 0x01000193) >>> 0;
+        h = Math.imul(h ^ snapLink(p.fromY), 0x01000193) >>> 0;
+        h = Math.imul(h ^ snapLink(p.toX), 0x01000193) >>> 0;
+        h = Math.imul(h ^ snapLink(p.toY), 0x01000193) >>> 0;
         h = Math.imul(h ^ p.color, 0x01000193) >>> 0;
       }
       h = Math.imul(h ^ pulses.length, 0x01000193) >>> 0 || 1;
@@ -184,8 +192,8 @@ export class KeystoneTelegraphRenderer {
       this.staticHash = h;
       g.clear();
       for (const p of pulses) {
-        g.moveTo(Math.round(p.fromX), Math.round(p.fromY))
-          .lineTo(Math.round(p.toX), Math.round(p.toY))
+        g.moveTo(snapLink(p.fromX), snapLink(p.fromY))
+          .lineTo(snapLink(p.toX), snapLink(p.toY))
           .stroke({ width: 1, color: p.color, alpha: LINK_TINT_ALPHA });
       }
       return;

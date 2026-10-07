@@ -594,3 +594,45 @@ describe('S196 — MINIMAL defers motion, never structure', () => {
     expect(hashBondShape(h0, base)).not.toBe(h0);
   });
 });
+
+describe('S196 — the keystone telegraph on MINIMAL ignores sub-grid jitter', () => {
+  it('a 1 px shake every frame never redraws the links; a real move does; HIGH still redraws every frame', async () => {
+    const { KeystoneTelegraphRenderer, MINIMAL_LINK_SNAP_PX } = await import('./keystoneTelegraphRenderer.ts');
+    const { comboView } = await import('./comboView.ts');
+    let pick: [number, number, number] | null = null;
+    for (let a = 0; a < 6 && pick === null; a++) for (let b = 0; b < 6 && pick === null; b++) for (let c = 0; c < 6 && pick === null; c++) {
+      if (comboView(a, b).isAnchor && comboView(b, c).isMagical) pick = [a, b, c];
+    }
+    const [ta, tb, tc] = pick!;
+    const mk = (id: number, type: number, x: number): P => ({ id, type, pos: { x, y: 301 }, placedBy: 0, placerColor: COLORS[0]!, ownerColor: COLORS[0]!, bonds: new Set() });
+    const p0 = mk(0, ta, 301), p1 = mk(1, tb, 361), p2 = mk(2, tc, 421);
+    const hub: B = { id: 0, aId: 0, bId: 1, a: p0, b: p1, restLength: 60, stiffnessTier: 'MID' };
+    const nb: B = { id: 1, aId: 1, bId: 2, a: p1, b: p2, restLength: 60, stiffnessTier: 'MID' };
+    p0.bonds.add(0); p1.bonds.add(0); p1.bonds.add(1); p2.bonds.add(1);
+    const w = { tick: 10, gameMode: '1v1', fouledPrimitives: new Set(), players: new Map([[0, { color: COLORS[0] }]]),
+      primitives: new Map([[0, p0], [1, p1], [2, p2]]), bonds: new Map([[0, hub], [1, nb]]) } as unknown as World;
+    const parent = new ContainerStub();
+    const k = new KeystoneTelegraphRenderer(app, parent as never);
+    const g = parent.children[0] as GraphicsRec;
+    expect(MINIMAL_LINK_SNAP_PX).toBe(4);
+    setTier('MINIMAL');
+    k.sync(w);
+    const clears = g.clears;
+    for (let f = 0; f < 20; f++) { p2.pos.x = 421 + (f % 2 === 0 ? 0.9 : -0.9); (w as { tick: number }).tick++; k.sync(w); }
+    expect(g.clears, 'sub-grid jitter: no redraw').toBe(clears);
+    // every drawn endpoint sits on the grid
+    for (const o of g.ops.filter((x) => x.name === 'moveTo' || x.name === 'lineTo')) {
+      for (const v of o.args as number[]) expect(v % MINIMAL_LINK_SNAP_PX).toBe(0);
+    }
+    p2.pos.x = 440; // a real move
+    k.sync(w);
+    expect(g.clears).toBe(clears + 1);
+    // NEGATIVE: HIGH is untouched — exact positions, a redraw every frame
+    setTier('HIGH');
+    k.sync(w);
+    const hc = g.clears;
+    p2.pos.x = 440.5; k.sync(w);
+    expect(g.clears).toBe(hc + 1);
+    expect(g.ops.some((o) => o.name === 'lineTo' && (o.args as number[])[0] === 440.5)).toBe(true);
+  });
+});
