@@ -85,3 +85,4 @@ BEFORE trace (`scripts/live-mp/live-joiner-lag.mjs`, joiner CPU 6x throttled, re
 - build 0 (entry 1266.2 KiB on merged master) · e2e:gating 0 (72 passed, 1 skipped). lobby/protocol running.
 - e2e:lobby 0 (5) · e2e:protocol 0 (2). Live trace next (lag-fr.log).
 - ⛔ FIX-ROUND LIVE TRACE RED: lag grows (828 snaps); joiner applied 1, 4 inflates never finish, then refused climbs (hostPeerId dropped after starvation?). Investigating (lag-fr.log).
+- cap 4 -> 16 (measured: cap 4 starved the throttled joiner into STARVATION + a host takeover, trace FIXROUND-cap4-RED). Re-trace cap 16 (CPU 6x + impairment, 90 s): lagSnaps 2-9 flat, median 30 ticks, max 63, 0 STARVATION, applied 133/133, maxInflating 5. M6 re-run with 16: red (51 started vs 16). Re-running full gates on merged master next.
