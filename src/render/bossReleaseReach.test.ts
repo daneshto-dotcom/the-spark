@@ -212,6 +212,52 @@ describe('S196 R196-T2 REACH (host → snapshot → peer) — the boss release i
     expect(rig.frame().filter((e) => e.tex === 'ring' && e.y === foot.y).length, 'the seal / shock rings are gone').toBe(0);
   });
 
+  it('⛔⭐ S196 audit HIGH-1 — on a JOINER driven by its REAL clock (local tick++ per step, each snapshot resets it, so it steps BACK), the release keeps playing to the end', async () => {
+    const h = hostWithBossTower();
+    const peer = makeWorld(0x5196);
+    toPeer(h.w, peer);
+    const rig = peerRig(peer);
+    await warm(rig.frame, peer);
+    const foot = footOn(peer, h);
+    release(h);
+    toPeer(h.w, peer);
+    const start = peer.tick;
+    const lit = rig.frame();
+    expect(subset(expected(h.race, h.spawnerId, foot, 0, false, true), lit), 'drawn at age 0').toBeGreaterThan(40);
+    /*
+     * The joiner's loop (`main.ts` client step): `world.tick++` every local sim step, one render per step here. The
+     * host sends every 6 ticks, and the peer runs 7 ahead before it lands, so EVERY snapshot steps the clock back 1
+     * — the exact sequence the audit proved killed the release after one snapshot.
+     */
+    let stepBacks = 0;
+    let drawnFrames = 0;
+    let frames = 0;
+    let lastAge = 0;
+    for (let snap = 0; snap < 16; snap++) {
+      for (let k = 0; k < 7; k++) {
+        peer.tick++;
+        const f = rig.frame();
+        frames++;
+        const age = peer.tick - start;
+        if (age < 140 && subset(expected(h.race, h.spawnerId, foot, age, false, true), f) > 0) drawnFrames++;
+        lastAge = age;
+      }
+      h.w.tick += 6;
+      const before = peer.tick;
+      toPeer(h.w, peer);
+      if (peer.tick < before) stepBacks++;
+      const f = rig.frame();
+      frames++;
+      const age = Math.max(0, peer.tick - start);
+      if (age < 140 && subset(expected(h.race, h.spawnerId, foot, age, false, true), f) > 0) drawnFrames++;
+    }
+    expect(stepBacks, 'fixture: the snapshot really stepped the joiner clock back').toBeGreaterThan(10);
+    expect(lastAge, 'fixture: the run covered the whole crumble').toBeGreaterThanOrEqual(90);
+    // every frame inside the crumble window drew it, through every step-back
+    const inWindow = frames - 0;
+    expect(drawnFrames, `drew on ${drawnFrames} of ${inWindow} joiner frames`).toBe(inWindow);
+  });
+
   it('⭐ the HOST draws it too, the same frame it releases (host renderer, no wire)', async () => {
     const h = hostWithBossTower();
     const rig = peerRig(h.w);
