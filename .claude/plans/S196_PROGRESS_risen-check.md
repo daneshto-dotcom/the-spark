@@ -1,6 +1,16 @@
 # S196 PROGRESS — s196/risen-check
 
-**NEXT STEP:** vitest full: 3 files red, ALL timeouts (botFix, firstTowerSpeed, endgameAudit) — re-running alone (.tmp-gates/rerun.*); e2e running (.tmp-gates/e2e.*). Then final report.
+**NEXT STEP:** DONE — final report below; awaiting the merge owner.
+
+## FINAL REPORT
+- Verdict: NO SIM DEFECT (evidence below). Branch = 2 test files + this file, ZERO production source.
+- Gates: typecheck 0 · build 0 (entry 1263.3/1350 KiB, my delta 0 — tests only) · e2e:gating 0 (72 passed, 1 skipped, own port)
+  · vitest --maxWorkers=3 exit 1 = 628 files passed / 3 red, ALL timeouts (botFix, firstTowerSpeed, endgameAudit); re-run alone
+  under the same machine load (e2e + ~18 node procs from sibling trees) -> firstTowerSpeed green, botFix + endgameAudit still TIMEOUT.
+  Ruled benign: the branch touches no source, those files never import the new tests; their code is byte-identical to master.
+  Merge owner: re-run those two on a quiet machine.
+- Bump verdict: NONE (no wire, no hashed field, no sim change).
+- MINE / owner question: a visible cue when a corpse raises (the risen soldier is born silently at the keep). src/render, not this tree.
 
 ## VERDICT (draft): NO SIM DEFECT. THE RISEN fires through the real host tick in every shape tested.
 - Static: the ONLY production `damageCreature` caller is `damageEntity` (damage.ts:308), which resolves ONE `KillCredit` at the blow
