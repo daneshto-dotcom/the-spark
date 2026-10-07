@@ -70,7 +70,7 @@ async function breakdown(page: Page, tag: string): Promise<void> {
     };
   });
   fs.appendFileSync(OUT, JSON.stringify({ tag, ...s }) + '\n');
-  console.log(`[diag ${tag}] tick=${s.tick} state=${s.gameState} objects=${s.census.displayObjects} textures=${s.census.textures} creatures=${s.creatures}`);
+  console.log(`[diag ${tag}] tick=${s.tick} state=${s.gameState} objects=${s.census.displayObjects} pooled=${s.census.pooled} residual=${s.census.displayObjects - s.census.pooled} textures(live)=${s.census.textures} slots=${s.census.textureSlots} creatures=${s.creatures}`);
 }
 
 async function tick(page: Page): Promise<number> {
