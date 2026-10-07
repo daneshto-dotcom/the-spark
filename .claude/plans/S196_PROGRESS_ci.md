@@ -1,7 +1,7 @@
 # S196 PROGRESS — s196/ci
 
 ## NEXT STEP (top, always current)
-- FIX ROUND (audit FIX FIRST): HIGH-1 shebang+CRLF -> remove shebangs, .gitattributes *.mjs eol=lf, CRLF-checkout proof; LOW-1 superseded cancelled deploy; LOW-2 refused rerun alert; LOW-3 dedupe closed issues. NOW: HIGH-1.
+- FIX ROUND: HIGH-1 done. NOW: LOW-1 (cancelled deploy w/ newer run → superseded), LOW-2 (refused rerun → alert w/ real status), LOW-3 (dedupe recently-closed issues) in ci-watchdog.mjs + tests.
 
 ## FINAL REPORT
 - merge: master 538476e0 merged clean (489ac387), no conflicts. Bump verdict: NONE (no src runtime/wire change). Entry 1263.3 KiB (+0 from this branch).
@@ -38,3 +38,4 @@
 - GATE vitest --maxWorkers=3 on merged tree: exit 1 — 8 timeout-only reds (STACK_TRACE_ERROR = own per-test timeouts) in botFix x3, botPersonality x3, snapshotCodec.differential, s191Perf.differential; none in a file this branch touches; box heavily loaded (endgameAudit MED-1 17.1 s in this run). Re-running those 4 files alone -> .tmp-gates/vt-rerun.*
 - GATE build: exit 0, entry 1263.3 KiB / 1350 (this branch adds 0 runtime bytes). REAL verify-deploy on c78f5c58 (8-char --sha): fresh dist → exit 0 PASS (TURN-injection diagnosis); after `touch src/main.ts` → exit 3 "STALE LIVE … dist/index.html was built 30 s BEFORE src/main.ts last changed".
 - vitest rerun of the 4 timed-out files + endgameAudit, --maxWorkers=1: exit 0, 85/85 → the 8 reds were load timeouts (benign, ruled). Full-suite counts from the first full run on this branch: 9450 passed / 14 skipped / 0 failed.
+- FIX HIGH-1 DONE: reproduced (CRLF working copies → 24/25 red, SyntaxError); shebang alone was the cause (CRLF without shebang → 25/25). Shebangs removed (both run only as `node <file>`: package.json verify-deploy, ci-watchdog.yml step), `.gitattributes` `*.mjs text eol=lf`. New guard + REACH (CRLF copy under gitignored test-results-crlf/ imports); first REACH draft under node_modules was VACUOUS (externalised to plain Node, passed with the shebang back) — moved, mutant now red with the real SyntaxError. CRLF working-copy proof after fix: 27/27 exit 0. Fresh checkout: i/lf w/lf attr/text eol=lf. (One benign error in the restore sequence: `git checkout --` after `git rm --cached` = pathspec not in index; redone with rm + checkout.)
