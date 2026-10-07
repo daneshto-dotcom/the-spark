@@ -50,8 +50,11 @@ import { towerFixSparkleFx, type FixEdge } from './fx/towerSparkleFx.ts';
 import { fxHighQuality } from './fx/fxRuntime.ts';
 import type { Primitive } from '../game/primitive.ts';
 import type { World } from '../state/world.ts';
-import type { PlayerId } from '../types.ts';
-import { fxActive, fxGround, fxTop, fxTopShade } from './fx/fxState.ts';
+import type { PlayerId, PrimitiveId } from '../types.ts';
+import { fxActive, fxGround, fxShock, fxTop, fxTopShade } from './fx/fxState.ts';
+// ⭐ S196 `s196/boss-release` (owner R196-T2) — the tier-9 tower's release + crumble, derived on every peer.
+import { BossReleaseTracker } from './fx/bossReleaseTrack.ts';
+import { bossCrumbleFx, bossReleaseFx, type BossReleaseSinks } from './fx/bossReleaseFx.ts';
 import {
   TOWER_SPARKLE_EPSILON, towerSparkleFx, towerSparkleStrength, type SparkleBond, type SparklePrim,
 } from './fx/towerSparkleFx.ts';
@@ -113,6 +116,7 @@ export class SpawnerZoneRenderer {
       this.syncSparkles(world);
       this.syncFixSparkles(world);
       this.syncTowerSignatures(world);
+      this.syncBossReleases(world);
       return;
     }
     if (world.creatureSpawners.size === 0) return;
@@ -436,12 +440,43 @@ export class SpawnerZoneRenderer {
     }
   }
 
+  /** ⭐ S196 (R196-T2) — the tier-9 towers falling right now, and whether each let its boss out. */
+  private readonly bossFalls = new BossReleaseTracker();
+
+  /**
+   * ⭐⭐ S196 `s196/boss-release` (owner R196-T2) — **THE BOSS TOWER'S RELEASE AND CRUMBLE** (`fx/bossReleaseFx.ts`):
+   * *"when a boss tower releases his boss and it crumbles, there should be a flash that's appropriate to … the
+   * player's race … make it look like sick with a nice release effect."*
+   *
+   * ⛔ DERIVED, NEVER PUSHED, AND NEVER FROM `spawnedAtTick` (not on the wire): `bossReleaseTrack.ts` notices a
+   * tier-9 spawner VANISH from the synced `creatureSpawners` (→ the crumble) and a boss of its race + owner first
+   * seen at its anchor in the same window (→ the release). Every peer sees both in the same snapshot.
+   *
+   * ⚠ OBSERVED EVERY FX FRAME, AND ABOVE `syncTowerSignatures`' EMPTY-MAP RETURN ON PURPOSE: the frame a seat's
+   * only boss tower releases is exactly the frame `creatureSpawners` can become empty. Fogged with the tower: an
+   * enemy tower that falls in fog shows nothing (`isConcealed` at its foot, as the signature is).
+   */
+  private syncBossReleases(world: World): void {
+    this.bossFalls.observe(world, (anchor) => towerFootForPrim(anchor as unknown as PrimitiveId));
+    const falls = this.bossFalls.current();
+    if (falls.length === 0) return;
+    const s: BossReleaseSinks = { ground: fxGround(), top: fxTop(), shade: fxTopShade(), shock: fxShock() };
+    const low = !fxHighQuality();
+    for (const f of falls) {
+      if (isConcealed(f.foot.x, f.foot.y, f.owner as unknown as PlayerId)) continue;
+      const age = world.tick - f.startTick;
+      bossCrumbleFx(s, f.race, f.seed, f.foot.x, f.foot.y, f.foot.w, f.foot.h, age, low, f.released);
+      if (f.released) bossReleaseFx(s, f.race, f.seed, f.foot.x, f.foot.y, f.foot.w, f.foot.h, age, low);
+    }
+  }
+
   /** Drop the aura graphic (title-return; closes the one-frame orphan window). */
   clear(): void {
     // ⭐ S194 audit M1 — the title return clears the shapes; forget every tower group and owner with them.
     this.groupOwner.clear();
     this.birthTrackTick = Number.NaN; // ⭐ S196 — re-prime: the next match's first frame flares nothing
     this.lastBirth.clear();
+    this.bossFalls.reset(); // ⭐ S196 (R196-T2) — re-prime: no release replays behind the title or into the next match
     resetTowerCoverGroups();
     this.graphics.clear();
   }
