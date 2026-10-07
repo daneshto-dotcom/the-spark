@@ -1,8 +1,20 @@
 # S196 PROGRESS — boss-release (branch s196/boss-release)
 
 ## NEXT STEP (exact)
-- SMALL FIX ROUND: code + tests + mutations DONE (S12 -> 2 RED; CLAMP -> 1 RED). Gates RUNNING: .tmp-gates/sf-{tc,vt,build}.exit
-  (typecheck, `npx vitest run src/render`, build). Then the SMALL FIX ROUND REPORT + final message.
+- NONE — small fix round complete, ready to land.
+
+## SMALL FIX ROUND REPORT (re-audit CLEAN; MED-1, LOW-1, LOW-3)
+- MED-1: PEER_CLOCK_STEP_BACK_TICKS 12 -> 60 (MINE, reason at the constant: the client clock runs ahead unbounded, a late
+  snapshot steps it back by the lateness; 60 = a 1 s stall). Docs corrected: the new-match boundary is the title reset
+  (`clear()` -> `reset()`) + the not-PLAYING check; World identity is kept only as a belt. Tests: tracker steps back 25
+  then 55 and the release survives, plus a release caught right after a 55-tick step back (bossRelease.test.ts); a birth on
+  a 55-tick step-back frame still flares (towerSignatureReach.test.ts, real joiner loop). Mutation S12 (back to 12) -> 2 RED.
+- LOW-1: joiner sees the release on a run-ahead frame (snap + 7), the next snapshot lands below it, and the release is still
+  fully drawn at clamped age 0 (bossReleaseReach.test.ts). Mutation CLAMP (drop the release age clamp) -> RED.
+- LOW-3: BOSS_RELEASE_KEEP_EXCLUDE_PX = DYNASTY_PHARAOH_SPREAD (46) + BOSS_RELEASE_KEEP_MARGIN_PX (30, MINE) = 76; test pins
+  the derivation, control moved past the exclusion.
+- Gates (exits from files): typecheck 0 · `npx vitest run src/render` 0 (220 files / 3217 passed) · build 0 (entry 1275.4 KiB,
+  unchanged by this round).
 - NONE — fix round complete, awaiting re-audit + merge.
 - Fix-round gates on the tree merged with master 71cfa975 (exits from files .tmp-gates/fr-*.exit): typecheck 0 · vitest 1 =
   ONLY src/state/endgameAudit.test.ts "Test timed out in 20000ms" (known load flake; alone: exit 0, 18 passed) — 632
