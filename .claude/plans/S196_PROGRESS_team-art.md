@@ -2,7 +2,7 @@
 
 PROMPTS READY: C:/Users/onesh/OneDrive/Desktop/SPARK_Team3_Backdrop_Prompts.html (also _from-desktop/SPARK_Team3_Backdrop_Prompts.html) - section #singles, 12 cards (6 races x 4P quadrant + 2P half), copy buttons, own progress counter; headless smoke: 0 page errors, counters 0/56 + 0/12, tick works.
 
-NEXT STEP: full gates running detached (.tmp-gates/{typecheck,vitest,build}.exit); then e2e:gating on own port; then screenshots to Desktop/SPARK_S196_TeamArt.
+NEXT STEP: (1) triage the 1 vitest red in .tmp-gates/vitest.log (grep FAIL) - re-run that file alone; (2) start vite on own port (npx vite --port 31873 --strictPort) and run `node .tmp-gates/shots.mjs 31873 C:/Users/onesh/OneDrive/Desktop/SPARK_S196_TeamArt` + write README there; (3) npm run e2e:gating; (4) final report. Gates so far: typecheck 0 (typecheck2, after fix 11e00872; first run 1 = my test's mock-call type, fixed) / build 0 / vitest 1 failed of 9331.
 
 ## Log
 - merged master b35368c6 (tower-fx) at boot, no conflicts.
