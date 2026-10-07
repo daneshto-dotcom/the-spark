@@ -1,8 +1,28 @@
 # S196 PROGRESS — s196/joiner-desync
 
 ## NEXT STEP
-FIX ROUND code + tests + mutations DONE (see LOG). Gates running detached on the merged tree (.tmp-gates/gates.sh,
-<name>.exit); then one live trace (lag-fr.log); then update FINAL REPORT.
+FIX ROUND DONE — awaiting merge owner. Nothing left.
+
+## FIX ROUND REPORT (audit MED-1 / LOW-2 / LOW-3)
+- MED-1(a): `onSnapFrame` refuses a `snap` frame from any sender that is not the snapshot authority BEFORE inflating
+  (host: hostPeerId null → refuses all). Counter `refused`.
+- MED-1(b): MAX_INFLATING_PER_SENDER (⚠ MINE, snapshotCodec.ts) concurrent inflates per sender; beyond it only the
+  NEWEST not-started frame is held (older held superseded unread). ⛔ The suggested 4 FAILED the live trace: the
+  throttled joiner starved (HOST SNAPSHOT STARVATION) and in one run took over as host (lagSnaps → 828; trace
+  S196_joiner-desync_lag-FIXROUND-cap4-RED.jsonl). Set to 16 (uncapped run peaked at 14): worst case 32 MiB, and only
+  the authority can reach it.
+- LOW-2: pickSnapFrame picks the HIGHEST fid rebuildable, not the latest arrival.
+- LOW-3: disconnect-mid-inflate test.
+- Tests (+4, backlog file 11): 50 bombs → exactly MAX started, superseded 51-MAX-1, legit keyframe applies;
+  50 stranger frames + 1 host-side frame → 0 inflates, refused 50/1, authority still applies; [newer, older] → newer;
+  disconnect mid-inflate → nothing delivered (+ control applies).
+- Mutations: M5 no authority check → MED-1(a) red; M6 no cap → MED-1(b) red (51 started vs 16); M7 latest-arrival
+  → LOW-2 red; M8 no disconnect guard → LOW-3 red.
+- Live trace (CPU 6x, 100 ms + 0-50 jitter + 1 % loss, 90 s, cap 16): lag 2-9 snapshots flat, median 30 ticks,
+  max 63, 0 STARVATION, applied 133/133 (S196_joiner-desync_lag-FIXROUND.jsonl).
+- Gates (merged master 1415a897): typecheck 0 · vitest 0 (9536 passed, 15 skipped) · build 0 (entry 1278.2 /
+  1350 KiB) · e2e:gating 0 (72 passed, 1 skipped) · e2e:lobby 0 (5) · e2e:protocol 0 (2).
+- Bump: still NO (receiver scheduling only; wire unchanged).
 
 ## FINAL REPORT
 - ROOT CAUSE (one, with trace): S195 codec receive path decoded every snapshot frame through ONE serial promise chain
