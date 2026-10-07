@@ -28,3 +28,7 @@ BEFORE trace (`scripts/live-mp/live-joiner-lag.mjs`, joiner CPU 6x throttled, re
 - mutations: M1 pre-fix transport.ts (master) -> REACH red: "applied 1..41 … expected 39 <= 4" (one frame per turn,
   lag +1/turn = the bug). M2 pick OLDEST -> decision + LATEST WINS red. M3 ignore held-base -> both NEGATIVE red.
 - merged master 538476e0 (no conflicts).
+- gates (merged tree, pre-timeout-bump): typecheck 0 · vitest 1 = 6 TIMEOUT-only reds (2 mine → REACH describe given 120 s
+  budget, commit after; 4 others: botPorchClear, endgameAudit (known flake), spawnEconomy.measure, racialB.differential —
+  re-run alone pending) 9467 passed · build 0, entry 1264.7 / 1350 KiB · e2e:gating 0 (72 passed, 1 skipped).
+  e2e:lobby + e2e:protocol running.
