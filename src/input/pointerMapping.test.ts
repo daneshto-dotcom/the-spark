@@ -168,9 +168,17 @@ function stripComments(src: string): string {
   return src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:'"`])\/\/.*$/gm, '$1');
 }
 
+/**
+ * ⛔ OFF-LIMITS by owner rule (S192/S194, S196_AGENT_RULES): Pitch Masters, NONET and the arcade screens
+ * are excluded from every enumeration — a session may not edit them, so a tripwire must not fire on them.
+ * (Their Pixi events still get the fixed mapping: the patch is on the shared renderer.)
+ */
+const OFF_LIMITS = /^src\/(?:arcade\/|nonet\/|render\/arcade[^/]*\.ts$|render\/nonet[^/]*\.ts$|render\/sudokuOverlay\.ts$)/;
+
 function walk(dir: string, out: string[]): void {
   for (const name of readdirSync(dir)) {
     const p = join(dir, name);
+    if (OFF_LIMITS.test(relative(join(__dirname, '..', '..'), p).split(sep).join('/'))) continue;
     if (statSync(p).isDirectory()) walk(p, out);
     else if (p.endsWith('.ts') && !p.endsWith('.test.ts') && !p.endsWith('.d.ts')) out.push(p);
   }
@@ -185,6 +193,14 @@ describe('S196 census — no pointer-conversion site bypasses clientToCanvas', (
     const n = (stripComments(readFileSync(f, 'utf-8')).match(TOKEN) ?? []).length;
     if (n > 0) found[relative(root, f).split(sep).join('/')] = n;
   }
+
+  it('anti-vacuity + exclusion: the walk sees src/input and src/render, and none of the off-limits trees', () => {
+    const rel = files.map((f) => relative(root, f).split(sep).join('/'));
+    expect(rel).toContain('src/input/controls.ts');
+    expect(rel).toContain('src/render/footerBand.ts');
+    expect(rel.filter((f) => OFF_LIMITS.test(f))).toEqual([]);
+    expect(OFF_LIMITS.test('src/arcade/pitchMasters/x.ts') && OFF_LIMITS.test('src/render/arcadeOverlay.ts') && OFF_LIMITS.test('src/nonet/a.ts')).toBe(true);
+  });
 
   it('every file holding a conversion token is on the list, with its exact count', () => {
     expect(found).toEqual(Object.fromEntries(Object.entries(ALLOWED).map(([k, v]) => [k, v.count])));

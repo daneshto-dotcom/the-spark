@@ -18,7 +18,7 @@
 // ⭐ S196 — census pairing (read by uiSkinCensus.reach.test.ts): the SKINNED rows this file REACHES.
 // CENSUS-REACH src/render/settingsOverlay.ts :: createElement('button')
 // CENSUS-REACH src/render/settingsOverlay.ts :: style.cursor = 'pointer'
-import { describe, expect, it, vi } from 'vitest';
+import { afterAll, describe, expect, it, vi } from 'vitest';
 
 // ── the store the panel writes: a tiny in-memory audio settings model ─────────────────────────────
 const audio = { musicMuted: false, sfxMuted: false, musicVolume: 0.5, sfxVolume: 0.5, raceMusicEnabled: true };
@@ -66,6 +66,8 @@ vi.stubGlobal('document', {
 });
 const storage = new Map<string, string>();
 vi.stubGlobal('window', { localStorage: { getItem: (k: string) => storage.get(k) ?? null, setItem: (k: string, v: string) => { storage.set(k, v); } } });
+
+afterAll(() => { vi.unstubAllGlobals(); });
 
 const { createSettingsOverlay } = await import('./settingsOverlay.ts');
 const { getGraphicsTier, isZoneBackgroundEnabled } = await import('./displayPrefs.ts');

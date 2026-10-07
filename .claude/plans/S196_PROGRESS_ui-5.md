@@ -1,7 +1,7 @@
 # S196 PROGRESS — tree ui-5 (branch s196/ui-5)
 
 ## NEXT STEP (top, always current)
-TASKS 1,2,3 DONE (2 = lobby+settings REACH, NOT_DONE emptied). NEXT: TASK 4 hover-highlight prototype (flag OFF) + screenshots to OneDrive Desktop/SPARK_S196_HoverHighlight; then gates.
+TASKS 1-4 DONE (4: prototype OFF, screenshots on OneDrive Desktop). NEXT: git merge master, then gates (typecheck, vitest, build, e2e:gating detached), then final report.
 
 ROOT CAUSE (found): index.html canvas CSS = max-width/max-height 100% + object-fit: contain. Whenever the
 window aspect != 16:9 (half-screen, any browser with a toolbar, other monitors), the canvas CSS box is
