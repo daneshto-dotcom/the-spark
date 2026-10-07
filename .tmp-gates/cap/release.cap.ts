@@ -1,7 +1,7 @@
 import { test, type Page } from '@playwright/test';
 import { mkdirSync, writeFileSync } from 'node:fs';
 
-const OUT = process.env.CAP_OUT ?? 'C:/Users/onesh/OneDrive/Desktop/SPARK_S196_BossRelease/frames';
+const OUT = process.env.CAP_OUT ?? 'C:/Users/onesh/OneDrive/Desktop/SPARK_S196_BossRelease/frames-full';
 const MODE = process.env.CAP_MODE ?? 'after'; // 'after' | 'before'
 const RACES = (process.env.CAP_RACES ?? 'demons,mummies,nagas,orcs,vampires,zombies').split(',');
 const AT = { x: 430, y: 430 };
@@ -80,9 +80,9 @@ test('boss release capture', async ({ page }) => {
       }
       if (f === 1) await page.evaluate((p) => { (window as any).__SPARK__.world.matchPhase = p; }, phase);
       const st = await page.evaluate(() => { const w = (window as any).__SPARK__.world; return { tick: w.tick, spawners: w.creatureSpawners.size }; });
-      await page.screenshot({ path: `${OUT}/${MODE}-${race}-${String(f).padStart(2, '0')}.png`, clip });
-      if (f === 2 || f === 5) await page.screenshot({ path: `${OUT}/${MODE}-${race}-full-${f}.png` });
-      meta[`${race}-${f}`] = { age: st.tick - t0, spawners: st.spawners };
+      // full 1920x1080 every frame (uniform latency between frames); the GIF is cropped from these
+      await page.screenshot({ path: `${OUT}/${MODE}-${race}-${String(f).padStart(2, '0')}.png` });
+      meta[`${race}-${f}`] = { age: st.tick - t0, spawners: st.spawners, clip };
     }
     await page.clock.runFor(1500);
   }
