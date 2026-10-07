@@ -329,11 +329,13 @@ describe('S195 net-delta — through the real transport', () => {
     const got: number[] = [];
     p.joiner.on((m) => got.push((m as NetSnapshotMsg).snapshotSeq));
     p.joiner.onError = () => { throw new Error('ui callback threw'); };
-    const priv = p.joiner as unknown as { decodeSnapFrame: (...a: unknown[]) => Promise<void> };
-    const real = priv.decodeSnapFrame.bind(p.joiner);
+    // ⭐ S196 (joiner-desync) — the per-frame step is now the synchronous `processSnapFrame` inside the
+    // receive pipeline's drain (no promise chain left); a throw from it must leave the pipeline alive.
+    const priv = p.joiner as unknown as { processSnapFrame: (...a: unknown[]) => void };
+    const real = priv.processSnapFrame.bind(p.joiner);
     let failOnce = true;
-    priv.decodeSnapFrame = (...a: unknown[]) => {
-      if (failOnce) { failOnce = false; return Promise.reject(new Error('unexpected decode failure')); }
+    priv.processSnapFrame = (...a: unknown[]) => {
+      if (failOnce) { failOnce = false; throw new Error('unexpected decode failure'); }
       return real(...a);
     };
     const quiet = vi.spyOn(console, 'error').mockImplementation(() => {});
