@@ -50,6 +50,9 @@ import { TOWER_SIGNATURE, TOWER_SIG_NO_ACT, defenderSigAct, towerSignatureFx } f
 import { getDefenderConfig } from '../state/defenders/defender.ts';
 import { DEFENDER_FIRE_HOLD_TICKS } from '../constants.ts';
 import { raceForTowerId } from '../state/raceTowerIds.ts';
+import { applyNetSnapshot, netSnapshot } from '../state/save.ts';
+import { makeCreature } from '../state/creatures/creature.ts';
+import { CREATURE_CONFIGS } from '../state/creatures/voltkin-config.ts';
 
 const P0 = asPlayerId(0);
 const stubControls = { state: { kind: 'Idle' }, applyPerSubstep() {} } as unknown as Controls;
@@ -151,11 +154,7 @@ describe('S196 REACH (end to end) — a really-built tower gets its signature', 
         const cfg = getDefenderConfig(d.kind);
         ({ actAge, charge } = defenderSigAct(d.state, d.ticksInState, d.nextFireTick, w.tick, cfg.fireIntervalTicks, DEFENDER_FIRE_HOLD_TICKS));
       }
-      if (sp !== undefined) {
-        let born = -Infinity;
-        for (const cr of w.creatures.values()) if (cr.sourceSpawnerId === sp.id && cr.spawnedAtTick > born) born = cr.spawnedAtTick;
-        if (born > -Infinity) actAge = w.tick - born;
-      }
+      // a spawner: a fresh renderer's first frame is unprimed (audit HIGH-1) — no birth flare
       towerSignatureFx(exp, TOWER_SIGNATURE[c.id], anchor as unknown as number, foot!.x, foot!.y, foot!.w, foot!.h, w.tick, false, actAge, charge, null);
       expectSubset([...exp.ground.out, ...exp.top.out, ...exp.shade.out], got, c.id);
     });
@@ -198,5 +197,72 @@ describe('S196 REACH (end to end) — a really-built tower gets its signature', 
     beginTowerCoverFrame(w);
     r.sync(w);
     expect([...hooks.top.out, ...hooks.ground.out, ...hooks.shade.out]).toEqual([]);
+  });
+});
+
+/*
+ * ⭐⭐ S196 audit HIGH-1 — **THE BIRTH FLARE ON A JOINER.** The first cut read `Creature.spawnedAtTick`, which
+ * the peer deserializer sets to 0, so a joiner never saw a spawner flare; every test above reads a HOST world.
+ * This one crosses the wire: host → `netSnapshot` → JSON → `applyNetSnapshot` on a fresh peer world → the
+ * peer's own publisher + `SpawnerZoneRenderer.sync`.
+ */
+describe('S196 REACH (host → snapshot → peer) — the spawner birth flare fires on a JOINER', () => {
+  function toPeer(host: World, peer: World): void {
+    applyNetSnapshot(JSON.parse(JSON.stringify(netSnapshot(host))), peer);
+  }
+  const lumOf = (out: FxEmitRecord[]): number => out.reduce((a, e) => a + e.alpha * e.w * e.h, 0);
+
+  it('⭐ a creature that appears on the peer flares its tower there; ⛔ the join frame flares nothing', async () => {
+    const host = built('goblinTower');
+    const sp = [...host.creatureSpawners.values()].find((s) => s.recipeId === 'goblinTower')!;
+    expect(sp, 'fixture: the goblin tower stands').toBeDefined();
+    const anchor = sp.anchorPrimitiveId;
+    // the joiner: ALREADY two of this tower's goblins on the board when it arrives
+    const mint = (): void => {
+      const id = host.nextCreatureId++;
+      const a = host.primitives.get(anchor)!;
+      host.creatures.set(id as never, makeCreature(CREATURE_CONFIGS.goblinMelee, {
+        id: id as never, ownerPlayerId: P0, pos: { ...a.pos }, targetPos: { ...a.pos }, spawnedAtTick: host.tick, clock: host, sourceSpawnerId: sp.id,
+      }));
+    };
+    mint(); mint();
+    const peer = makeWorld(0x5194);
+    toPeer(host, peer);
+    expect([...peer.creatures.values()].every((c) => c.spawnedAtTick === 0), 'the wire drops spawnedAtTick (why the first cut never flared on a peer)').toBe(true);
+    const pub = new StructureRampRenderer(app(), new Container());
+    const foot = await publishFoot(pub, peer, anchor);
+    expect(foot, 'the peer drew the tower').not.toBeNull();
+    const r = new SpawnerZoneRenderer({} as never, new Container());
+    const peerFrame = (): FxEmitRecord[] => {
+      beginTowerCoverFrame(peer);
+      pub.sync(peer);
+      beginTowerCoverFrame(peer);
+      install();
+      r.sync(peer);
+      return [...hooks.ground.out, ...hooks.top.out, ...hooks.shade.out];
+    };
+    const idle = (): FxEmitRecord[] => {
+      const e = { ground: recordingSink(), top: recordingSink(), shade: recordingSink() };
+      towerSignatureFx(e, 'goblinForge', anchor as unknown as number, foot!.x, foot!.y, foot!.w, foot!.h, peer.tick, false, TOWER_SIG_NO_ACT, 0, null);
+      return [...e.ground.out, ...e.top.out, ...e.shade.out];
+    };
+    // ⛔ the join frame: two goblins stand there, nothing flares — the signature is exactly the idle one
+    const join = peerFrame();
+    expectSubset(idle(), join, 'join frame');
+    const joinLum = lumOf(join);
+    // one snapshot later (6 ticks), nothing new: still idle
+    host.tick += 6;
+    toPeer(host, peer);
+    const quiet = peerFrame();
+    expectSubset(idle(), quiet, 'quiet frame');
+    // ⭐ the host mints a goblin; the next snapshot carries it; the PEER flares
+    host.tick += 6;
+    mint();
+    toPeer(host, peer);
+    const lit = peerFrame();
+    const e = { ground: recordingSink(), top: recordingSink(), shade: recordingSink() };
+    towerSignatureFx(e, 'goblinForge', anchor as unknown as number, foot!.x, foot!.y, foot!.w, foot!.h, peer.tick, false, 0, 0, null);
+    expectSubset([...e.ground.out, ...e.top.out, ...e.shade.out], lit, 'the peer flare (actAge 0)');
+    expect(lumOf(lit)).toBeGreaterThan(joinLum * 1.1);
   });
 });

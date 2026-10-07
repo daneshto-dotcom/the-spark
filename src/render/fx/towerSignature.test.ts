@@ -10,6 +10,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { Container } from 'pixi.js';
 import { recordingSink, type FxEmitRecord } from './emitter.ts';
 import { setFxHooks, setFxLegacyFlag } from './fxState.ts';
+import { setFxHighQualityRuntime } from './fxRuntime.ts';
 import {
   TOWER_SIGNATURE, TOWER_SIG_FLARE_TICKS, TOWER_SIG_NO_ACT, bossHeartbeat, defenderSigAct, towerSigFlare,
   towerSignatureFx, type TowerSigKind,
@@ -95,7 +96,10 @@ describe('S196 — each drawer, pure', () => {
     });
   }
 
-  const acting: readonly TowerSigKind[] = ['goblinForge', 'laserCore', 'pentagramRunes', 'helgaHearth', 'stinkFumes', 'race3', 'boss9'];
+  it('⛔ boss9 has NO flare (audit MED-1: the release has no synced moment) — actAge changes nothing', () => {
+    for (const r of ALL_RACES) expect(all(draw('boss9', 3000, { race: r, actAge: 2 }))).toEqual(all(draw('boss9', 3000, { race: r })));
+  });
+  const acting: readonly TowerSigKind[] = ['goblinForge', 'laserCore', 'pentagramRunes', 'helgaHearth', 'stinkFumes', 'race3'];
   for (const k of acting) {
     it(`⭐ ${k}: FLARES on the act — brighter at actAge 2 than with no act, and back to idle after the flare`, () => {
       const t = 3000;
@@ -196,9 +200,9 @@ function towerWorld(recipeId: GodlyId, owner = P0, at = { x: 400, y: 450 }) {
   return w;
 }
 /** One frame of the real renderer with the tower's building drawn (a published foot) or not. */
-function frame(w: any, opts: { withFoot?: boolean; legacy?: boolean; tick?: number } = {}): Sinks {
+function frame(w: any, opts: { withFoot?: boolean; legacy?: boolean; tick?: number; r?: SpawnerZoneRenderer } = {}): Sinks {
   __resetTowerCoverForTests(); // each frame stands alone (no group history leaks between fixtures)
-  const r = new SpawnerZoneRenderer({} as never, new Container());
+  const r = opts.r ?? new SpawnerZoneRenderer({} as never, new Container());
   const t = opts.tick ?? 4000;
   w.tick = t - 1;
   beginTowerCoverFrame(w);
@@ -243,17 +247,57 @@ describe('S196 REACH — `SpawnerZoneRenderer.sync` draws every tower\'s signatu
     expect(all(frame(w2)).length).toBeGreaterThan(3);
   });
 
-  it('⭐ the SPAWNER flare is read off synced births: a creature this spawner minted 2 ticks ago lights it up', () => {
+  it('⭐ the SPAWNER flare is the first frame one of its creatures is SEEN (not `spawnedAtTick`, which a peer reads as 0)', () => {
     const base = lum(all(frame(towerWorld('goblinTower'))));
+    const r = new SpawnerZoneRenderer({} as never, new Container());
     const w = towerWorld('goblinTower');
-    w.creatures.set(77, { id: 77, sourceSpawnerId: 1, spawnedAtTick: 3998 });
-    const lit = lum(all(frame(w)));
+    frame(w, { r, tick: 3994 }); // primes: no creature yet
+    w.creatures.set(77, { id: 77, sourceSpawnerId: 1, spawnedAtTick: 0 }); // a peer's view: the birth tick is 0
+    const lit = lum(all(frame(w, { r, tick: 4000 })));
     expect(lit).toBeGreaterThan(base * 1.15);
-    // ⛔ another spawner's creature, or an old one, does not
+    // still flaring a few ticks later, back to idle once the flare is over
+    expect(lum(all(frame(w, { r, tick: 4006 })))).toBeGreaterThan(base * 1.05);
+    frame(w, { r, tick: 4030 });
+    expect(lum(all(frame(w, { r, tick: 4040 })))).toBeCloseTo(base, 6);
+    // ⛔ another spawner's creature does not flare this one
+    const r2 = new SpawnerZoneRenderer({} as never, new Container());
     const w2 = towerWorld('goblinTower');
-    w2.creatures.set(78, { id: 78, sourceSpawnerId: 9, spawnedAtTick: 3998 });
-    w2.creatures.set(79, { id: 79, sourceSpawnerId: 1, spawnedAtTick: 3000 });
-    expect(lum(all(frame(w2)))).toBeCloseTo(base, 6);
+    frame(w2, { r: r2, tick: 3994 });
+    w2.creatures.set(78, { id: 78, sourceSpawnerId: 9, spawnedAtTick: 0 });
+    expect(lum(all(frame(w2, { r: r2, tick: 4000 })))).toBeCloseTo(base, 6);
+  });
+
+  it('⛔ NEGATIVE — the FIRST frame (a mid-match join) flares nothing, however many creatures stand there; so does the first frame after a gap', () => {
+    const base = lum(all(frame(towerWorld('goblinTower'))));
+    const r = new SpawnerZoneRenderer({} as never, new Container());
+    const w = towerWorld('goblinTower');
+    for (let i = 0; i < 5; i++) w.creatures.set(100 + i, { id: 100 + i, sourceSpawnerId: 1, spawnedAtTick: 0 });
+    expect(lum(all(frame(w, { r, tick: 4000 })))).toBeCloseTo(base, 6);
+    // a long gap (legacy/MINIMAL stretch, a stall) re-primes: creatures that appeared meanwhile do not flare
+    w.creatures.set(200, { id: 200, sourceSpawnerId: 1, spawnedAtTick: 0 });
+    expect(lum(all(frame(w, { r, tick: 4500 })))).toBeCloseTo(base, 6);
+    // a new match (the clock went back) re-primes too
+    w.creatures.set(201, { id: 201, sourceSpawnerId: 1, spawnedAtTick: 0 });
+    expect(lum(all(frame(w, { r, tick: 100 })))).toBeCloseTo(base, 6);
+  });
+
+  it('⭐ LOW reaches the drawer through the real renderer: fewer sprites than HIGH for the same towers', () => {
+    try {
+      let hi = 0;
+      let lo = 0;
+      for (const id of ['goblinTower', 'stinkTower', 't3TowerOrcs', 'helga'] as const) {
+        for (let t = 4000; t < 4200; t += 7) {
+          setFxHighQualityRuntime(true);
+          hi += all(frame(towerWorld(id), { tick: t })).length;
+          setFxHighQualityRuntime(false);
+          lo += all(frame(towerWorld(id), { tick: t })).length;
+        }
+      }
+      expect(lo).toBeGreaterThan(0);
+      expect(lo).toBeLessThan(hi * 0.8);
+    } finally {
+      setFxHighQualityRuntime(true);
+    }
   });
 
   it('⭐ the DEFENDER flare is read off its synced FSM: a turret in FIRE outshines the same turret at rest', () => {
