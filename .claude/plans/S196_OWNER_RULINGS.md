@@ -27,3 +27,4 @@
   4. **P2 could not build with enough shapes** (8 circles + 5 squares, a stink tower) until the next round.
   5. **Zombie kills did not raise zombies** (THE RISEN).
   6. **Hosting**: *"maybe … our host … server … isn't strong enough … pay for a better hosting … Or run it … on workstation two … we have a really fat network connection and a really good computer that's staying there idly."* + *"I was the host, so why was he lagging?"*
+- **R196-O1 Workstation 2 is the OWNER's machine** (owner): *"we don't need Oleg … because it's my machine. We just call it Oleg the Machine because he bought it last … I don't need no ceremony. I don't need no governance structures. I need to fix the bugs and make the game run smooth while also being beautiful."* → no consent step for using it; the dedicated-host design's "Oleg's consent" line is WRONG and must not be repeated.

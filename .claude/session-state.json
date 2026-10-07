@@ -23,7 +23,8 @@
     "#s196-click-offset: a long-standing 'click way to the left' bug lived for many sessions because every e2e ran at exactly 1920x1080, the one size where Pixi's per-axis mapping and the letterbox math agree; the owner's 'half screen / other monitors' was the whole diagnosis.",
     "#s196-fix-rounds-chain: NONET took three fix rounds and EVERY one introduced a new MED (lost retries -> concurrent double-send -> claim-before-fold loss); only re-auditing each delta caught them. The final shape (one atomic batch) was the fix the auditor sketched, not the builder — when a round adds a defect, hand the next round the auditor's fix shape verbatim.",
     "#s196-accounts-reuse: the owner's 'reuse what Legacy and CNC already built' turned a from-scratch design into a survey — and the survey surfaced two live security defects in OTHER projects (shared JWT key, open redirect). A read-only look at sibling projects is worth doing for its own sake; route what it finds to those projects, never fix across the boundary.",
-    "#s196-hosting-question: the owner's 'pay for a stronger server' was a reasonable guess from outside; the useful answer separated WHERE the game runs (host browser) from what was slow (a joiner backlog), and a measuring tree found the backlog before the research tree finished — evidence beat speculation by an hour."
+    "#s196-hosting-question: the owner's 'pay for a stronger server' was a reasonable guess from outside; the useful answer separated WHERE the game runs (host browser) from what was slow (a joiner backlog), and a measuring tree found the backlog before the research tree finished — evidence beat speculation by an hour.",
+    "#s196-team-art: a composed-art feature only pays off if the seating matches the art; the builder surfaced that a trio picture shows in ~1 of 6 lobbies — the kind of consequence that must reach the owner as a question, not be buried in a MINE list."
   ],
   "budget_total": 1000000,
   "totals": {
@@ -220,12 +221,24 @@
       "branch": "s196/team-art",
       "tier": "Full",
       "plan_file": ".claude/plans/2026-10-07_S196_BATCH_PDR.md",
-      "status": "in_progress",
-      "priority_state": "in_progress",
+      "status": "completed",
+      "priority_state": "completed",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
-      "check_completed": false
+      "check_completed": true,
+      "checkpoint_commit": "c78f5c58",
+      "deploy": "S196-#6",
+      "real_context_tokens_at_close": 601995,
+      "real_context_pct_at_close": 60.2,
+      "check_method": "12 single-race prompts appended (Desktop SPARK_Team3_Backdrop_Prompts.html, regenerated from the generator); 27 owner Grok trio images identified by eye and wired into 3v1 (960x540 webp, NW quarter masked in crop + file), fallback single-race + seam blend; TEAM_SEAM_BLEND_LEGACY_ART true (R196-A1). Independent audit CLEAN (8/8 webps spot-checked against the prompt sheet; resolver uses world.layout corners; mutations red). Landing gates typecheck 0, vitest 9467/0, build 1263.3, e2e:gating 72. Pushed c78f5c58; verify-deploy --sha full 4/4 after fresh build.",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/render/zoneBackgroundRenderer.ts",
+          "needle": "TEAM_TRIO_ART"
+        }
+      ]
     },
     {
       "id": "BOSSREL",
