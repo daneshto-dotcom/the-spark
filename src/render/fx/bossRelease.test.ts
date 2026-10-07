@@ -8,6 +8,8 @@
  * towers of one seat releasing in the same tick.
  */
 import { describe, expect, it } from 'vitest';
+import { readdirSync, readFileSync, statSync } from 'node:fs';
+import { join } from 'node:path';
 import type { World } from '../../state/world.ts';
 import { ALL_RACES, type RaceId } from '../../state/races.ts';
 import { T9_BOSS_TYPE, T9_TOWER_IDS } from '../../state/t9BossIds.ts';
@@ -16,7 +18,7 @@ import {
   BOSS_CRUMBLE_FX_TICKS, BOSS_RELEASE_TICKS, bossCrumbleFx, bossReleaseFx, type BossReleaseSinks,
 } from './bossReleaseFx.ts';
 import {
-  BOSS_RELEASE_MATCH_PX, BOSS_RELEASE_MATCH_TICKS, BOSS_RELEASE_PRIME_GAP_TICKS, BossReleaseTracker,
+  BOSS_RELEASE_DEV, BOSS_RELEASE_MATCH_PX, BOSS_RELEASE_MATCH_TICKS, BOSS_RELEASE_PRIME_GAP_TICKS, BossReleaseTracker,
 } from './bossReleaseTrack.ts';
 import { recordingSink, type FxEmitRecord } from './emitter.ts';
 
@@ -185,5 +187,25 @@ describe('S196 R196-T2 — the release + crumble DRAWERS', () => {
     expect(draw('orcs', 60, false).shocks).toBe(0);
     expect(draw('orcs', -1, false).all()).toEqual([]);
     expect(draw('orcs', BOSS_CRUMBLE_FX_TICKS, false).all()).toEqual([]);
+  });
+});
+
+describe('S196 R196-T2 — the DEV capture/bench seam is inert in production', () => {
+  it('⛔ defaults off, and no production source writes it', () => {
+    expect(BOSS_RELEASE_DEV).toEqual({ off: false, loop: false });
+    const SRC = join(__dirname, '..', '..');
+    const walk = (d: string): string[] => readdirSync(d).flatMap((n) => { const p = join(d, n); return statSync(p).isDirectory() ? walk(p) : n.endsWith('.ts') && !n.endsWith('.test.ts') ? [p] : []; });
+    const writers = walk(SRC).filter((p) => /BOSS_RELEASE_DEV\s*(\.\s*\w+\s*=[^=]|=[^=])/.test(readFileSync(p, 'utf8').replace(/export const BOSS_RELEASE_DEV[^\r\n]*/, '')));
+    expect(writers, 'a production file writes the dev seam').toEqual([]);
+  });
+  it('⭐ the seam does what the bench needs: `loop` keeps a fall past the crumble', () => {
+    const tr = new BossReleaseTracker();
+    try {
+      BOSS_RELEASE_DEV.loop = true;
+      tr.observe(world(100, [tower], []), footOf);
+      tr.observe(world(106, [], [bossAt()]), footOf);
+      for (let t = 112; t < 106 + 3 * BOSS_CRUMBLE_FX_TICKS; t += 6) tr.observe(world(t, [], [bossAt()]), footOf);
+      expect(tr.current().length).toBe(1);
+    } finally { BOSS_RELEASE_DEV.loop = false; }
   });
 });

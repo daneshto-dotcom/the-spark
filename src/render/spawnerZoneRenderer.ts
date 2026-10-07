@@ -53,8 +53,8 @@ import type { World } from '../state/world.ts';
 import type { PlayerId, PrimitiveId } from '../types.ts';
 import { fxActive, fxGround, fxShock, fxTop, fxTopShade } from './fx/fxState.ts';
 // ⭐ S196 `s196/boss-release` (owner R196-T2) — the tier-9 tower's release + crumble, derived on every peer.
-import { BossReleaseTracker } from './fx/bossReleaseTrack.ts';
-import { bossCrumbleFx, bossReleaseFx, type BossReleaseSinks } from './fx/bossReleaseFx.ts';
+import { BOSS_RELEASE_DEV, BossReleaseTracker } from './fx/bossReleaseTrack.ts';
+import { BOSS_CRUMBLE_FX_TICKS, bossCrumbleFx, bossReleaseFx, type BossReleaseSinks } from './fx/bossReleaseFx.ts';
 import {
   TOWER_SPARKLE_EPSILON, towerSparkleFx, towerSparkleStrength, type SparkleBond, type SparklePrim,
 } from './fx/towerSparkleFx.ts';
@@ -459,12 +459,13 @@ export class SpawnerZoneRenderer {
   private syncBossReleases(world: World): void {
     this.bossFalls.observe(world, (anchor) => towerFootForPrim(anchor as unknown as PrimitiveId));
     const falls = this.bossFalls.current();
-    if (falls.length === 0) return;
+    if (falls.length === 0 || BOSS_RELEASE_DEV.off) return;
     const s: BossReleaseSinks = { ground: fxGround(), top: fxTop(), shade: fxTopShade(), shock: fxShock() };
     const low = !fxHighQuality();
     for (const f of falls) {
       if (isConcealed(f.foot.x, f.foot.y, f.owner as unknown as PlayerId)) continue;
-      const age = world.tick - f.startTick;
+      const raw = world.tick - f.startTick;
+      const age = BOSS_RELEASE_DEV.loop ? raw % BOSS_CRUMBLE_FX_TICKS : raw; // DEV seam only
       bossCrumbleFx(s, f.race, f.seed, f.foot.x, f.foot.y, f.foot.w, f.foot.h, age, low, f.released);
       if (f.released) bossReleaseFx(s, f.race, f.seed, f.foot.x, f.foot.y, f.foot.w, f.foot.h, age, low);
     }

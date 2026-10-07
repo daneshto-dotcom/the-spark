@@ -59,6 +59,15 @@ export const BOSS_RELEASE_MATCH_PX = 96;
 /** The tracker counts as primed only if its previous frame was at most this many ticks ago (as `trackBirths`). MINE. */
 export const BOSS_RELEASE_PRIME_GAP_TICKS = 30;
 
+/**
+ * ⚠ DEV-ONLY CAPTURE / BENCH SEAM. Nothing in `src/` writes it (`bossRelease.test.ts` asserts that by source scan and
+ * that the defaults are inert); the S196 capture + bench scripts flip it from the browser via a Vite dynamic import.
+ *   · `off`  — observe as usual but DRAW nothing (the BEFORE capture and the bench's OFF half);
+ *   · `loop` — never prune a fall and draw it at `age % BOSS_CRUMBLE_FX_TICKS`, so one release can be measured
+ *     continuously (the bench's ON half). Production never sets either, so it never loops.
+ */
+export const BOSS_RELEASE_DEV: { off: boolean; loop: boolean } = { off: false, loop: false };
+
 /** A drawn tower's foot (`towerCover.TowerFoot`). */
 export interface ReleaseFoot { readonly x: number; readonly y: number; readonly w: number; readonly h: number }
 
@@ -187,6 +196,7 @@ export class BossReleaseTracker {
     this.sightings = this.sightings.filter((b) => tick - b.tick <= BOSS_RELEASE_MATCH_TICKS);
     for (let i = this.falls.length - 1; i >= 0; i--) {
       const f = this.falls[i]!;
+      if (BOSS_RELEASE_DEV.loop && tick >= f.startTick) continue; // DEV seam (see above)
       if (tick - f.startTick >= BOSS_CRUMBLE_FX_TICKS || tick < f.startTick) {
         this.falls.splice(i, 1);
       }
