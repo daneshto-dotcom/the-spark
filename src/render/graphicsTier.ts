@@ -49,12 +49,23 @@ export function syncGraphicsTier(): void {
  *   · `posQuantum`  — positions are snapped to this many px before they are drawn AND before they are compared,
  *                     so drift smaller than it neither moves a line nor forces a redraw. ⚠ MINE.
  *   · `animStepTicks` — the animated silhouettes' clock advances in steps of this many ticks (0 = frozen). ⚠ MINE.
+ *   · `motionRedrawsPerFrame` — ⭐ S196 (joiner-lag): how many buckets whose change is MOTION ONLY (positions,
+ *                     stress tint/width, cover fade, foul tint) may be re-stroked in one frame; the rest wait their
+ *                     turn, stalest first. A STRUCTURAL change (a connector added, severed, hidden by fog, or a
+ *                     silhouette/pattern change) is never deferred. `Infinity` = no budget. ⚠ MINE.
+ *
+ * ⭐ S196 — WHY MINIMAL GOT A BUDGET. Measured on a joiner at wave 10 (`scripts/lag/gfxProbe.ts`): MINIMAL still
+ * re-stroked **8.5 buckets / 511 Graphics instructions every frame** — 46 % of every Graphics instruction the
+ * frame rebuilt — because a joiner interpolates every shape every frame, so a structure that is being hit or is
+ * settling moves a pixel per frame and its buckets never stay clean. On a slow PC that is the frame. With a
+ * budget of 3, a shaking structure's connectors follow it a few frames late (a pixel or two), and nothing
+ * structural is ever late. HIGH has no cache at all and LOW keeps redrawing every change, as before.
  */
-export interface BondCacheKnobs { readonly posQuantum: number; readonly animStepTicks: number }
+export interface BondCacheKnobs { readonly posQuantum: number; readonly animStepTicks: number; readonly motionRedrawsPerFrame: number }
 export const BOND_CACHE_KNOBS: Readonly<Record<GraphicsTier, BondCacheKnobs | null>> = {
   HIGH: null,
-  LOW: { posQuantum: 1, animStepTicks: 6 },
-  MINIMAL: { posQuantum: 1, animStepTicks: 0 },
+  LOW: { posQuantum: 1, animStepTicks: 6, motionRedrawsPerFrame: Number.POSITIVE_INFINITY },
+  MINIMAL: { posQuantum: 1, animStepTicks: 0, motionRedrawsPerFrame: 3 },
 };
 
 /** Test seam: back to a fresh process. */
