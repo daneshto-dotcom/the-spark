@@ -60,3 +60,5 @@
 - **DEPLOY S196-#7 `07390b45`** — s196/render-perf. verify-deploy 4/4.
 - ci re-audit CLEAN; small round for LOW-A (per-attempt dedupe — closed alert silenced a repeat failure) + LOW-B (API error must alert). boss-release merged; merge owner mutation tolerance 60→12 → 2 red, restored; landing gates s196-land8.
 - false-migration builder DONE f04a6783: REPRODUCED — a joiner that hears the host but REJECTS its snapshots (seq/epoch/decode wedge) claims host at 21.5 s → permanent split (host refuses, both simulate). CPU starvation alone did NOT promote. Fix: claim requires host silent ON THE WIRE (max(lastAccepted, transport lastRxAt)). Carry: two-host RESOLUTION still unbuilt (one-way partition ≥21 s) + auto-resync of a wedged joiner. → audit.
+- joiner-lag re-audit CLEAN (fog-swap leak closed, verified by auditor's own test) → builder adds that test (LOW-B), then lands.
+- **DEPLOY S196-#8 `9bb489ec`** boss-release. 4/4. Context 811,164.

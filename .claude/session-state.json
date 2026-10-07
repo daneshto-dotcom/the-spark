@@ -26,7 +26,8 @@
     "#s196-hosting-question: the owner's 'pay for a stronger server' was a reasonable guess from outside; the useful answer separated WHERE the game runs (host browser) from what was slow (a joiner backlog), and a measuring tree found the backlog before the research tree finished — evidence beat speculation by an hour.",
     "#s196-team-art: a composed-art feature only pays off if the seating matches the art; the builder surfaced that a trio picture shows in ~1 of 6 lobbies — the kind of consequence that must reach the owner as a question, not be buried in a MINE list.",
     "#s196-risen: a reported 'X doesn't work' turned out to be 'X works silently far from where he was looking' — the measured match (50 of 64 kills raised) settled it; the real gap is feedback, not mechanics.",
-    "#s196-render-perf: the S195 'leak' was mostly a census that counted Pixi texture SLOTS that never shrink; the measurement was the bug. One real leak hid behind it — measure the instrument before chasing the number."
+    "#s196-render-perf: the S195 'leak' was mostly a census that counted Pixi texture SLOTS that never shrink; the measurement was the bug. One real leak hid behind it — measure the instrument before chasing the number.",
+    "#s196-joiner-clock: two trackers shipped assuming a monotonic clock; a joiner's clock steps back on every late snapshot. Any client-side tracker keyed on world.tick must be tested in the joiner's real advance+reset loop."
   ],
   "budget_total": 1000000,
   "totals": {
@@ -260,12 +261,24 @@
       "branch": "s196/boss-release",
       "tier": "Full",
       "plan_file": ".claude/plans/2026-10-07_S196_BATCH_PDR.md",
-      "status": "in_progress",
-      "priority_state": "in_progress",
+      "status": "completed",
+      "priority_state": "completed",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
-      "check_completed": false
+      "check_completed": true,
+      "checkpoint_commit": "9bb489ec",
+      "deploy": "S196-#8",
+      "real_context_tokens_at_close": 811164,
+      "real_context_pct_at_close": 81.1,
+      "check_method": "Release+crumble derived on peers (spawner vanish + first-sighted boss within 12 ticks/96 px). Audit FIX FIRST HIGH-1 joiner clock step-back wiped effects (same bug live in tower-fx trackBirths) -> sameTimeline() in both trackers; re-audit CLEAN + MED tolerance 12->60; small round. Merge owner mutation 60->12 -> 2 red. Gates typecheck 0, vitest 9525/0, build 1276.3, e2e:gating 72, render 10. Pushed 9bb489ec; verify-deploy 4/4.",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/render/fx/bossReleaseTrack.ts",
+          "needle": "export const PEER_CLOCK_STEP_BACK_TICKS = 60;"
+        }
+      ]
     },
     {
       "id": "ACCOUNTS",
