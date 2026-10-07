@@ -258,6 +258,27 @@ describe('S196 R196-T2 REACH (host → snapshot → peer) — the boss release i
     expect(drawnFrames, `drew on ${drawnFrames} of ${inWindow} joiner frames`).toBe(inWindow);
   });
 
+  it('⛔⭐ S196 re-audit LOW-1 — seen on a RUN-AHEAD frame, then a snapshot lands BELOW that tick: still drawn (age clamped at 0)', async () => {
+    const h = hostWithBossTower();
+    const peer = makeWorld(0x5196);
+    toPeer(h.w, peer);
+    const rig = peerRig(peer);
+    await warm(rig.frame, peer);
+    const foot = footOn(peer, h);
+    release(h);
+    toPeer(h.w, peer);
+    // the client applied the release snapshot, then ran 7 local sim steps before this render: first seen at snap + 7
+    peer.tick += 7;
+    const seenAt = peer.tick;
+    expect(subset(expected(h.race, h.spawnerId, foot, 0, false, true), rig.frame()), 'first seen at age 0').toBeGreaterThan(40);
+    // the host's next snapshot (+6) lands BELOW the tick it was first seen on
+    h.w.tick += 6;
+    toPeer(h.w, peer);
+    expect(peer.tick, 'fixture: the clock is now below the first-seen tick').toBeLessThan(seenAt);
+    const exp = expected(h.race, h.spawnerId, foot, 0, false, true);
+    expect(subset(exp, rig.frame()), 'still drawn, at the clamped age 0').toBe(exp.length);
+  });
+
   it('⭐ the HOST draws it too, the same frame it releases (host renderer, no wire)', async () => {
     const h = hostWithBossTower();
     const rig = peerRig(h.w);

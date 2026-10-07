@@ -312,5 +312,14 @@ describe('S196 REACH (host → snapshot → peer) — the spawner birth flare fi
     host.tick += 6;
     toPeer(host, peer);
     expectSubset(flareAt(peer.tick - born), peerFrame(), 'still flaring after the next snapshot');
+    // ⛔⭐ S196 re-audit MED-1 — a LAGGING joiner: the next snapshot is ~1 s late, the client runs 60 steps ahead, and the
+    // snapshot then steps the clock back 55. The tracker must stay primed, so a birth on that frame still flares.
+    for (let k = 0; k < 60; k++) { peer.tick++; peerFrame(); }
+    host.tick += 5;
+    mint();
+    const ahead = peer.tick;
+    toPeer(host, peer);
+    expect(ahead - peer.tick, 'fixture: a 55-tick step back').toBe(55);
+    expectSubset(flareAt(0), peerFrame(), 'a birth on a 55-tick step-back frame still flares');
   });
 });
