@@ -1,0 +1,53 @@
+# ⭐ S196 (s196/ci) — CI WATCHDOG. A run GitHub's hosted pool never started is RE-RUN; one it will not
+# start, or a deploy that died `cancelled`, opens an ISSUE (a cancelled run mails nobody).
+#
+# Cause, measured: S195 deploy #7 (run 37368664339 attempt 1) — `build` waited 15 min with no runner and
+# ZERO steps, concluded `cancelled`, annotation "The job was not acquired by Runner of type hosted even
+# after multiple attempts". Not our YAML (deploy.yml timeout-minutes is 30; the kill came at 15). The site
+# sat stale until a manual `gh run rerun`. The whole decision table lives in ci-watchdog.mjs (next to this
+# file, so it ships with the workflow) and is pinned by src/ci.watchdog.test.ts.
+#
+# ⚠ `workflow_run` only fires for this file as it exists on the DEFAULT branch — it is live from the
+# merge to master on, not from this branch.
+name: CI watchdog
+
+on:
+  workflow_run:
+    # ⛔ must match the `name:` lines of deploy.yml / e2e.yml EXACTLY (src/ci.watchdog.test.ts pins it)
+    workflows: ['Deploy to GitHub Pages', 'E2E (2-browser harness)']
+    types: [completed]
+  # The sweep: a re-run requested with GITHUB_TOKEN may not fire `workflow_run` when IT completes, and this
+  # job can starve in the same outage — the next sweep catches both.
+  schedule:
+    - cron: '*/30 * * * *'
+  workflow_dispatch:
+
+permissions:
+  actions: write # POST /actions/runs/{id}/rerun
+  checks: read # GET /check-runs/{job}/annotations — the starvation discriminator
+  issues: write # the alert
+  contents: read
+
+concurrency:
+  group: ci-watchdog-${{ github.event.workflow_run.id || 'sweep' }}
+  cancel-in-progress: false
+
+jobs:
+  watch:
+    # a green run needs no look; the sweep and manual dispatch always look
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion != 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout (the watchdog script only)
+        uses: actions/checkout@v6
+        timeout-minutes: 3
+        with:
+          sparse-checkout: .github/workflows/ci-watchdog.mjs
+          sparse-checkout-cone-mode: false
+
+      - name: Re-run starved runs / alert on silent deaths
+        run: node .github/workflows/ci-watchdog.mjs
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # not a default var; GITHUB_REPOSITORY is (defaults cannot be overridden)
+          RUN_ID: ${{ github.event.workflow_run.id }}

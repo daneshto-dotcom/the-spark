@@ -12,7 +12,7 @@
  */
 import { test, expect } from '@playwright/test';
 import { titleButtonCss, waitForWorld } from './helpers';
-import { installFrameClock, waitForTickAdvance } from './tickClock';
+import { installFrameClock, readFrames, waitForTickAdvance } from './tickClock';
 
 const readTick = async (p: import('@playwright/test').Page): Promise<number> =>
   await p.evaluate(() => (window as unknown as { __SPARK__: { world: { tick: number } } }).__SPARK__.world.tick);
@@ -39,28 +39,53 @@ test.describe('S193 - sim-clock tick wait (tickClock.ts)', () => {
       // ⭐ REACH: the live sim passes.
       await waitForTickAdvance(live, live, 60, 'live solo sim (+60 ticks)', false);
 
-      // The frozen fixture: a second page whose `world.tick` is pinned (writes ignored), i.e. exactly what a
-      // migrated host that stopped simulating looks like from outside. (A TITLE page is NOT frozen — measured:
-      // its tick advances — so the freeze is made explicit rather than assumed.) Measured, then asserted.
+      // ⭐ S196 (s196/ci) — the REACH half is done: CLOSE the game page before the negative. MEASURED on CI
+      // (run 37626384765, trace in the `playwright-report` artifact): with this page AND a second full game
+      // page rendering through SwiftShader, this page drew ~1.8 frames/s (frame counter 66 → 183 over 65 s).
+      // The old negative clocked a 4 × 30 + 60 = 180-frame budget on it ⇒ ~100 s to reach the FROZEN
+      // verdict, past this test's 90 s — so it timed out on EVERY master E2E run (14 of 14 checked, 3 attempts
+      // each, which also pushed the gating lane into its 900 s globalTimeout), and passed locally on a GPU.
+      // The budget was never wrong; the fixture made the CLOCK crawl. A frame budget is only runner-proof if
+      // the clock page is not starved by the fixture beside it.
+      await liveCtx.close();
+
+      // The frozen fixture: what a migrated host that stopped simulating looks like FROM OUTSIDE — a page whose
+      // `__SPARK__.world.tick` does not move while its frames keep coming. ⭐ S196: it is a STUB page, not a second
+      // game: `waitForTickAdvance` reads only `world.tick` and the clock page's rAF count, so a game behind the
+      // stub adds nothing to the helper under test except the starvation above. Without a renderer the stubs
+      // draw at the headless rAF rate, so the frame budget runs out in seconds on any runner. (A TITLE page is
+      // NOT frozen — measured S193: its tick advances — so the freeze is explicit, then measured, then asserted.)
       const frozen = await frozenCtx.newPage();
-      await frozen.goto('/?debug=1');
-      await waitForWorld(frozen, (w) => w.gameState === 'TITLE', 'TITLE', 30_000);
-      await frozen.evaluate(() => {
-        const w = (window as unknown as { __SPARK__: { world: { tick: number } } }).__SPARK__.world;
-        const pinned = w.tick;
-        Object.defineProperty(w, 'tick', { get: () => pinned, set: () => undefined, configurable: true });
-      });
+      const clock = await frozenCtx.newPage();
+      for (const stub of [frozen, clock]) {
+        await stub.setContent('<!doctype html><title>tickClock frozen fixture</title>');
+        await stub.evaluate(() => {
+          const w = { tick: 4321 };
+          const pinned = w.tick;
+          Object.defineProperty(w, 'tick', { get: () => pinned, set: () => undefined, configurable: true });
+          (window as unknown as { __SPARK__: { world: { tick: number } } }).__SPARK__ = { world: w };
+        });
+        await installFrameClock(stub);
+      }
       const a = await readTick(frozen);
       await frozen.waitForTimeout(1_500);
-      expect(await readTick(frozen), 'precondition: the TITLE tick must be frozen').toBe(a);
+      expect(await readTick(frozen), 'precondition: the fixture tick must be frozen').toBe(a);
+      expect(await readFrames(clock), 'precondition: the clock page is rendering frames').toBeGreaterThan(0);
 
-      // ⛔ NEGATIVE: a frozen sim fails with the FROZEN verdict, not the wall backstop.
-      const err = await waitForTickAdvance(frozen, live, 30, 'frozen fixture (+30 ticks)', true).then(
-        () => null,
-        (e: unknown) => String(e),
-      );
-      expect(err, 'a frozen sim must FAIL the wait').not.toBeNull();
-      expect(err).toMatch(/FROZEN or crawling/);
+      // ⛔ NEGATIVE, in BOTH shapes `hostmigration.spec.ts` uses: a frozen sim fails with the FROZEN verdict,
+      // not the wall backstop — the sim page clocking itself (successor simulates, +60, no mirror allowance)
+      // and a mirror clocked by another page (+30, mirror allowance).
+      for (const [observed, clockPage, delta, mirror, label] of [
+        [frozen, frozen, 60, false, 'frozen fixture, self-clocked (+60 ticks)'],
+        [frozen, clock, 30, true, 'frozen fixture, mirror-clocked (+30 ticks)'],
+      ] as const) {
+        const err = await waitForTickAdvance(observed, clockPage, delta, label, mirror).then(
+          () => null,
+          (e: unknown) => String(e),
+        );
+        expect(err, `${label}: a frozen sim must FAIL the wait`).not.toBeNull();
+        expect(err).toMatch(/FROZEN or crawling/);
+      }
     } finally {
       await liveCtx.close();
       await frozenCtx.close();

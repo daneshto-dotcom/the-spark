@@ -34,6 +34,7 @@ import {
   waitForWorld,
   waitForSeats,
   CANVAS_WIDTH,
+  MULTI_PAGE_CONTEXT_OPTIONS,
 } from './helpers';
 
 // Mirror of src/constants.ts PLAYER_COLORS (e2e/ is bundled separately from src/,
@@ -141,12 +142,9 @@ test.describe('S63 - 4-player FFA: roster broadcast + distinct seats/colors + FF
     browser,
   }) => {
     test.setTimeout(LATE_JOINER_BUDGET_MS);
-    const ctxs = await Promise.all([
-      browser.newContext(),
-      browser.newContext(),
-      browser.newContext(),
-      browser.newContext(),
-    ]);
+    // ⭐ S196 (F8) — four SwiftShader game pages starve each other on CI; half the DPR is ~2.4× the frames
+    // (measured, see MULTI_PAGE_CONTEXT_OPTIONS). Every wait and assertion below is unchanged.
+    const ctxs = await Promise.all([0, 1, 2, 3].map(() => browser.newContext(MULTI_PAGE_CONTEXT_OPTIONS)));
     try {
       for (const c of ctxs) await prepCtx(c);
       // The 4th joiner: Math.random pinned to its top value until the page's modules have run, so

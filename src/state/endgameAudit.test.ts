@@ -24,7 +24,7 @@ import { mulberry32 } from './rng.ts';
 import { dispatch, makeWorld, type World } from './world.ts';
 import { asPlayerId, asPrimitiveId, asSpawnerId } from '../types.ts';
 import { makeGameStateExtras } from './gameState.ts';
-import { isMonsterFightHeld, monstersLeftForSeat, monstersLeftToComeOut, monsterVictimSeat, pantsWindowTicks } from './endgame.ts';
+import { isMonsterFightHeld, monstersDueBy, monstersLeftForSeat, monstersLeftToComeOut, monsterVictimSeat, pantsWindowTicks } from './endgame.ts';
 import { netSnapshot, wireNumberReplacer } from './save.ts';
 import { structuralSignature } from './workerSim.ts';
 import { formatEndgameCue } from '../render/ui.ts';
@@ -333,7 +333,23 @@ describe('⭐ S194 re-audit MED-1 — the 360 is a TRUE total, even after seats 
     const W = pantsWindowTicks(31);
     let peak = 0;
     let peakAfterFalls = 0;
-    for (let t = 0; t < W; t++) {
+    // ⭐ S196 (s196/ci) — the run stops 600 ticks (10 s) after the second fall, not at W (7200). It sat at
+    // 15–21 s of wall clock against the 20 s cap and timed out in 6 of 7 full runs. MEASURED (profile +
+    // mutants, this exact board): every tick's cost is the real host tick at ~350 live pants; the fixed
+    // code peaks at 351 on e = 3610 (inside the cut run) and plateaus 350–351 to W; the "fix removed"
+    // mutant (total check off AND counted by assigned seat) crosses 360 at e = 2759 and reads 441–483 over
+    // (W/2, W/2 + 600] — caught with ~80 to spare by BOTH assertions below, as before. Either half removed
+    // alone peaks at 351 / 360 over the FULL window too, i.e. this REACH test never caught a single half —
+    // those are pinned by the direct `tickEndgameSpawner` describe below, unchanged. And the cut ticks are
+    // the same regime as the kept ones: the lanes are behind schedule from e ≈ 2600 to W (measured; asserted at the stop),
+    // so every tick from here on is "release iff under the cap" — nothing new happens at e = 7200.
+    // Mutant matrix, old file vs this one (S196): fix-removed → this test RED in both; total-check-off,
+    // victim-count-off → green here in both (the direct describe below kills them); per-seat-check-off and
+    // two-releases-a-tick → green here in both (R194-27 above kills them). ⛔ And that is why R194-27 was
+    // NOT shortened the same way: its first per-seat breach under that mutant is t = 3121 and its first
+    // double release t = 3840, both inside its 4000 — cutting it to 3000 measured green on both (S177 rule).
+    const STOP = Math.floor(W / 2) + 600;
+    while (w.tick - start < STOP) {
       const e = w.tick - start;
       if (e === Math.floor(W / 3)) w.players.get(asPlayerId(2))!.castleHp = 0;
       if (e === Math.floor(W / 2)) w.players.get(asPlayerId(3))!.castleHp = 0;
@@ -343,10 +359,15 @@ describe('⭐ S194 re-audit MED-1 — the 360 is a TRUE total, even after seats 
       if (w.tick - start > W / 2) peakAfterFalls = Math.max(peakAfterFalls, n);
     }
     expect(w.players.get(asPlayerId(3))!.castleHp, 'anti-vacuity: the seats fell').toBe(0);
-    // measured: peak 351 with the fix (castle guns trim it); 561 with it removed (the audit saw 450 / 570)
+    // measured: peak 351 with the fix (castle guns trim it); 561 with it removed over the full window, 483 by the S196 stop (the audit saw 450 / 570)
     expect(peak, 'anti-vacuity: the cap binds').toBeGreaterThan(300);
     expect(peakAfterFalls).toBeLessThanOrEqual(MONSTER_MAX_LIVE_TOTAL);
     expect(peak).toBeLessThanOrEqual(MONSTER_MAX_LIVE_TOTAL);
+    // anti-vacuity for the shortened run: the cap still binds AFTER the falls, and the lanes are still
+    // behind the schedule (more due than released) — the window's remaining ticks are this same regime
+    expect(peakAfterFalls, 'anti-vacuity: the cap binds after the falls').toBeGreaterThan(300);
+    const due = monstersDueBy(w.tick - start, 4, 250 * 4, W);
+    expect(w.monsterWaveSpawned, 'anti-vacuity: lanes are waiting on the cap, not on the clock').toBeLessThan(due);
   });
 });
 
