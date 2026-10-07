@@ -1,7 +1,12 @@
 # S196 PROGRESS — render-perf (branch s196/render-perf)
 
 ## NEXT STEP (top, always current)
-FIX ROUND: MED-1 DONE (lobbyBackdropRelease.test.ts green; mutation delete holdForLobby → RED 'expected false to be true'; restored). LOW-1 DONE: soak exit 0 (8.5 min): second match tick 4710 (world.tick does not reset between matches → sprite count is the load-bearing check), backdrop sprites 4, cycle residual 808→808. NEXT: merge master, typecheck + render tests + build (exit files .tmp-gates/fr-*.exit), report. (was: MED-1 add lobbyBackdropRelease REACH test via real makeLobbyBackdrop().update + mutation (delete holdForLobby line → RED); LOW-1 render-heap cycle asserts second match passed the 180-tick hold. Then merge master, typecheck + render tests + build.
+FIX ROUND DONE — awaiting re-audit. Nothing in flight.
+
+## FIX ROUND (audit FIX FIRST — tests only)
+- MED-1: `src/render/lobbyBackdropRelease.test.ts` drives the REAL `makeLobbyBackdrop().update(seats)` (4 orcs seats, Assets.load stubbed as a one-url-one-Texture cache) → `lobbyHoldsTexture(t)` true → REAL `ZoneBackgroundRenderer.sync` all-orcs 4p match → TITLE → `zone-orcs-4p.png` NOT unloaded, the shared texture not destroyed. Green. Mutation: delete `holdForLobby(t)` at lobbyBackdrop.ts:261 → RED (`expected false to be true`); restored (line count 1).
+- LOW-1: render-heap cycle asserts the second match's tick ≥ ZONE_BG_HOLD_TICKS (180) AND backdrop sprites > 0 before leaving. ⚠ world.tick does not restart between VS-BOTS matches (second match at ~4 450), so the sprite count is the load-bearing check. Soak exit 0 (8.5 min): sprites 4, cycle residual 808→808.
+- Merged master (plans/session-state only). Gates: typecheck 0 · `vitest run src/render` 0 (221 files / 3 194 passed, 1 skipped) · build 0 → entry 1264.3 KiB (unchanged). LOW-2/LOW-3 untouched as instructed.
 
 ## FINAL REPORT
 - Tip: see `git log -1` on s196/render-perf (this commit). Merges: master 7a596837 → 8b60bdcf → 71cfa975 (merge 5feff1be); no conflicts (master brought plans + two risen test files only).
