@@ -1,7 +1,7 @@
 # S196 PROGRESS — s196/ci
 
 ## NEXT STEP (top, always current)
-- T5: Sym F x3 running (.tmp-gates/symF.log/.exit); then Sym I x3 (.tmp-gates/symI.log). CI: Sym F red 3/3 recent runs (240 s test timeout), Sym I green 3/3.
+- T5: Sym F LOCAL 3/3 RED (240 s timeout each, same as CI) = NOT a CI flake. Tracing one run (.tmp-gates/symF-trace) to find the stalled step; then Sym I x3.
 
 ## Log
 - boot: merged master; progress file created.
