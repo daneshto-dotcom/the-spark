@@ -1,7 +1,7 @@
 # S196 PROGRESS — tower-fx (branch s196/tower-fx)
 
 ## NEXT STEP (exact)
-- DONE drawers+wiring+tests (55 green, mutations M1 births / M2 fog both caught). Capture script .tmp-gates/fx/shots.mjs (vite on 31796). NOW: effects far too faint at board scale — rewriting towerSignatureFx sizes with a unit U (bigger, brighter), then re-shoot.
+- DONE drawers+wiring+tests; visuals retuned (vite ignores .claude/** — RESTART vite after edits: sh .tmp-gates/fx/restart-vite.sh). NOW: perf bench .tmp-gates/fx/bench.mjs (interleaved ON/OFF per tier), then owner screenshots to Desktop/SPARK_S196_TowerFx, then full gates.
   then wire `SpawnerZoneRenderer.syncTowerSignatures` (fx path; replaces syncHubArcs) + the TV idle static in
   `voltkinTowerRenderer` fx block; then tests `towerSignature.test.ts`.
 
