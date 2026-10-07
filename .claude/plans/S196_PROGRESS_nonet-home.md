@@ -1,4 +1,23 @@
-NEXT STEP: run `npx vitest run src/state/endgameAudit.test.ts --testTimeout=90000 > .tmp-gates/eg90.log 2>&1; echo $? > .tmp-gates/eg90.exit` (timeout-only red, untouched file; took 37 s alone under load), then write the FIX ROUND 3 REPORT at the top of this file and commit. Gates already done on merged tree b35368c6: typecheck 0, typecheck:server 0, build 0 (1259.5 KiB), vitest 1 (only endgameAudit timeout), e2e:gating 70/70 exit 0.
+NEXT STEP: NONE — fix round 3 (MED-B) complete; awaiting re-audit / merge owner.
+
+# FIX ROUND 3 REPORT (MED-B: claimed-but-unfolded run lost on a mid-request failure)
+- FIX (server/leaderboard/worker.js): the per-run sequential claims + separate fold batch are replaced by ONE env.DB.batch() per request.
+  For each run with an id there are two statements: (1) the upsert guarded `SELECT ?1,?2,1,?3,?4 WHERE NOT EXISTS (SELECT 1 FROM seen_runs WHERE id = ?5) ON CONFLICT(board,name) DO UPDATE ...`,
+  (2) `INSERT OR IGNORE INTO seen_runs (id, created)`. duplicates = guarded upserts with meta.changes === 0. Id-less runs keep the plain upsert.
+  Columns match schema.sql (players: board,name,runs,total_ms,updated; seen_runs: id,created). One round trip; all-or-nothing. The comment that accepted "drop rather than double-count" is rewritten.
+- REAL SQLite evidence: wrangler is NOT installed in node_modules (npx would download it), so I used Python's stdlib sqlite3 (SQLite 3.50.4) against server/leaderboard/schema.sql. No new package.
+  .tmp-gates/sqlite_verify2.py pulls the statement VERBATIM from worker.js and runs it in BEGIN/COMMIT, with ROLLBACK on error:
+  it parses; fail after the fold → ROLLED BACK, players empty, seen_runs 0; retry → [1,1] runs 1; resend → [0,0] still runs 1;
+  serialised A[r2,new] then B[r2] → A [1,1,1,1], B [0,0], r2 folded once; id-less plain upsert folds every time. Log: .tmp-gates/sqlite_verify2.log.
+- TESTS (src/server.worker.test.ts): the fake DB now evaluates the NOT EXISTS guard, runs a batch with no interleaving, ROLLS BACK a batch that throws (snapshot/restore),
+  and can fail the next N batches that write players. New: batch throws once → 500, nothing committed, the retry folds exactly once, a third send is a duplicate (LOW-1);
+  two copies of one id in ONE request fold once. Round-2 concurrency tests stay green (39/39).
+- MUTATIONS: round-2 worker (sequential claims) → the rollback test RED; guard replaced by `WHERE ?5 IS NOT NULL` → 5 RED.
+- Client half untouched.
+- Merged master b35368c6, no conflicts. Gates: typecheck 0 · typecheck:server 0 · build 0 (entry 1259.5 KiB; the jump over 1245.0 came in with master's merged branches)
+  · e2e:gating 70/70 exit 0 · vitest exit 1 = ONE timeout-only red, endgameAudit "seats fall" REACH (a file this branch does not touch); still 37 s alone under load;
+  with --testTimeout=90000: 18/18 exit 0, that test 21.1 s = BENIGN (machine load).
+
 
 # FIX ROUND 2 REPORT (MED-A: a queued run id in two concurrent POSTs)
 - SERVER (worker.js): the read-then-write dedupe (SELECT seen_runs, then fold + mark in one batch) is replaced by an atomic per-run claim: `INSERT OR IGNORE INTO seen_runs` run alone, and the run is folded ONLY if `meta.changes === 1`. Runs without an id are still folded. 24 h TTL unchanged. The claim comes before the fold, so a failed fold drops the run rather than double-counting it. Comment rewritten. Tests (server.worker.test.ts, 3 new): concurrent [r1,new] + [r1] → r1 folded once; 5 concurrent copies → once; NEGATIVE id-less runs folded every time. The fake DB now models INSERT OR IGNORE `changes` faithfully, plus a rendezvous so concurrent requests reach the id check together. Mutations: the old worker → both concurrency tests RED; ignoring `changes` → 3 RED.
