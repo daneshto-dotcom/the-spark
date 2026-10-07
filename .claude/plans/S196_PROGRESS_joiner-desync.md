@@ -1,10 +1,8 @@
 # S196 PROGRESS — s196/joiner-desync
 
 ## NEXT STEP
-FIX ROUND (audit MED-1 / LOW-2 / LOW-3): code for MED-1 (authority check before inflate + MAX_INFLATING_PER_SENDER=4,
-newest held) and LOW-2 (pick highest fid) COMMITTED, tsc green. NEXT: tests in snapshotCodec.backlog.test.ts —
-50 bombs → ≤4 concurrent + newest legit applies; non-authority never inflated; [10,9] applies 10; disconnect while
-inflating → nothing to handlers; mutate each guard; then merge master, full gates, one live trace, report.
+FIX ROUND code + tests + mutations DONE (see LOG). Gates running detached on the merged tree (.tmp-gates/gates.sh,
+<name>.exit); then one live trace (lag-fr.log); then update FINAL REPORT.
 
 ## FINAL REPORT
 - ROOT CAUSE (one, with trace): S195 codec receive path decoded every snapshot frame through ONE serial promise chain
@@ -76,3 +74,10 @@ BEFORE trace (`scripts/live-mp/live-joiner-lag.mjs`, joiner CPU 6x throttled, re
 - vitest re-runs ALONE: snapshotCodec.backlog 6/6 · botPorchClear 6/6 · spawnEconomy.measure 4/4 · racialB.differential 1/1 ·
   endgameAudit 2 TIMEOUT (20 s) alone = the brief's known load flake (not net code). e2e:lobby 0 (5 passed) ·
   e2e:protocol 0 (2 passed).
+- FIX ROUND (audit): MED-1 (a) snap frames from a non-authority refused BEFORE inflate (host: all), (b)
+  MAX_INFLATING_PER_SENDER = 4 (⚠ MINE, snapshotCodec.ts), newest extra frame held, older held superseded unread;
+  LOW-2 pickSnapFrame = highest fid; LOW-3 test. Tests (+4, backlog file now 11): 50 bombs → 4 started, maxInflating
+  ≤ 4, 46 superseded, legit keyframe applies; 50 EVIL frames + host-side frame → 0 inflates, refused 50/1, authority
+  still flows; [newer, older] applies newer; disconnect mid-inflate → nothing delivered (+ undisconnected control).
+  Mutations: M5 no authority check → MED-1(a) red; M6 no cap → MED-1(b) red; M7 latest-arrival → LOW-2 red;
+  M8 no disconnect guard → LOW-3 red.
