@@ -62,3 +62,4 @@
 - false-migration builder DONE f04a6783: REPRODUCED — a joiner that hears the host but REJECTS its snapshots (seq/epoch/decode wedge) claims host at 21.5 s → permanent split (host refuses, both simulate). CPU starvation alone did NOT promote. Fix: claim requires host silent ON THE WIRE (max(lastAccepted, transport lastRxAt)). Carry: two-host RESOLUTION still unbuilt (one-way partition ≥21 s) + auto-resync of a wedged joiner. → audit.
 - joiner-lag re-audit CLEAN (fog-swap leak closed, verified by auditor's own test) → builder adds that test (LOW-B), then lands.
 - **DEPLOY S196-#8 `9bb489ec`** boss-release. 4/4. Context 811,164.
+- **DEPLOY S196-#9 `329a0fcc`** ci. 4/4. Context 821,329.
