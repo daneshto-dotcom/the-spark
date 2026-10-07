@@ -37,3 +37,4 @@
 - Slot → #3 s196/ci opened.
 - **DEPLOY S196-#5 `5a7e8de7`** — s196/nonet-home. Leaderboard worker deployed FIRST (wrangler, version a762da58; live smoke OK). Gates typecheck 0 · server 0 · vitest 9450/0 · build 1261.5 · e2e:gating 72 · verify-deploy 4/4. accounts-design merged (docs only). Slot → #4 s196/net-cpu opened.
 - MCV hard_fail fixed: ACCOUNTS had no verification[] (bound to the design doc); TOWERFX binding was weak ('spawnedAtTick' — the field the fix stopped reading, matched only by a comment) → re-bound to TOWER_SIG_BIRTH_PRIME_GAP_TICKS + syncTowerSignatures. MCV exit 0 (7 pass). Reflexion 6 = completed 6.
+- team-art audit CLEAN (8/8 webps spot-checked correct) → merged, landing gates running. Slot → #11 s196/render-perf opened (+ team-art L1: trio textures never unloaded).
