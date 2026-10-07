@@ -288,7 +288,14 @@ export class RemoteLeaderboard implements LeaderboardClient {
      * storage too instead of being re-evaluated forever.
      */
     const pendingBefore = prunePending(loadPending(boardId));
-    const queued = pendingBefore.slice(0, FLUSH_BATCH);
+    /*
+     * ⛔ S196 MED-A — A QUEUED RUN IS NEVER IN TWO OUTSTANDING POSTS. If a flush already holds this
+     * board (its POST is in flight with these queued runs), this submit sends ONLY the new run; and
+     * while this submit's POST is in flight, the board is marked so `flushAllPending` skips it.
+     */
+    const flushHolds = this.inFlight.has(boardId);
+    const queued = flushHolds ? [] : pendingBefore.slice(0, FLUSH_BATCH);
+    if (!flushHolds) this.inFlight.add(boardId);
     /*
      * ⭐ THE ID IS MINTED ONCE, HERE, AND IT IS WHAT MAKES A RETRY SAFE.
      *
@@ -301,12 +308,20 @@ export class RemoteLeaderboard implements LeaderboardClient {
     // it at QUEUE time instead would refresh on every failed flush and the run would never expire.
     const thisRun: PendingRun = { name, ms, id: newRunId(), at: Date.now() };
     const runs = [...queued, thisRun];
-    const answer = await this.post(boardId, runs, name);
+    let answer: Awaited<ReturnType<RemoteLeaderboard['post']>>;
+    try {
+      answer = await this.post(boardId, runs, name);
+    } finally {
+      if (!flushHolds) this.inFlight.delete(boardId);
+    }
+    // ⚠ S196 MED-A — the queue is re-read FRESH on both exits: a flush that held this board may have
+    // delivered (and removed) runs meanwhile, and saving the stale `pendingBefore` would resurrect them.
+    const sent = new Set(runs.map((r) => r.id));
 
     if (answer === null) {
       // ⛔ QUEUE IT, WITH ITS ID. Under an average a dropped run is not a missed row, it is a
       // permanently wrong number — see `loadPending`.
-      savePending([...pendingBefore, thisRun], boardId);
+      savePending([...prunePending(loadPending(boardId)), thisRun], boardId);
       return updateFrom(loadRanking(boardId), name, ms, previousAverageMs, false, 0);
     }
 
@@ -315,7 +330,7 @@ export class RemoteLeaderboard implements LeaderboardClient {
     // is exactly why the queue holds individual RUNS and not a local aggregate to reconcile.
     saveRanking(withOwnRow(answer.entries, name, answer.mine, loadRanking(boardId)), boardId);
     // Drop exactly what was accepted, keeping anything that arrived while the request was in flight.
-    savePending(pendingBefore.slice(queued.length), boardId);
+    savePending(prunePending(loadPending(boardId)).filter((r) => !sent.has(r.id)), boardId);
     // ⭐ S196 MED-1 — the network is up: deliver the OTHER boards' queues too. A daily is ranked once
     // and a stage board is re-submitted only after failing it, so "the next submit to the same board"
     // may never come — and an undelivered run skews that average forever.
@@ -346,6 +361,8 @@ export class RemoteLeaderboard implements LeaderboardClient {
   }
 
   private flushing = false;
+  /** ⭐ S196 MED-A — boards with a POST in flight (a submit's or a flush's). A flush skips them. */
+  private readonly inFlight = new Set<string>();
 
   /**
    * ⭐ S196 MED-1 — flush the pending queue of EVERY board (except `skip`, just flushed by its own
@@ -359,13 +376,20 @@ export class RemoteLeaderboard implements LeaderboardClient {
     let accepted = 0;
     try {
       for (const boardId of pendingBoardIds()) {
-        if (boardId === skip) continue;
+        // ⛔ S196 MED-A — never a board whose submit is in flight: its queued runs are already riding it.
+        if (boardId === skip || this.inFlight.has(boardId)) continue;
         const live = prunePending(loadPending(boardId));
         savePending(live, boardId); // expired runs leave storage, unsent
         const batch = live.slice(0, FLUSH_BATCH);
         if (batch.length === 0) continue;
         const focus = batch[batch.length - 1]!.name;
-        const answer = await this.post(boardId, batch, focus);
+        this.inFlight.add(boardId);
+        let answer: Awaited<ReturnType<RemoteLeaderboard['post']>>;
+        try {
+          answer = await this.post(boardId, batch, focus);
+        } finally {
+          this.inFlight.delete(boardId);
+        }
         if (answer === null) continue; // still offline for this board — try again next time
         const sent = new Set(batch.map((r) => r.id));
         savePending(loadPending(boardId).filter((r) => !sent.has(r.id)), boardId);

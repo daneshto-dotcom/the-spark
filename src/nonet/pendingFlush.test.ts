@@ -116,3 +116,56 @@ describe('S196 MED-1 — undelivered DAILY / STAGE runs are delivered later', ()
     expect(loadPending(DAILY).map((r) => r.id)).toEqual(['r2']);
   });
 });
+
+describe('S196 MED-A — a queued run is never in two OUTSTANDING POSTs (client half)', () => {
+  /** fetch that never answers until `releaseAll()`; records each POST's board + run ids. */
+  function deferredNetwork(): { posts: Array<{ board: string; ids: string[] }>; releaseAll: () => void } {
+    const posts: Array<{ board: string; ids: string[] }> = [];
+    const pending: Array<() => void> = [];
+    vi.stubGlobal('fetch', (url: string, init: RequestInit) => {
+      const board = decodeURIComponent(url.split('/board/')[1]!);
+      const body = JSON.parse(String(init.body)) as { runs: Array<{ id: string }> };
+      posts.push({ board, ids: body.runs.map((r) => r.id) });
+      return new Promise((resolve) => {
+        pending.push(() => resolve({ ok: true, status: 200, json: () => Promise.resolve({ rows: [] }) } as Response));
+      });
+    });
+    return { posts, releaseAll: () => { for (const f of pending.splice(0)) f(); } };
+  }
+  const allIds = (posts: Array<{ ids: string[] }>): string[] => posts.flatMap((p) => p.ids);
+
+  it('submit in flight, then the home-open flush → the flush does NOT re-send the queued run', async () => {
+    savePending([{ name: 'DAN', ms: 60_000, id: 'r1', at: Date.now() }], 'nonet');
+    const net = deferredNetwork();
+    const remote = new RemoteLeaderboard('https://lb.example');
+    const submitting = remote.submit('nonet', 'DAN', 70_000); // POST [r1, new] outstanding…
+    await settle();
+    await remote.flushAllPending(); // …and the NONET home opens (ESC during SAVING…)
+    expect(net.posts.length).toBe(1);
+    expect(net.posts[0]!.ids[0]).toBe('r1');
+    expect(new Set(allIds(net.posts)).size).toBe(allIds(net.posts).length); // no id twice
+    net.releaseAll();
+    await submitting;
+    await settle();
+    expect(loadPending('nonet')).toEqual([]);
+  });
+
+  it('flush in flight, then a submit to the SAME board → the submit sends only its NEW run', async () => {
+    savePending([{ name: 'DAN', ms: 60_000, id: 'r1', at: Date.now() }], STAGE);
+    const net = deferredNetwork();
+    const remote = new RemoteLeaderboard('https://lb.example');
+    const flushing = remote.flushAllPending(); // POST [r1] outstanding
+    await settle();
+    const submitting = remote.submit(STAGE, 'DAN', 90_000);
+    await settle();
+    expect(net.posts.length).toBe(2);
+    expect(net.posts[0]!.ids).toEqual(['r1']);
+    expect(net.posts[1]!.ids).not.toContain('r1');
+    expect(net.posts[1]!.ids.length).toBe(1);
+    net.releaseAll();
+    await Promise.all([flushing, submitting]);
+    await settle();
+    // and r1 is not resurrected by the submit's save
+    expect(loadPending(STAGE)).toEqual([]);
+  });
+});
