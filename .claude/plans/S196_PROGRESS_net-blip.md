@@ -1,9 +1,17 @@
 # S196 PROGRESS — net-blip (branch s196/net-blip)
 
 ## NEXT STEP (top, always current)
-- ⚠ F runs 1-4 were STALE (vite watcher missed the fix; served transport lacked it) — renamed F0stale-*, count as extra pre-fix runs (no split, recovered 23.5/31.6/50.7/?). Dev server restarted, serves the fix (verified by curl). NOW: rerun F x6. THEN: mutation test (restart vite after!), merge master, gates, spec header, RELAY_HEALTH.
+- NOW: SLOW_CLOSE runs WITH fix (TAG=SFh SLOW_CLOSE=host x3, TAG=SFj SLOW_CLOSE=join x3). THEN: revert fix in WORKING TREE, RESTART vite (watcher is unreliable), curl-verify NO, SLOW_CLOSE pre-fix x2 each (TAG=SBh/SBj); restore + restart vite + curl YES; mutation test; merge master; gates; spec header; RELAY_HEALTH.
 
 ## Log
+- ⚠ STALE-SERVER FINDING: the first "F" sweep served PRE-fix code (vite's watcher missed the edit on this OneDrive path;
+  `curl /src/net/transport.ts` had no fix). Those 6 runs are renamed F0stale-* and count as PRE-fix: no split, recovered
+  23.5/31.6/50.7/29.2/32.7/51.5 s. Pre-fix LIGHT_ON_FIRST_DROP total: 16 runs, 3 splits (~19 %), + the s-12000 split.
+  The driver now logs which transport the server serves. (Also proves B/B2 were genuinely pre-fix: the server never had it.)
+- FIXED F x6 (served YES, LIGHT_ON_FIRST_DROP): no split; recovered 29.3/31.0/31.2/50.9/20.7/25.5 s. The close fired on
+  both sides every time — but each time the second side's OWN 5 s timer fired 0.1-0.7 s after the first, so these runs
+  show no regression, not the rescue. => SLOW_CLOSE mode added (stretch one page's 5000 ms timeouts to 9 s) to make the
+  asymmetric window deterministic.
 - BASELINE B2 (pre-fix, LIGHT_ON_FIRST_DROP, split metric = one side holds the peer, the other none, >= 30 s after LIGHT):
   · #1 ⛔ SPLIT (joiner dropped first at +10.9, host never): joiner RECONNECTING, attempts +12.3/+48.0/+83.3/+118.4/+153.8/
     +189.0, TERMINAL CONNECTION LOST +191.4 (RECONNECT_GIVE_UP_MS); host kept peers=1 the whole 256 s. splitForS 242.
