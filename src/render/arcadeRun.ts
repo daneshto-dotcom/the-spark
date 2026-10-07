@@ -50,6 +50,16 @@ import {
  */
 export type ArcadeRunPhase = 'RUNNING' | 'ENTER_INITIALS' | 'RECAP' | 'BOARD';
 
+/**
+ * ⭐ S196 #16 — WHICH NONET MODE THIS RUN IS (the NONET home's three doors, `src/nonet/`).
+ *
+ * `PLAY` — the timed run, exactly as it was before S196: a fresh clock-seeded grid, the `nonet` board.
+ * `DAILY` — the day's fixed grid (`src/nonet/dailySeed.ts`), timed, filed to that day's own board.
+ * `ZEN` — no clock, no board. ⛔ A ZEN run can never reach a submission: `finishRun` keeps it RUNNING
+ * (the caller returns to the NONET home instead), and `beginSubmit` / `submitRun` refuse it outright.
+ */
+export type ArcadeRunMode = 'PLAY' | 'DAILY' | 'ZEN';
+
 export interface ArcadeRun {
   readonly phase: ArcadeRunPhase;
   /** Wall-clock stamp when the puzzle launched. */
@@ -69,11 +79,24 @@ export interface ArcadeRun {
   readonly recapStartedMs: number | null;
   /** True while a submission is in flight — the screen says so rather than appearing frozen. */
   readonly submitting: boolean;
+  /** ⭐ S196 — the mode. `PLAY` unless the NONET home said otherwise. */
+  readonly mode: ArcadeRunMode;
+  /**
+   * ⭐ S196 — the board this run files to, FIXED AT LAUNCH: a DAILY started at 23:59 UTC and solved
+   * after midnight belongs to the board of the grid it played, not the day it finished on.
+   * `null` for ZEN — and only for ZEN.
+   */
+  readonly boardId: string | null;
 }
 
-/** A fresh run, clock started. */
-export function startRun(nowMs: number): ArcadeRun {
+/**
+ * A fresh run, clock started. `startRun(nowMs)` is the pre-S196 timed run, unchanged.
+ * ⛔ ZEN ignores `boardId` and is always `null` — there is no argument that puts a ZEN run on a board.
+ */
+export function startRun(nowMs: number, mode: ArcadeRunMode = 'PLAY', boardId: string = BOARD_NONET): ArcadeRun {
   return {
+    mode,
+    boardId: mode === 'ZEN' ? null : boardId,
     phase: 'RUNNING',
     startedAtMs: nowMs,
     finishedMs: null,
@@ -107,6 +130,8 @@ export function elapsedMs(run: ArcadeRun, nowMs: number): number {
  */
 export function finishRun(run: ArcadeRun, nowMs: number): ArcadeRun {
   if (run.phase !== 'RUNNING') return run;
+  // ⛔ S196 — ZEN has no initials screen, no time and no board: solving it never leaves RUNNING here.
+  if (run.mode === 'ZEN') return run;
   return { ...run, phase: 'ENTER_INITIALS', finishedMs: Math.max(0, nowMs - run.startedAtMs) };
 }
 
@@ -155,7 +180,7 @@ export function runName(run: ArcadeRun): string {
 
 /** PURE — mark a submission as in flight, so the screen can say so instead of looking hung. */
 export function beginSubmit(run: ArcadeRun): ArcadeRun {
-  if (run.phase !== 'ENTER_INITIALS' || run.finishedMs === null || run.submitting) return run;
+  if (run.phase !== 'ENTER_INITIALS' || run.finishedMs === null || run.submitting || run.boardId === null) return run;
   return { ...run, submitting: true };
 }
 
@@ -190,10 +215,12 @@ export function revealBoard(run: ArcadeRun): ArcadeRun {
 export async function submitRun(
   run: ArcadeRun,
   now: () => number,
-  boardId: string = BOARD_NONET,
+  boardId?: string,
 ): Promise<ArcadeRun> {
   if (run.phase !== 'ENTER_INITIALS' || run.finishedMs === null) return run;
-  const update = await getLeaderboard().submit(boardId, runName(run), run.finishedMs);
+  // ⛔ S196 — ZEN NEVER SUBMITS, whatever the caller passes. The run's own board wins otherwise.
+  if (run.mode === 'ZEN' || run.boardId === null) return run;
+  const update = await getLeaderboard().submit(boardId ?? run.boardId, runName(run), run.finishedMs);
   /*
    * ⛔ THE CLOCK IS READ **AFTER** THE AWAIT, AND TAKING IT BEFORE SILENTLY SKIPPED THE CINEMATIC.
    *

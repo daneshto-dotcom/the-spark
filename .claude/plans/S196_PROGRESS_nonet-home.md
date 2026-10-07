@@ -1,4 +1,4 @@
-NEXT STEP: read arcadeOverlay.ts / arcadeRun.ts / main.ts NONET glue, then write src/nonet/dailySeed.ts + test.
+NEXT STEP: write src/nonet/{nonetModes,dailyProgress,rankingView,homeScreen,index}.ts, then main.ts glue.
 
 # S196 PROGRESS — s196/nonet-home (backlog #16, Option A "a front door")
 
