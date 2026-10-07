@@ -423,7 +423,13 @@ describe('S195 audit — cache fuzz: after ANY change, the cache equals a fresh 
           const v = bs[Math.floor(rnd() * bs.length)]!;
           w.bonds.delete(v.id as never);
           const nid = 100_000 + f;
-          (w.bonds as unknown as Map<number, B>).set(nid, { ...v, id: nid });
+          // re-audit LOW-A: the new connector has DIFFERENT endpoints (2 px off, same cell in practice), so the
+          // swap changes the drawing too — a misfiled swap then shows up as a stale picture, not only a hash.
+          const prims = w.primitives as unknown as Map<number, P>;
+          const na: P = { ...v.a, id: 200_000 + 2 * f, pos: { x: v.a.pos.x + 2, y: v.a.pos.y + 1 }, bonds: new Set() };
+          const nb: P = { ...v.b, id: 200_001 + 2 * f, pos: { x: v.b.pos.x + 2, y: v.b.pos.y + 1 }, bonds: new Set() };
+          prims.set(na.id, na); prims.set(nb.id, nb);
+          (w.bonds as unknown as Map<number, B>).set(nid, { ...v, id: nid, aId: na.id, bId: nb.id, a: na, b: nb });
         }
       }
       else (w as { tick: number }).tick += Math.floor(rnd() * 20);
@@ -703,3 +709,39 @@ for (const variant of ['v1 new id (homogeneous bucket)', 'v2 reused bond id, in 
     });
   });
 }
+
+/* ⛔ S196 re-audit LOW-B — the auditor's fog-swap test (`reaudit-joiner-lag/.tmp-audit/zzReauditFog.test.ts.txt`), adopted as-is. */
+describe('S196 re-audit LOW-B — fog SWAP in one cell on MINIMAL under a saturated budget', () => {
+  it('the newly hidden enemy connector is gone and the revealed one drawn on the same frame', () => {
+    setTier('MINIMAL');
+    const w = board(5, 200);
+    const prims = w.primitives as unknown as Map<number, P>;
+    const bonds = w.bonds as unknown as Map<number, B>;
+    const mk = (id: number, x: number, y: number, seat: number): P => ({ id, type: 0, pos: { x, y }, placedBy: seat, placerColor: COLORS[1]!, ownerColor: COLORS[1]!, bonds: new Set() });
+    const h1 = mk(8001, 3000, 3000, 2), h2 = mk(8002, 3010, 3006, 2); // seat 2's connector
+    const v1 = mk(8003, 3002, 3004, 3), v2 = mk(8004, 3013, 3001, 3); // seat 3's connector, same look, different geometry
+    for (const p of [h1, h2, v1, v2]) prims.set(p.id, p);
+    const bh: B = { id: 7001, aId: 8001, bId: 8002, a: h1, b: h2, restLength: Math.hypot(10, 6), stiffnessTier: 'MID' };
+    const bv: B = { id: 7002, aId: 8003, bId: 8004, a: v1, b: v2, restLength: Math.hypot(11, 3), stiffnessTier: 'MID' };
+    bonds.set(7001, bh); bonds.set(7002, bv);
+    const keyOf = (b: B): number => Math.floor((Math.round(b.a.pos.x) + Math.round(b.b.pos.x)) / 2 / BOND_CACHE_CELL_PX) * 1024
+      + Math.floor((Math.round(b.a.pos.y) + Math.round(b.b.pos.y)) / 2 / BOND_CACHE_CELL_PX);
+    expect(keyOf(bh)).toBe(keyOf(bv));
+    const K = keyOf(bh);
+    fog.concealedOwner = 3; // seat 3 hidden, seat 2 visible
+    const r = new StructureRenderer(app, new ContainerStub() as never);
+    r.sync(w);
+    const before = opsOf(internals(r).bondBuckets.get(K)!.g);
+    for (const b of bonds.values()) if (b.id < 7000) b.restLength *= 0.7; // saturate the budget, not our cell
+    r.sync(w);
+    fog.concealedOwner = 2; // the SWAP: seat 2 hidden, seat 3 revealed, same count, same look
+    r.sync(w);
+    const ref = new StructureRenderer(app, new ContainerStub() as never);
+    ref.sync(w);
+    const one = (x: StructureRenderer): string => opsOf(internals(x).bondBuckets.get(K)!.g);
+    expect(one(ref)).not.toBe(before); // the swap is visible in the drawing
+    let ghost = 0;
+    while (one(r) !== one(ref) && ghost < 500) { r.sync(w); ghost++; }
+    expect(ghost, 'frames the hidden enemy connector stayed drawn (leak)').toBe(0);
+  });
+});
