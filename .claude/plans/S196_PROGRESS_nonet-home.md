@@ -1,4 +1,4 @@
-NEXT STEP: NONE — fix round 2 (MED-A) complete; awaiting re-audit / merge owner.
+NEXT STEP: FIX ROUND 3 — MED-B: one batch per request (conditional fold + mark seen per id-run), fake DB NOT EXISTS + rollback, rollback test, real SQLite check, mutation; merge master; gates.
 
 # FIX ROUND 2 REPORT (MED-A: a queued run id in two concurrent POSTs)
 - SERVER (worker.js): the read-then-write dedupe (SELECT seen_runs, then fold + mark in one batch) is replaced by an atomic per-run claim: `INSERT OR IGNORE INTO seen_runs` run alone, and the run is folded ONLY if `meta.changes === 1`. Runs without an id are still folded. 24 h TTL unchanged. The claim comes before the fold, so a failed fold drops the run rather than double-counting it. Comment rewritten. Tests (server.worker.test.ts, 3 new): concurrent [r1,new] + [r1] → r1 folded once; 5 concurrent copies → once; NEGATIVE id-less runs folded every time. The fake DB now models INSERT OR IGNORE `changes` faithfully, plus a rendezvous so concurrent requests reach the id check together. Mutations: the old worker → both concurrency tests RED; ignoring `changes` → 3 RED.
