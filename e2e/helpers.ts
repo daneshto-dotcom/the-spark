@@ -36,6 +36,21 @@ export const SPAWNER_RADIUS = 125;
  * slowest measured pass, 59 s).
  */
 export const LOBBY_2PEER_BUDGET_MS = 120_000;
+
+/**
+ * ⭐ S196 (s196/ci, F8) — CONTEXT OPTIONS FOR A SPEC THAT RUNS 3–4 GAME PAGES IN ONE BROWSER.
+ *
+ * The game draws a fixed 1920×1080 stage × `devicePixelRatio` (`main.ts` `app.init`, `autoDensity`), and CI
+ * draws it in SOFTWARE (SwiftShader). Four such pages on one runner starve each other's main thread: on CI
+ * run 37626384765 (`nplayer.spec`, lobby lane, trace in `playwright-lobby-results`) a 200 ms
+ * `page.waitForTimeout` took 30.8 s, one `click` 15.7 s, and the 2nd joiner's TITLE wait (30 s of wall)
+ * expired on its FIRST poll, while the page was still booting — a red that measured the runner, not the
+ * lobby. MEASURED locally, 4 pages, SwiftShader, 8 s: DPR 1 → 25–31 frames per page; DPR 0.5 → 66–74
+ * (backbuffer 960×540, ~2.4× the frames, and every evaluate/click lands that much sooner).
+ * Nothing a lobby/netcode spec asserts is a pixel — seats, colours and states are read from the world, and
+ * `canvasToCss` maps through the canvas's CSS box, which `autoDensity` keeps the same at any DPR.
+ */
+export const MULTI_PAGE_CONTEXT_OPTIONS = { deviceScaleFactor: 0.5 } as const;
 const ZONE_CX = CANVAS_WIDTH / 2;
 const ZONE_CY = CANVAS_HEIGHT / 2;
 
