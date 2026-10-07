@@ -24,7 +24,7 @@
  */
 
 import { Application, Container, Graphics, Sprite } from 'pixi.js';
-import { lookupCombo } from '../combos.ts';
+import { comboView } from './comboView.ts';
 import {
   POOP_FOUL_TINT,
   POOP_FOUL_TINT_STRENGTH,
@@ -95,8 +95,13 @@ export class StructureRenderer {
    * z-order the connectors always had.
    */
   private readonly bondCacheLayer: Container;
-  private readonly bondBuckets = new Map<number, { g: Graphics; hash: number }>();
-  private readonly cacheScratch = new Map<number, { draws: BondDraw[]; hash: number }>();
+  private readonly bondBuckets = new Map<number, BondBucket>();
+  private readonly cacheScratch = new Map<number, { draws: BondDraw[]; hash: number; shape: number }>();
+  /** S196 — buckets whose only change this frame is motion, waiting on the MINIMAL budget (reused, no per-frame alloc). */
+  private readonly motionQueue: Array<{ key: number; bucket: BondBucket; draws: BondDraw[]; hash: number; shape: number }> = [];
+  private cacheFrame = 0;
+  /** S196 — the knobs the cache last drew with: a tier switch redraws everything at once, never on a budget. */
+  private lastKnobs: BondCacheKnobs | null = null;
   private bucketRedraws = 0;
 
   /*
@@ -229,38 +234,74 @@ export class StructureRenderer {
    */
   private drawBondsCached(world: World, knobs: BondCacheKnobs): void {
     const cells = this.cacheScratch;
-    for (const cell of cells.values()) { cell.draws.length = 0; cell.hash = FNV_OFFSET; }
+    for (const cell of cells.values()) { cell.draws.length = 0; cell.hash = FNV_OFFSET; cell.shape = FNV_OFFSET; }
     BOND_CACHE_STATS.frames++;
+    const frame = ++this.cacheFrame;
     forEachBondDraw(world, knobs, (d) => {
       const key = Math.floor((d.ax + d.bx) / 2 / BOND_CACHE_CELL_PX) * 1024 + Math.floor((d.ay + d.by) / 2 / BOND_CACHE_CELL_PX);
       let cell = cells.get(key);
-      if (cell === undefined) cells.set(key, (cell = { draws: [], hash: FNV_OFFSET }));
+      if (cell === undefined) cells.set(key, (cell = { draws: [], hash: FNV_OFFSET, shape: FNV_OFFSET }));
       cell.draws.push(d);
       cell.hash = hashBondDraw(cell.hash, d);
+      cell.shape = hashBondShape(cell.shape, d);
     });
+    const queue = this.motionQueue;
+    queue.length = 0;
+    const budgeted = Number.isFinite(knobs.motionRedrawsPerFrame) && this.lastKnobs === knobs;
+    this.lastKnobs = knobs;
     for (const [key, cell] of cells) {
       let bucket = this.bondBuckets.get(key);
       if (cell.draws.length === 0) {
-        if (bucket !== undefined && bucket.hash !== FNV_OFFSET) { bucket.g.clear(); bucket.hash = FNV_OFFSET; }
+        if (bucket !== undefined && bucket.hash !== FNV_OFFSET) { bucket.g.clear(); bucket.hash = FNV_OFFSET; bucket.shape = FNV_OFFSET; }
         continue;
       }
       if (bucket === undefined) {
-        bucket = { g: new Graphics(), hash: FNV_OFFSET };
+        bucket = { g: new Graphics(), hash: FNV_OFFSET, shape: FNV_OFFSET, lastFrame: 0 };
         this.bondCacheLayer.addChild(bucket.g);
         this.bondBuckets.set(key, bucket);
       }
       BOND_CACHE_STATS.buckets++;
-      if (bucket.hash === cell.hash) continue;
-      bucket.g.clear();
-      for (const d of cell.draws) strokeBondDraw(bucket.g, d);
-      bucket.hash = cell.hash;
-      this.bucketRedraws++;
-      BOND_CACHE_STATS.redraws++;
+      if (bucket.hash === cell.hash) {
+        // ⛔ S196 audit MED-1 — an identical DRAWING by different connectors (a swap at the same geometry) needs no
+        // re-stroke, but the bucket must remember who it now holds, or its next motion is misfiled.
+        bucket.shape = cell.shape;
+        continue;
+      }
+      // ⭐ S196 — a change that is MOTION ONLY (same connectors, same silhouettes, same patterns) waits for the
+      // MINIMAL budget below; anything structural is drawn this frame, exactly as before.
+      if (budgeted && bucket.shape === cell.shape) {
+        queue.push({ key, bucket, draws: cell.draws, hash: cell.hash, shape: cell.shape });
+        continue;
+      }
+      this.restrokeBucket(bucket, cell.draws, cell.hash, cell.shape, frame);
     }
+    if (queue.length === 0) return;
+    // Stalest first, then by key: a total order, so no bucket can starve and two runs pick the same ones.
+    if (queue.length > knobs.motionRedrawsPerFrame) {
+      queue.sort((a, b) => (a.bucket.lastFrame - b.bucket.lastFrame) || (a.key - b.key));
+      BOND_CACHE_STATS.deferred += queue.length - knobs.motionRedrawsPerFrame;
+    }
+    const n = Math.min(queue.length, knobs.motionRedrawsPerFrame);
+    for (let i = 0; i < n; i++) {
+      const q = queue[i]!;
+      this.restrokeBucket(q.bucket, q.draws, q.hash, q.shape, frame);
+    }
+    queue.length = 0;
+  }
+
+  private restrokeBucket(bucket: BondBucket, draws: readonly BondDraw[], hash: number, shape: number, frame: number): void {
+    bucket.g.clear();
+    for (const d of draws) strokeBondDraw(bucket.g, d);
+    bucket.hash = hash;
+    bucket.shape = shape;
+    bucket.lastFrame = frame;
+    this.bucketRedraws++;
+    BOND_CACHE_STATS.redraws++;
   }
 
   private clearBondCache(): void {
-    for (const b of this.bondBuckets.values()) { b.g.clear(); b.hash = FNV_OFFSET; }
+    for (const b of this.bondBuckets.values()) { b.g.clear(); b.hash = FNV_OFFSET; b.shape = FNV_OFFSET; }
+    this.lastKnobs = null;
     this.bondCacheLayer.visible = false;
   }
 
@@ -298,10 +339,19 @@ export interface BondDraw {
   /** The near-break red overlay's alpha, or -1 when the connector is not near breaking. */
   readonly pulseAlpha: number;
   readonly pattern: BondPatternKind;
+  /**
+   * ⛔ S196 audit MED-1 — WHICH connector this is: its id and both shape ids. Never drawn; folded ONLY into
+   * `hashBondShape`, so a cell whose connector SET changes at an equal count and an equal look (a sever + a
+   * same-look placement in one snapshot, a fog swap, a reused id) is STRUCTURAL and drawn on the next frame.
+   */
+  readonly bondId: number; readonly aId: number; readonly bId: number;
 }
 
 /** Measurement probe (read by `scripts/lag/joiner-replay.spec.ts` through a dev-server module import). */
-export const BOND_CACHE_STATS = { frames: 0, buckets: 0, redraws: 0 };
+export const BOND_CACHE_STATS = { frames: 0, buckets: 0, redraws: 0, deferred: 0 };
+
+/** One cache bucket: its Graphics, the full hash it was drawn from, its STRUCTURAL hash, and when it was drawn. */
+interface BondBucket { readonly g: Graphics; hash: number; shape: number; lastFrame: number }
 
 /** ⚠ MINE — the cache bucket size: 15 × 9 buckets on the 1920 × 1080 board (192 px redrew ~40 connectors per change). */
 export const BOND_CACHE_CELL_PX = 128;
@@ -397,9 +447,10 @@ export function forEachBondDraw(world: World, knobs: BondCacheKnobs | null, emit
       : 'none';
     emit({
       ax: snap(a.pos.x), ay: snap(a.pos.y), bx: snap(b.pos.x), by: snap(b.pos.y),
-      visualEffectId: lookupCombo(a.type, b.type).visualEffectId,
+      visualEffectId: comboView(a.type, b.type).visualEffectId, // S196 — memoised, no per-frame string key
       colorA: stressedA, colorB: stressedB,
       alpha: 0.85 * coverAlpha, width, tick, pulseAlpha, pattern,
+      bondId: bond.id as unknown as number, aId: bond.aId as unknown as number, bId: bond.bId as unknown as number,
     });
   }
 }
@@ -443,6 +494,27 @@ export function hashBondDraw(h: number, d: BondDraw): number {
   h = mix(h, Math.round(d.pulseAlpha * 1000));
   h = mix(h, PATTERN_INDEX[d.pattern]);
   return h;
+}
+
+/**
+ * ⭐ S196 — the STRUCTURAL part of a bucket's hash: WHICH connectors it holds (each one's bond id and both
+ * shape ids, in walk order), each one's silhouette and its ownership pattern. Positions, stress tint/width,
+ * cover alpha, foul tint and the clock are deliberately absent — those are the MOTION a MINIMAL budget may defer.
+ *
+ * ⛔ S196 audit MED-1 — the first version folded only the LOOK (silhouette + pattern) and the count, and claimed
+ * a sever, a placement or a fog change always moved the count. Not so: a sever plus a same-look placement in one
+ * snapshot, a fog SWAP (one enemy connector hidden, another revealed in the same cell — the hidden one stayed
+ * drawn: a leak) or a reused id kept count and look equal, and waited up to ~25 frames on the motion budget.
+ * Identity is what makes "structure is never deferred" true.
+ */
+export function hashBondShape(h: number, d: BondDraw): number {
+  let fx = fxIdIndex.get(d.visualEffectId);
+  if (fx === undefined) fxIdIndex.set(d.visualEffectId, (fx = fxIdIndex.size + 1));
+  h = mix(h, d.bondId);
+  h = mix(h, d.aId);
+  h = mix(h, d.bId);
+  h = mix(h, fx);
+  return mix(h, PATTERN_INDEX[d.pattern]);
 }
 
 // S53 P2 — isInsideSpawnerZone(x, y) helper REMOVED (only consumed by

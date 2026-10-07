@@ -25,6 +25,17 @@ import { test, type Page } from '@playwright/test';
 import { readFileSync, existsSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { canvasToCss, hostNewRoom, joinRoom, waitForWorld, CANVAS_WIDTH } from '../../e2e/helpers';
+import { installGfxProbe, readGfxProbe, resetGfxProbe } from './gfxProbe';
+
+const GFXPROBE = process.env.SPARK_LAG_GFXPROBE === '1';
+/**
+ * S196 joiner-lag — INTERLEAVED A/B. On a machine at 100 % load two separate runs disagree by 3×, so a
+ * before/after is taken INSIDE one page: `SPARK_LAG_AB_JS` is a function body `(on) => {…}` that switches the
+ * candidate on/off; the page flips it every `AB_PERIOD_MS` and files each frame's CPU (the DEV frame probe) under
+ * A (off) or B (on), skipping the first frames after each flip. Load drift hits both halves alike.
+ */
+const AB_JS = process.env.SPARK_LAG_AB_JS;
+const AB_PERIOD_MS = Number(process.env.SPARK_LAG_AB_PERIOD_MS ?? 1500);
 
 const DIR = process.env.SPARK_LAG_OUT ?? '.tmp-gates/lag';
 const WAVES = (process.env.SPARK_LAG_WAVES ?? '1,5,8,10,15').split(',').map(Number);
@@ -37,7 +48,9 @@ const FX = TIERS ?? (process.env.SPARK_LAG_FX ?? 'high,low,legacy').split(',');
 const JOINER_URL = process.env.SPARK_LAG_JOINER_URL ?? '/';
 const PROFILE = process.env.SPARK_LAG_PROFILE === '1';
 const WARM_MS = 3000;
-const MEASURE_MS = 8000;
+const MEASURE_MS = Number(process.env.SPARK_LAG_MEASURE_MS ?? 8000);
+/** S196 joiner-lag — keep the fog ON (a real joiner draws it; S195 measured with it off). */
+const FOG = process.env.SPARK_LAG_FOG === '1';
 
 interface Row {
   project: string; wave: number; throttle: number; fx: string; snapKiB: number; injected: number;
@@ -100,6 +113,8 @@ async function installInjector(page: Page): Promise<void> {
       }
       orig(d, p, s);
     };
+    const lt = ((window as unknown as { __lagLong: { n: number; ms: number } }).__lagLong = { n: 0, ms: 0 });
+    try { new PerformanceObserver((l) => { for (const e of l.getEntries()) { lt.n++; lt.ms += e.duration; } }).observe({ type: 'longtask', buffered: false }); } catch { /* unsupported */ }
     let last = performance.now();
     const loop = (now: number): void => { lag.raf.push(now - last); last = now; if (lag.raf.length > 2000) lag.raf.shift(); requestAnimationFrame(loop); };
     requestAnimationFrame(loop);
@@ -159,7 +174,7 @@ test('S195 N9 — joiner cost of a wave-N board, replayed at 10 Hz', async ({ br
   test.skip(!existsSync(join(DIR, `burst-${LABEL}-w${WAVES[0]}.json`)), `run the Node instrument first (${DIR})`);
   const hostCtx = await browser.newContext();
   const joinCtx = await browser.newContext();
-  for (const c of [hostCtx, joinCtx]) await c.addInitScript(() => { (window as { __FOG_DISABLE__?: boolean }).__FOG_DISABLE__ = true; });
+  if (!FOG) for (const c of [hostCtx, joinCtx]) await c.addInitScript(() => { (window as { __FOG_DISABLE__?: boolean }).__FOG_DISABLE__ = true; });
   const host = await hostCtx.newPage();
   const joiner = await joinCtx.newPage();
   const rows: Row[] = [];
@@ -172,6 +187,7 @@ test('S195 N9 — joiner cost of a wave-N board, replayed at 10 Hz', async ({ br
     await host.mouse.click(begin.x, begin.y);
     await waitForWorld(joiner, (w) => w.gameState === 'PLAYING', 'joiner PLAYING', 60_000);
     await installInjector(joiner);
+    if (GFXPROBE) await joiner.evaluate(installGfxProbe);
     await joiner.waitForFunction(() => (window as unknown as { __lag: { live: unknown } }).__lag.live !== null, undefined, { timeout: 20_000 });
     const renderer = await joiner.evaluate(() => {
       const gl = document.createElement('canvas').getContext('webgl');
@@ -206,7 +222,7 @@ test('S195 N9 — joiner cost of a wave-N board, replayed at 10 Hz', async ({ br
           await cdp.send('Emulation.setCPUThrottlingRate', { rate: thr });
           await startInjection(joiner);
           await joiner.waitForTimeout(WARM_MS);
-          await joiner.evaluate(() => { const l = (window as unknown as { __lag: { handle: number[]; raf: number[] } }).__lag; l.handle = []; l.raf = []; });
+          await joiner.evaluate(() => { const l = (window as unknown as { __lag: { handle: number[]; raf: number[] } }).__lag; l.handle = []; l.raf = []; const lt = (window as unknown as { __lagLong: { n: number; ms: number } }).__lagLong; lt.n = 0; lt.ms = 0; });
           const f0 = await joiner.evaluate(() => (window as unknown as { __SPARK__: { frameMs: readonly number[] } }).__SPARK__.frameMs.length);
           void f0;
           const readStats = async (): Promise<{ frames: number; buckets: number; redraws: number; tier?: string; stored?: string | null; urls?: string }> => joiner.evaluate(async () => {
@@ -216,10 +232,34 @@ test('S195 N9 — joiner cost of a wave-N board, replayed at 10 Hz', async ({ br
             return { ...(m.BOND_CACHE_STATS ?? { frames: 0, buckets: 0, redraws: 0 }), tier: t.graphicsTier(), stored: window.localStorage.getItem('display.graphicsTier'), urls: urls.join(' ') };
           });
           const st0 = await readStats();
+          if (GFXPROBE) await joiner.evaluate(resetGfxProbe);
+          if (AB_JS !== undefined) {
+            const ab = await joiner.evaluate(async ([src, period, total]) => {
+              const toggle = (0, eval)(src) as (on: boolean) => void;
+              const g = window as unknown as { __SPARK__: { frameMs: readonly number[]; app: { ticker: { add(f: () => void, c?: unknown, p?: number): void; remove(f: () => void): void } } } };
+              const A: number[] = []; const B: number[] = []; const SA = { sum: 0 }; const SB = { sum: 0 }; let lastStat = NaN;
+              const stat = (): number => { const f = (window as unknown as { __abStat?: () => number }).__abStat; return f === undefined ? 0 : f(); };
+              let on = false; let skip = 0;
+              const tap = (): void => { const fm = g.__SPARK__.frameMs; const v = fm[fm.length - 1]; const sv = stat(); const ds = Number.isNaN(lastStat) ? 0 : sv - lastStat; lastStat = sv; if (v === undefined) return; if (skip > 0) { skip--; return; } (on ? B : A).push(v); (on ? SB : SA).sum += ds; };
+              g.__SPARK__.app.ticker.add(tap, undefined, -60);
+              toggle(false);
+              const t0 = performance.now();
+              while (performance.now() - t0 < total) {
+                await new Promise((r) => setTimeout(r, period));
+                on = !on; toggle(on); skip = 8;
+              }
+              toggle(false);
+              g.__SPARK__.app.ticker.remove(tap);
+              return { A, B, statA: SA.sum / Math.max(1, A.length), statB: SB.sum / Math.max(1, B.length) };
+            }, [AB_JS, AB_PERIOD_MS, MEASURE_MS] as [string, number, number]);
+            const q = (xs: number[], p: number): string => pct(xs, p).toFixed(2);
+            console.log(`AB w${wave} ${fx} ${thr}x  OFF n=${ab.A.length} med ${q(ab.A, 0.5)} p75 ${q(ab.A, 0.75)} p95 ${q(ab.A, 0.95)} | ON n=${ab.B.length} med ${q(ab.B, 0.5)} p75 ${q(ab.B, 0.75)} p95 ${q(ab.B, 0.95)} | med delta ${((100 * (pct(ab.B, 0.5) - pct(ab.A, 0.5))) / pct(ab.A, 0.5)).toFixed(1)} % | stat/frame OFF ${ab.statA.toFixed(2)} ON ${ab.statB.toFixed(2)}`);
+          }
           if (PROFILE) { await cdp.send('Profiler.enable'); await cdp.send('Profiler.setSamplingInterval', { interval: 500 }); await cdp.send('Profiler.start'); }
           await joiner.waitForTimeout(MEASURE_MS);
           if (PROFILE) {
             const { profile } = await cdp.send('Profiler.stop') as unknown as { profile: CpuProfile };
+            writeFileSync(join(DIR, `profile-${process.env.SPARK_LAG_TAG ?? 'x'}-w${wave}-${fx}-${thr}x.cpuprofile`), JSON.stringify(profile));
             console.log(`PROFILE ${info.project.name} w${wave} ${fx} ${thr}x:
 ${topSelf(profile, 30)}`);
             console.log(`INCLUSIVE (src files) ${info.project.name} w${wave} ${fx} ${thr}x:` + String.fromCharCode(10) + topInclusive(profile, 40, /\.ts:/));
@@ -227,10 +267,22 @@ ${topSelf(profile, 30)}`);
           const got = await joiner.evaluate(() => {
             const g = window as unknown as { __lag: { handle: number[]; raf: number[] }; __SPARK__: { frameMs: readonly number[]; world: { creatures: Map<unknown, unknown>; primitives: Map<unknown, unknown>; bonds: Map<unknown, unknown>; effects: unknown[] } } };
             const w = g.__SPARK__.world;
-            return { handle: [...g.__lag.handle], raf: [...g.__lag.raf], frame: [...g.__SPARK__.frameMs].slice(-240),
-              counts: { creatures: w.creatures.size, primitives: w.primitives.size, bonds: w.bonds.size } };
+            const lt = (window as unknown as { __lagLong: { n: number; ms: number } }).__lagLong;
+            return { longTasks: lt.n, longTaskMs: Math.round(lt.ms), handle: [...g.__lag.handle], raf: [...g.__lag.raf], frame: [...g.__SPARK__.frameMs].slice(-600),
+              counts: { creatures: w.creatures.size, primitives: w.primitives.size, bonds: w.bonds.size }, isHost: (w as unknown as { isHost: boolean }).isHost };
           });
           const st1 = await readStats();
+          if (GFXPROBE) {
+            const gp = await joiner.evaluate(readGfxProbe);
+            const f = Math.max(1, gp.frames);
+            const instr = new Map(gp.instr);
+            const fmt = (xs: [string, number][], extra?: Map<string, number>): string => xs.sort((a, b) => b[1] - a[1]).slice(0, 25)
+              .map(([k, v]) => `    ${(v / f).toFixed(2).padStart(8)} /frame${extra ? `  ${((extra.get(k) ?? 0) / f).toFixed(0).padStart(6)} instr/frame` : ''}  ${k}`).join(String.fromCharCode(10));
+            const tot = gp.rebuilds.reduce((a, x) => a + x[1], 0) / f;
+            const totI = gp.instr.reduce((a, x) => a + x[1], 0) / f;
+            const totT = gp.texts.reduce((a, x) => a + x[1], 0) / f;
+            console.log(`GFXPROBE w${wave} ${fx} ${thr}x frames ${gp.frames}: Graphics rebuilds ${tot.toFixed(1)}/frame (${totI.toFixed(0)} instr/frame), Text re-rasters ${totT.toFixed(2)}/frame` + String.fromCharCode(10) + fmt(gp.rebuilds, instr) + String.fromCharCode(10) + '  TEXT' + String.fromCharCode(10) + fmt(gp.texts));
+          }
           const cacheLine = `tier ${st1.tier} stored ${st1.stored} urls ${st1.urls} cache frames ${st1.frames - st0.frames} buckets ${st1.buckets - st0.buckets} redrawn ${st1.redraws - st0.redraws}`;
           await stopInjection(joiner);
           // Render-only baseline: same board, no snapshots arriving, same throttle.
@@ -252,12 +304,15 @@ ${topSelf(profile, 30)}`);
             longFrames: got.raf.filter((x) => x > 50).length, renderer, counts: got.counts,
             idleFpsMed: +pct(idleFps, 0.5).toFixed(1), idleFpsP5: +pct(idleFps, 0.05).toFixed(1), idleFrameMsMed: +pct(idle.frame, 0.5).toFixed(2),
           };
+          // ⛔ S196 joiner-lag — a starved joiner can be PROMOTED to host mid-run (seen: runHostTick +
+          // transmitSnapshot in a "joiner" profile). Its numbers then measure a HOST; refuse them.
+          if (got.isHost) throw new Error(`joiner was PROMOTED to host during w${wave} ${fx} ${thr}x — run contaminated, discard`);
           const want = (JSON.parse(seqs[0]!) as { snapshot: { primitives?: unknown[] } }).snapshot.primitives?.length ?? 0;
           if (Math.abs(got.counts.primitives - want) > Math.max(5, want * 0.1)) {
             throw new Error(`injected board NOT applied: page has ${got.counts.primitives} primitives, recording has ${want}`);
           }
           rows.push(row);
-          console.log(`${row.project} w${wave} ${fx.padEnd(6)} ${thr}x  snap ${row.snapKiB} KiB  handle ${row.handleMsMed}/${row.handleMsP95} ms  frame ${row.frameMsMed}/${row.frameMsP95} ms  fps ${row.fpsMed} (p5 ${row.fpsP5})  long>50ms ${row.longFrames}  injected ${row.injected}  | ${cacheLine} | idle fps ${row.idleFpsMed} (p5 ${row.idleFpsP5}) frame ${row.idleFrameMsMed}  ${JSON.stringify(row.counts)}`);
+          console.log(`${row.project} w${wave} ${fx.padEnd(6)} ${thr}x  snap ${row.snapKiB} KiB  handle ${row.handleMsMed}/${row.handleMsP95} ms  frame ${row.frameMsMed}/${row.frameMsP95} ms  fps ${row.fpsMed} (p5 ${row.fpsP5})  long>50ms ${row.longFrames}  longtasks ${got.longTasks} (${got.longTaskMs} ms)  injected ${row.injected}  | ${cacheLine} | idle fps ${row.idleFpsMed} (p5 ${row.idleFpsP5}) frame ${row.idleFrameMsMed}  ${JSON.stringify(row.counts)}`);
           writeFileSync(join(DIR, `joiner-${info.project.name}-${LABEL}.json`), JSON.stringify({ renderer, rows }, null, 1));
         }
       }
