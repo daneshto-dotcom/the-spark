@@ -54,3 +54,4 @@
 - render-perf audit FIX FIRST (test-only MED-1: real holdForLobby caller untested; LOW-1 cycle check). Fix round sent. joiner-lag → audit; false-migration builder dispatched.
 - boss-release re-audit CLEAN; MED-1 step-back tolerance 12 too tight for lagging joiners → small fix round (60 + tests + derive keep exclusion).
 - win-bar audit CLEAN → builder authorized to do the 70→71 bump (ten sites) + 4 comment LOWs on its branch. ci audit FIX FIRST: HIGH-1 CRLF shebang breaks its two new test files on every Windows checkout (+ watchdog LOW-1..3) → fix round.
+- joiner-desync audit FIX FIRST: fix CONFIRMED (auditor live: master 12→188 s growing; branch flat ~0.6 s; gain = concurrent inflate); MED-1 inflate DoS (no per-sender cap, inflates before authority check) + LOW-2 highest-id + LOW-3 disconnect test → fix round. render-perf merged (mutation of holdForLobby verified red by merge owner) → landing gates s196-land7.
