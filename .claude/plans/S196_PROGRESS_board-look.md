@@ -1,9 +1,10 @@
 # S196 PROGRESS — board-look (backlog #13)
 
 ## NEXT STEP
-Screenshots DONE → C:\Users\onesh\OneDrive\Desktop\SPARK_S196_MatchBoard\ (18 PNG + README.txt). Run 2 (post-fix): 0 over, 0 overlaps,
-0 outside, portraits on every seat page, 0 page errors, all REAL wins (no forced seam used). Waiting: vitest full
-(.tmp-gates/vitest.exit) → build → e2e:gating on 30734 → final report.
+e2e:gating running on port 30734 (own vite) → `.tmp-gates/e2e.exit` / `e2e.log`. Then final report at top of this file.
+Gates so far (merged master 06ba8ae9, docs-only): typecheck 0 · vitest 1 = 9219 passed / 1 failed (endgameAudit MED-1 REACH,
+"Test timed out in 20000ms" under 3 browsers + vitest load; alone → 0, 18/18 — timeout-only, benign) · build 0, entry 1235.5 KiB (+0.0).
+Screenshots DONE → C:\Users\onesh\OneDrive\Desktop\SPARK_S196_MatchBoard\.
 
 ## FIX 1 (271a6cf5 + tests) — SCORE RACE line-end labels overlapped (live team4 run 1: "BOT 3" over "BOT 4", ends 4 px apart)
 `spreadLabelBottoms` (matchBoardLayout.ts, pure, total order y→index, LINE_LABEL_GAP 16 = measured label height) used in
