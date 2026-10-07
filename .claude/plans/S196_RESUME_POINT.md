@@ -4,13 +4,13 @@ Written 2026-10-07 before an expected limit hit. Plan: `.claude/plans/2026-10-07
 
 ## LIVE
 - S196-#1 `7e9d241c` board-look · S196-#2 `6907fb22` net-blip (silent-drop split fix) · S196-#3 `b35368c6` tower-fx — each verify-deploy 4/4.
-- ⏳ S196-#4 `5055efd5` = ui-5 click-offset fix (+ merge-owner LOW-1/LOW-2 test commit), PUSHED on owner order ("everything merged … deployed so I can test"); builder + auditor gates were green on current master. **NEXT STEP 1:** `npm run verify-deploy -- --sha 5055efd5cf7f93c4bbd82ed375b9d5f9b41e6fe4` (FULL sha) and read the local gate files `.tmp-gates/s196-land4/{tc,vt,build,e2e}.exit` (vt: `endgameAudit` timeout = known benign load flake, re-run alone / `--testTimeout=120000`). Then close priority UI5 in session-state (checkpoint 5055efd5) + log.
+- ✅ S196-#4 `5055efd5` ui-5 click-offset — verify-deploy 4/4 (UI5 closed).
 
 ## TREES IN FLIGHT (each agent keeps its exact next step at the TOP of its own progress file; resume by SendMessage to the agent, or a fresh agent given its brief + progress file)
 | tree | worktree | state | progress file |
 |---|---|---|---|
 | s196/team-art | `.claude/worktrees/s196-team-art` | building: (1) 12 single-race prompts → Desktop `SPARK_Team3_Backdrop_Prompts.html` (2) wire his Grok trio JPGs from Downloads into 3v1 (3) `TEAM_SEAM_BLEND_LEGACY_ART` ON | `.claude/plans/S196_PROGRESS_team-art.md` in the worktree |
-| s196/nonet-home | `.claude/worktrees/s196-nonet-home` | FIX ROUND 3: MED-B — worker fold must be ONE atomic D1 batch (NOT EXISTS upsert + INSERT OR IGNORE), verified on real SQLite; then light re-audit; then LAND: ⛔ `npx wrangler deploy` in `server/leaderboard/` BEFORE pushing master (owner approved R196-D3; if wrangler asks for login, ask the owner to sign in). No D1 migration needed. Then canon §9 entry (merge owner doc debt). | `.claude/plans/S196_PROGRESS_nonet-home.md` in the worktree |
+| s196/nonet-home | `.claude/worktrees/s196-nonet-home` | fix round 3 DONE (b02157c2) → RE-AUDIT 3 running. If CLEAN: LAND — ⛔ `npx wrangler deploy` in `server/leaderboard/` BEFORE pushing master (owner approved R196-D3; login = owner signs in). No D1 migration. Then canon §9 doc. | `.claude/plans/S196_PROGRESS_nonet-home.md` in the worktree |
 | s196/boss-release | `.claude/worktrees/s196-boss-release` | building race release flash + crumble rework, derived on peers | `.claude/plans/S196_PROGRESS_boss-release.md` in the worktree |
 
 ## QUEUE (open in order as slots free; cap FOUR trees — R196-0b)
