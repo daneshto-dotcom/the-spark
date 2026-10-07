@@ -5,3 +5,11 @@
 - Revenue share 30% / 25% after $10M / 20% after $50M, since 2018-10-01 (techcrunch/neowin 2018-11/12). 
 - UNVERIFIED: Valve docs silent on web-bought entitlements being usable in Steam build.
 - Pitch Masters plan read (notes/s196-one-login-network 4c23668): Pitch Masters = Godot desktop/web build.
+- developer.apple.com/support/dma-and-apps-in-the-eu/ (last updated 2026-08-18, effective 2026-10-01): EU IAP 26% (15% small biz); alt payment in-app 20% (10%); link-out "Store Services Commission" 15% (10%) on sales within 7 days of tap; Core Technology Commission 5% for alt marketplaces/web distribution.
+- Apple US: Epic injunction 2025-04-30 → link-outs allowed, no commission; 9th Cir 2025-12-11 vacated zero-commission ban, remand; Apple proffer (iclarified 2026-08-14) 15% std / 5% small biz on linked-out; Supreme Court took contempt question 2026-06-30 (courthousenews/macdailynews 2026-08). STATUS UNSETTLED.
+- support.google.com/googleplay/android-developer/answer/17161464: billing choice AU/JP/UK/EEA from 2026-06-30: alt billing 10% first $1M then 20% (new installs)/25% existing; web link-out within 24h ~10%; rules: only own offers, inform user before link, no PII in link. EEA External Offers (answer/16505463): 10%/5% initial acquisition 2y + 17%/7% ongoing (techcrunch 2024-03-06; may be superseded by 2026 structure — verify).
+- Supremacy 1914 (Bytro): one account across web/Steam/Android/Windows; Steam store sells packs as Steam DLC; Green Man Gaming sells packs as keys; browser site has own shop. UNVERIFIED whether web-bought gold appears in Steam client (inferred yes, same account balance).
+- Paddle: 5% + $0.50 MoR (handles VAT in 200+ markets) (paddle pricing via 3rd-party 2026). AUP page shows "Paddle for games" — virtual currency restriction claim CONFLICTING; verify with Paddle.
+- Stripe Managed Payments (MoR) GA in Stripe API Apr 2026: +3.5% on top of Stripe fees (~6.4% all-in domestic, dodopayments 2026). Lemon Squeezy (Stripe-owned since 2024-07) 5%+50c.
+- itch.io: open revenue share default 10%; docs page 403 — VAT/MoR status UNVERIFIED.
+- EU VAT: EU-established seller (France): €10k EU-wide cross-border B2C threshold, then destination VAT via OSS (one quarterly return in France). A MoR removes this entirely.
