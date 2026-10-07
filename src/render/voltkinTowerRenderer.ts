@@ -42,7 +42,9 @@ import { findAllVoltkinChains } from '../state/godlyRecipes/voltkin.ts';
 import { isConcealed } from './concealment.ts';
 import { markTowerCover } from './towerCover.ts';
 import { TOWER_SPRITE_ANCHOR, towerHpFrac, towerStateForHp } from './towerFrames.ts';
-import { fxActive, fxTop } from './fx/fxState.ts';
+import { fxActive, fxGround, fxTop, fxTopShade } from './fx/fxState.ts';
+import { TOWER_SIG_NO_ACT, towerSignatureFx } from './fx/towerSignatureFx.ts';
+import { fxHighQuality } from './fx/fxRuntime.ts';
 import { fxSeed, fxSeedAt } from './fx/emitter.ts';
 import { tvCrackleFx } from './fx/lightningFx.ts';
 
@@ -583,6 +585,15 @@ export class VoltkinTowerRenderer {
       if (fxActive()) {
         const crackle = tvCrackleIntensity(row);
         if (crackle > 0) tvCrackleFx(fxTop(), cx, cy, TV_ART_PX * TV_CRACKLE_R_FRAC, fxSeed(Number(chain[0]), 0x7e1e), world.tick, crackle);
+        /*
+         * ⭐ S196 (owner R196-T1) — the TV's own living signature (`fx/towerSignatureFx.ts` 'tvStatic'): a live
+         * screen — glow, snow, a rolling scanline, now and then a stray arc. Only on the STEADY rows; the
+         * emergence and the death beats keep their crackle above. Same foot the cover mark publishes below.
+         */
+        if (row === 'intact' || row === 'damaged') {
+          towerSignatureFx({ ground: fxGround(), top: fxTop(), shade: fxTopShade() }, 'tvStatic', Number(chain[0]),
+            cx, cy + TV_ART_PX * 0.5, TV_ART_PX, TV_ART_PX, world.tick, !fxHighQuality(), TOWER_SIG_NO_ACT, 0, null);
+        }
       }
 
       /*
