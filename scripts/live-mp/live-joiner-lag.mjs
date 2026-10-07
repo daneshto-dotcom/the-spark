@@ -65,7 +65,7 @@ const mk = async (name, forced) => {
   await p.addInitScript(INIT, {});
   await p.addInitScript(FPS);
   if (forced) await p.addInitScript(FORCE_THROUGH_RELAY, { ctrl });
-  p.on('console', (m) => { const t = m.text(); if (/snapshot frame|keyframe|PEER DROPPED|CONNECTION|starv|applyNetSnapshot rejected/i.test(t)) log(`<${name}>`, t.slice(0, 200)); });
+  p.on('console', (m) => { const t = m.text(); if (/snapshot frame|keyframe|PEER DROPPED|CONNECTION LOST|STARVATION|applyNetSnapshot rejected/i.test(t)) log(`<${name}>`, t.slice(0, 200)); });
   p.on('pageerror', (e) => log(`<${name} PAGEERROR>`, e.message.slice(0, 200)));
   await p.goto(origin + '/?debug=1');
   await clickText(p, /^Multiplayer$/);
