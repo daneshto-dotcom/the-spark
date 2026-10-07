@@ -12,9 +12,10 @@ Written 2026-10-07 before an expected limit hit. Plan: `.claude/plans/2026-10-07
 | s196/team-art | `.claude/worktrees/s196-team-art` | building: (1) 12 single-race prompts → Desktop `SPARK_Team3_Backdrop_Prompts.html` (2) wire his Grok trio JPGs from Downloads into 3v1 (3) `TEAM_SEAM_BLEND_LEGACY_ART` ON | `.claude/plans/S196_PROGRESS_team-art.md` in the worktree |
 | s196/nonet-home | `.claude/worktrees/s196-nonet-home` | fix round 3 DONE (b02157c2) → RE-AUDIT 3 running. If CLEAN: LAND — ⛔ `npx wrangler deploy` in `server/leaderboard/` BEFORE pushing master (owner approved R196-D3; login = owner signs in). No D1 migration. Then canon §9 doc. | `.claude/plans/S196_PROGRESS_nonet-home.md` in the worktree |
 | s196/boss-release | `.claude/worktrees/s196-boss-release` | building race release flash + crumble rework, derived on peers | `.claude/plans/S196_PROGRESS_boss-release.md` in the worktree |
+| s196/accounts-design | `.claude/worktrees/s196-accounts-design` | DESIGN only: reuse Legacy+CNC auth (read-only), cross-domain one login, payments research → `.claude/plans/S196_ACCOUNTS_DESIGN.md` + Desktop `SPARK_Accounts_Design.html` | `.claude/plans/S196_PROGRESS_accounts-design.md` in the worktree |
 
 ## QUEUE (open in order as slots free; cap FOUR trees — R196-0b)
-accounts-design (R196-V2..V5: reuse Legacy of the Realm + CNC auth READ-ONLY; email/Google/Discord/Steam; payments research; design only, report in chat) → #3 s196/ci (incl. ⚠ `endgameAudit.test.ts` MED-1 now times out even alone under load — shorten the run or give it a measured cap, never relax the assertion; F5 F6 F8, tickClock) → #4 s196/net-cpu (+ R196-N1 strongest-machine host: measure CPU + upload + ping in lobby; shared delta package when even) → #11 s196/render-perf.
+#3 s196/ci (incl. ⚠ `endgameAudit.test.ts` MED-1 now times out even alone under load — shorten the run or give it a measured cap, never relax the assertion; F5 F6 F8, tickClock) → #4 s196/net-cpu (+ R196-N1 strongest-machine host: measure CPU + upload + ping in lobby; shared delta package when even) → #11 s196/render-perf.
 
 ## OWNER QUESTIONS OPEN (ask in chat)
 - Hover-highlight (`?hover=1`, screenshots `Desktop\SPARK_S196_HoverHighlight\`): switch on?

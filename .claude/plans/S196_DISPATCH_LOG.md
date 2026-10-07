@@ -27,3 +27,4 @@
 - **DEPLOY S196-#3 `b35368c6`** — s196/tower-fx. Gates typecheck 0 · vitest 1 = endgameAudit MED-1 timeout (alone ALSO timed out at 20 s; --testTimeout=120000 → 18/18; no src/state in the branch) = benign, ⚠ now reds even alone → #3 CI must fix it · build 1250.4 · e2e:gating 67/67 · e2e:render 10/10 · verify-deploy 4/4. Slot → s196/boss-release opened.
 - **DEPLOY S196-#4 `5055efd5`** — s196/ui-5 click-offset fix (+ merge-owner LOW-1/LOW-2). Pushed on owner order ahead of the local gate run (builder + auditor gates green on current master). verify-deploy run 1: FAIL LIVE — local dist was the S196-#3 build (land4 build step had not run) = stale-artifact false fail, ruled; run 2 after the fresh build: 4/4 PASS.
 - NONET fix round 3 DONE (b02157c2: one atomic D1 batch; verified on Python sqlite3 3.50.4 against schema.sql — no npx wrangler download) → light re-audit 3 dispatched.
+- Slot (ui-5 landed) → s196/accounts-design opened (design only).
