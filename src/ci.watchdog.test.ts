@@ -73,6 +73,12 @@ describe('S196 F6 — the decision table', () => {
     const w = await load();
     expect(w.decide({ ...base, workflowName: w.DEPLOY_WORKFLOW, newerDeployRun: true }).action).toBe('superseded');
   });
+  it('⭐ LOW-1: a cancelled / timed_out deploy with a NEWER deploy run is superseded, not an alert', async () => {
+    const w = await load();
+    for (const c of ['cancelled', 'timed_out']) {
+      expect(w.decide({ ...base, workflowName: w.DEPLOY_WORKFLOW, conclusion: c, starvedJobs: [], newerDeployRun: true }).action).toBe('superseded');
+    }
+  });
   it('a deploy that ended cancelled / timed_out WITHOUT starving still alerts (the silent-death class); an e2e one does not', async () => {
     const w = await load();
     for (const c of ['cancelled', 'timed_out']) {
@@ -115,10 +121,22 @@ describe('S196 F6 — REACH through the real I/O path (fetch stubbed with the Gi
   let calls: Call[];
   let runAttempt: number;
   let newerDeploy: boolean;
+  let conclusion: string;
+  let starvedJob: boolean;
+  let rerunStatus: number;
+  let statusAfterRerun: string;
+  let priorIssues: { title: string; state: string }[];
+  let runGets: number;
   beforeEach(() => {
     calls = [];
     runAttempt = 1;
     newerDeploy = false;
+    conclusion = 'failure';
+    starvedJob = true;
+    rerunStatus = 201;
+    statusAfterRerun = 'completed';
+    priorIssues = [];
+    runGets = 0;
     vi.stubEnv('GITHUB_REPOSITORY', 'o/r');
     vi.stubEnv('GITHUB_TOKEN', 't');
     vi.stubGlobal('fetch', async (url: string, init: { method?: string; body?: string } = {}) => {
@@ -127,17 +145,18 @@ describe('S196 F6 — REACH through the real I/O path (fetch stubbed with the Gi
       const u = url.replace('https://api.github.com/repos/o/r', '');
       const json = (status: number, body: unknown) => ({ status, ok: status < 400, text: async () => JSON.stringify(body) });
       if (u === '/actions/runs/37368664339') {
-        return json(200, { id: 37368664339, name: 'Deploy to GitHub Pages', status: 'completed', conclusion: 'failure', run_attempt: runAttempt, workflow_id: 9, head_branch: 'master', head_sha: 'a4a59b77', created_at: '2026-10-05T20:16:01Z', html_url: 'h' });
+        runGets++;
+        return json(200, { id: 37368664339, name: 'Deploy to GitHub Pages', status: runGets > 1 ? statusAfterRerun : 'completed', conclusion, run_attempt: runAttempt, workflow_id: 9, head_branch: 'master', head_sha: 'a4a59b77', created_at: '2026-10-05T20:16:01Z', html_url: 'h' });
       }
-      if (u.startsWith('/actions/runs/37368664339/attempts/')) return json(200, { jobs: [STARVED_BUILD, { id: 2, name: 'deploy', conclusion: 'skipped', steps: [], runner_name: null }] });
+      if (u.startsWith('/actions/runs/37368664339/attempts/')) return json(200, { jobs: [starvedJob ? STARVED_BUILD : { ...STARVED_BUILD, steps: [{}], runner_name: 'GitHub Actions 1' }, { id: 2, name: 'deploy', conclusion: 'skipped', steps: [], runner_name: null }] });
       if (u === `/check-runs/${STARVED_BUILD.id}/annotations`) return json(200, STARVED_ANNOTATIONS);
       if (u.startsWith('/actions/workflows/9/runs')) {
         const runs = [{ id: 37368664339, created_at: '2026-10-05T20:16:01Z' }];
         if (newerDeploy) runs.push({ id: 37384486434, created_at: '2026-10-05T22:45:31Z' });
         return json(200, { workflow_runs: runs });
       }
-      if (u === '/actions/runs/37368664339/rerun') return json(201, {});
-      if (u.startsWith('/issues')) return method === 'POST' ? json(201, { html_url: 'i' }) : json(200, []);
+      if (u === '/actions/runs/37368664339/rerun') return json(rerunStatus, {});
+      if (u.startsWith('/issues')) return method === 'POST' ? json(201, { html_url: 'i' }) : json(200, priorIssues);
       return json(404, { message: `unexpected ${u}` });
     });
   });
@@ -165,6 +184,51 @@ describe('S196 F6 — REACH through the real I/O path (fetch stubbed with the Gi
     expect(posts()).toEqual(['/issues']);
     const body = JSON.parse(calls.find((c) => c.method === 'POST')!.body!) as { title: string };
     expect(body.title).toBe(w.alertTitle('Deploy to GitHub Pages', 37368664339));
+  });
+  it('⭐ LOW-1 REACH: a deploy CANCELLED (not starved) with a newer deploy behind it → superseded, no issue', async () => {
+    conclusion = 'cancelled';
+    starvedJob = false;
+    newerDeploy = true;
+    const w = await load();
+    expect((await w.handleRun(37368664339)).action).toBe('superseded');
+    expect(posts()).toEqual([]);
+  });
+  it('LOW-1 NEGATIVE: the same cancelled deploy with NOTHING newer still opens the alert', async () => {
+    conclusion = 'cancelled';
+    starvedJob = false;
+    const w = await load();
+    expect((await w.handleRun(37368664339)).action).toBe('alert');
+    expect(posts()).toEqual(['/issues']);
+  });
+  it('⭐ LOW-2 REACH: a re-run REFUSED (403) and the run still idle → alert, with the real status in the issue', async () => {
+    rerunStatus = 403;
+    const w = await load();
+    expect((await w.handleRun(37368664339)).action).toBe('alert');
+    expect(posts()).toEqual(['/actions/runs/37368664339/rerun', '/issues']);
+    const issue = JSON.parse(calls.filter((c) => c.method === 'POST')[1]!.body!) as { body: string };
+    expect(issue.body).toMatch(/re-run was refused \(HTTP 403\)/);
+  });
+  it('LOW-2 NEGATIVE: refused because a racing watchdog already re-ran it (run now in_progress) → no alert', async () => {
+    rerunStatus = 403;
+    statusAfterRerun = 'in_progress';
+    const w = await load();
+    expect((await w.handleRun(37368664339)).action).toBe('rerun');
+    expect(posts()).toEqual(['/actions/runs/37368664339/rerun']);
+  });
+  it('⭐ LOW-3 REACH: an alert for this run that a human already CLOSED is not filed again', async () => {
+    runAttempt = 3;
+    const w = await load();
+    priorIssues = [{ title: w.alertTitle('Deploy to GitHub Pages', 37368664339), state: 'closed' }];
+    expect((await w.handleRun(37368664339)).action).toBe('alert');
+    expect(posts()).toEqual([]);
+    expect(calls.some((c) => c.url.includes('/issues?state=all')), 'dedupe reads closed issues too').toBe(true);
+  });
+  it('LOW-3 NEGATIVE: a closed alert for a DIFFERENT run does not suppress this one', async () => {
+    runAttempt = 3;
+    const w = await load();
+    priorIssues = [{ title: w.alertTitle('Deploy to GitHub Pages', 1), state: 'closed' }];
+    await w.handleRun(37368664339);
+    expect(posts()).toEqual(['/issues']);
   });
 });
 
