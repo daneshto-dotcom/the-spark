@@ -1,4 +1,4 @@
-NEXT STEP: when e2e:gating ends, apply .tmp-gates/patch_b.py, patch_pad.py, patch_home.py, patch_main_b.py (Option B edits to existing files), typecheck, update tests (planLaunch stage/clues, reach test door indices, matchCall arcade 2-arg), number-pad tests, e2e campaign shots.
+NEXT STEP: final gates on merged tree (typecheck, vitest, build, e2e:gating) for A+B, then final report at top of this file.
 
 ## OPTION A CHECKPOINT = 1cf7f3b8 (merged master b7f1891d). Gates on that tree: typecheck 0 · build 0 (entry 1237.9 KiB, +2.4 vs 1235.5; homeScreen lazy chunk 8.3 kB) · vitest 1 failed/9257 passed — the one red is src/state/endgameAudit.test.ts TIMEOUT (20 s) under shared-machine load, re-run alone 18/18 exit 0 = BENIGN · targeted e2e nonet-home + zones-visual arcade 2/2 · e2e:gating 68/68 exit 0 (10.5 min, own port; incl. nonet-home + zones-visual arcade). OPTION A GREEN.
 
