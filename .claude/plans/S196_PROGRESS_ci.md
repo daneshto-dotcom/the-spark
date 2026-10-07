@@ -1,7 +1,7 @@
 # S196 PROGRESS — s196/ci
 
 ## NEXT STEP (top, always current)
-- T3: implement fix plan in e2e/tickClock.spec.ts; run it --repeat-each=3 locally on own port + with CPU throttle if possible.
+- T4: nplayer.spec.ts:140 late 4th joiner — read lobby logs .tmp-gates/cilogs/*-e2e-lobby.log, decide CI-network vs real.
 
 ## Log
 - boot: merged master; progress file created.
@@ -14,3 +14,4 @@
 - T2 DONE: .github/workflows/ci-watchdog.yml (+ .mjs beside it) — workflow_run on Deploy+E2E + 30-min cron sweep; re-runs only jobs with the "not acquired by Runner" annotation (cancelled, 0 steps, no runner), max 3 attempts, never re-runs a deploy with a newer deploy run (would publish an older bundle), opens a deduped issue at the cap or on a non-starved cancelled/timed_out deploy. src/ci.watchdog.test.ts 12/12; 3 mutants (no annotation gate / no superseded guard / no POST) each RED. Real run 37368664339 probe: build=starved, deploy(skipped)=not.
 - T3 cause (run 37626384765 trace, playwright-report artifact): tickClock RED on EVERY master E2E run checked (14/14 failing runs; the gating `e2e` lane is red on master every push since ≥10-04), and its 3×90 s attempts push the lane into the 900 s globalTimeout. Frozen negative = mirror shape, budget 4×30+60 = 180 frames of the LIVE page; with two SwiftShader game pages running the live page renders ~1.8 fps (frames 66→183 over 65 s) ⇒ 180 frames ≈ 100 s > the 90 s test timeout. Deterministic on CI, invisible locally (GPU).
   FIX PLAN: close the live context after the REACH half; the frozen fixture becomes a no-render stub page (about:blank + pinned __SPARK__.world.tick) clocking ITSELF, so the frame budget runs at headless rAF rate; negative runs BOTH production shapes (self 60/false = successor simulates, 30/true = mirror).
+- T3 DONE: tickClock.spec — live ctx closed after REACH; frozen fixture = 2 stub pages (pinned tick + own rAF clock); negative runs both production shapes (self 60/false, mirror 30/true). Local: 3/3 x --repeat-each (15.0–15.4 s). REPRODUCED the CI red locally with 8x CDP CPU throttle: OLD = timeout 90 s (FAIL), NEW = pass 39.9 s.
