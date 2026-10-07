@@ -1,7 +1,7 @@
 # S196 PROGRESS — s196/ci
 
 ## NEXT STEP (top, always current)
-- T4: run nplayer late-joiner locally (e2e/nplayer.spec.ts -g "late 4th") detached -> .tmp-gates/np-1.log/.exit; then T5 quarantine Sym F / Sym I --repeat-each=3.
+- T5: quarantine Sym F / Sym I — find specs (grep "Sym F"/"Sym I" e2e), run each --repeat-each=3, verdict.
 
 ## Log
 - boot: merged master; progress file created.
@@ -16,3 +16,5 @@
   FIX PLAN: close the live context after the REACH half; the frozen fixture becomes a no-render stub page (about:blank + pinned __SPARK__.world.tick) clocking ITSELF, so the frame budget runs at headless rAF rate; negative runs BOTH production shapes (self 60/false = successor simulates, 30/true = mirror).
 - T3 DONE: tickClock.spec — live ctx closed after REACH; frozen fixture = 2 stub pages (pinned tick + own rAF clock); negative runs both production shapes (self 60/false, mirror 30/true). Local: 3/3 x --repeat-each (15.0–15.4 s). REPRODUCED the CI red locally with 8x CDP CPU throttle: OLD = timeout 90 s (FAIL), NEW = pass 39.9 s.
 - T4 cause (run 37626384765 lobby, retry1 trace): CI CPU starvation, NOT network and NOT product. The red is at the 2nd joiner (spec line 168), not the late 4th: 200 ms page.waitForTimeout took 30.8 s, a click 15.7 s, the TITLE wait (30 s wall) expired on its first poll while the page booted. Attempts 1/2 hit the 330 s test cap. The gating `e2e-lobby` lane is red on EVERY master run checked because of it. Measured lever: 4 SwiftShader pages, DPR 1 → 25–31 frames/8 s per page; DPR 0.5 → 66–74 (backbuffer 960x540). Fix: helpers MULTI_PAGE_CONTEXT_OPTIONS {deviceScaleFactor 0.5} (additive), nplayer late-joiner contexts use it; no wait/assertion changed.
+- T4 local: nplayer late-joiner 2/2 pass at DPR 0.5 (3.6 min). CI verdict NOT verifiable from this branch (no push) — the merge owner's first master E2E run is the proof.
+- T6 DONE: verify-deploy refactored to exported runVerify (all effects injectable); resolveSha (git rev-parse) fixes F5 — real run `--sha 5a7e8de7`: old = 4/4 FAIL, new = RUN+VERDICT PASS (REMOTE fails only because master really moved to c78f5c58; `--sha c78f5c58` → REMOTE/RUN/VERDICT PASS). LOCAL BUILD STALE verdict (exit 3) via make-style mtime check of deploy.yml's inputs vs dist/index.html, checked before the TURN-injection diagnosis. ⭐ FOUND: deployPathspecs stopped at the S162 comment inside the paths list → returned [src, public] only since S162; fixed. src/ci.verifyDeploy.test.ts 13/13; 4 mutants all RED.
