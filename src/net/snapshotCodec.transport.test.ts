@@ -143,7 +143,15 @@ describe('S195 net-delta — through the real transport', () => {
     const burst: Uint8Array[] = [];
     for (let s = 2; s <= 12; s++) burst.push(...(await sendAndTake(p, snap(s, { moved: s * 3, prims: 200 + s }))));
     await deliver(p, burst);
-    expect(got.map((m) => (m as NetSnapshotMsg).snapshotSeq)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]);
+    // ⭐ S196 (joiner-desync) — LATEST WINS on receive: frames whose inflates finish in the same turn may be
+    // SUPERSEDED unapplied (snapshotCodec.backlog.test.ts). So the contract is: never out of order, never twice,
+    // the newest always lands, and every frame is accounted for as applied or superseded.
+    const seqs = got.map((m) => (m as NetSnapshotMsg).snapshotSeq);
+    for (let i = 1; i < seqs.length; i++) expect(seqs[i]!).toBeGreaterThan(seqs[i - 1]!);
+    expect(seqs[0]).toBe(1);
+    expect(seqs.at(-1)).toBe(12);
+    const st = p.joiner.snapRxStats();
+    expect(st.applied + st.superseded).toBe(12);
     expect(p.rawSeen.at(-1)).toBe(fullWire(snap(12, { moved: 36, prims: 212 })));
   });
 
