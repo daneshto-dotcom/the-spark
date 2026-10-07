@@ -25,13 +25,25 @@
  *      position are all synced), within `BOSS_RELEASE_MATCH_TICKS` of (1) and within `BOSS_RELEASE_MATCH_PX` of
  *      the tower's anchor. That upgrades the crumble to a RELEASE.
  * A tower killed by the enemy has no boss walk out of it, so it crumbles and never releases. A boss that appears
- * with no tower vanishing beside it (none exists in the tree today; a future direct spawn) releases nothing.
+ * with no tower vanishing beside it releases nothing.
+ *
+ * ⚠ ONE SUCH BOSS EXISTS (S196 audit LOW-1): ENDLESS DYNASTY (`state/racial/endlessDynasty.ts`, `risePharaoh`) raises a
+ * Pharaoh within `DYNASTY_PHARAOH_SPREAD` (46 px) of its seat's KEEP. A mummies boss tower broken by the enemy near
+ * that keep in the same window would otherwise read as a release, so a sighting within `BOSS_RELEASE_KEEP_EXCLUDE_PX`
+ * of its owner's keep is never a release.
  *
  * ⚠ "FIRST SEEN", NOT "YOUNG". Like `SpawnerZoneRenderer.trackBirths`, a creature is new when it is absent from
- * the previous tracked frame. And the tracker is UNPRIMED on its first frame and re-primes after a gap (a join, a
- * title return, a stretch in legacy/MINIMAL where it does not run) or a clock that went backwards (a new match):
- * a mid-match joiner sees nothing replayed for a tower that had already gone, and no boss already on the board
- * reads as released.
+ * the previous tracked frame. And the tracker is UNPRIMED on its first frame and re-primes on a NEW MATCH (a
+ * different `World` object, or the world not PLAYING — the S194 F1 boundaries, `towerHealthHold.ts`), after a
+ * forward gap (a join, a stretch in legacy/MINIMAL where it does not run) or a LARGE backwards jump: a mid-match
+ * joiner sees nothing replayed for a tower that had already gone, and no boss already on the board reads as released.
+ *
+ * ⛔ S196 audit HIGH-1 — A SMALL STEP BACK IS NORMAL ON A JOINER, NOT A NEW MATCH. The client steps `world.tick++`
+ * every sim step and each snapshot then sets `world.tick = snap.tick` (`save.ts` `applySnapshotCore`), so the clock
+ * routinely steps back a few ticks. The first cut re-primed on ANY backwards step and deleted a fall whose start was
+ * ahead of the clock, so on a joiner the release died one snapshot after it began. A step back of at most
+ * `PEER_CLOCK_STEP_BACK_TICKS` keeps the tracker primed, a fall is never pruned for being "in the future", and its
+ * drawn age is clamped at 0.
  *
  * ⭐ HOST AND PEER AGREE on the event: the seed is the SPAWNER id and the place is the foot the tower's own
  * renderer published from the ring's centroid — both synced. The start is the tick THIS client saw it, so a peer
@@ -48,6 +60,7 @@ import { isT9TowerId, raceForT9BossType, raceForT9TowerId } from '../../state/t9
 import { T9_TOWER_SPRITE_PX } from '../towerFrames.ts';
 import { BOSS_CRUMBLE_FX_TICKS } from './bossReleaseFx.ts';
 import { fxSeed } from './emitter.ts';
+import { castleAnchor } from '../../state/gatherers/gatherer.ts';
 
 /** A release may be seen up to this many ticks either side of the vanish (two 10 Hz snapshots). MINE. */
 export const BOSS_RELEASE_MATCH_TICKS = 12;
@@ -56,6 +69,24 @@ export const BOSS_RELEASE_MATCH_TICKS = 12;
  * have walked a snapshot's worth (a few px) by the time it is seen. MINE.
  */
 export const BOSS_RELEASE_MATCH_PX = 96;
+/**
+ * How far a joiner's clock may step BACK when a snapshot lands and still count as the same, primed timeline. The
+ * client runs ahead of the last snapshot by at most a snapshot interval or two (6 ticks at 10 Hz) plus jitter. Shared
+ * with `SpawnerZoneRenderer.trackBirths` (S196 audit HIGH-1). MINE.
+ */
+export const PEER_CLOCK_STEP_BACK_TICKS = 12;
+/**
+ * A boss first seen within this many px of its OWNER's keep is never a release: ENDLESS DYNASTY raises Pharaohs there
+ * (46 px spread — `DYNASTY_PHARAOH_SPREAD`). S196 audit LOW-1. MINE.
+ */
+export const BOSS_RELEASE_KEEP_EXCLUDE_PX = 50;
+/**
+ * Is this frame on the same, primed timeline as the last one? Same `World`, PLAYING, and the clock moved by
+ * `-PEER_CLOCK_STEP_BACK_TICKS ..= +maxForward` (S196 audit HIGH-1). PURE.
+ */
+export function sameTimeline(sameWorld: boolean, playing: boolean, gap: number, maxForward: number): boolean {
+  return sameWorld && playing && gap >= -PEER_CLOCK_STEP_BACK_TICKS && gap <= maxForward;
+}
 /** The tracker counts as primed only if its previous frame was at most this many ticks ago (as `trackBirths`). MINE. */
 export const BOSS_RELEASE_PRIME_GAP_TICKS = 30;
 
@@ -99,6 +130,7 @@ export class BossReleaseTracker {
   private sightings: BossSighting[] = [];
   private readonly falls: BossTowerFall[] = [];
   private lastTick = Number.NaN;
+  private lastWorld: World | null = null;
 
   /** Forget everything (title return). The next frame re-primes. */
   reset(): void {
@@ -107,6 +139,7 @@ export class BossReleaseTracker {
     this.sightings.length = 0;
     this.falls.length = 0;
     this.lastTick = Number.NaN;
+    this.lastWorld = null;
   }
 
   /** The towers currently falling (pruned once past `BOSS_CRUMBLE_FX_TICKS`). */
@@ -119,12 +152,13 @@ export class BossReleaseTracker {
   observe(world: World, footOf: (anchorId: number) => ReleaseFoot | null): void {
     const tick = world.tick;
     const gap = tick - this.lastTick;
-    const primed = gap >= 0 && gap <= BOSS_RELEASE_PRIME_GAP_TICKS;
+    const primed = sameTimeline(world === this.lastWorld, world.gameState === 'PLAYING', gap, BOSS_RELEASE_PRIME_GAP_TICKS);
     if (!primed) {
       this.falls.length = 0;
       this.sightings.length = 0;
     }
     this.lastTick = tick;
+    this.lastWorld = world;
 
     // 1 · the tier-9 towers standing now
     const now = new Map<number, TowerSeen>();
@@ -158,7 +192,7 @@ export class BossReleaseTracker {
       if (race === null) continue;
       const id = c.id as unknown as number;
       seen.add(id);
-      if (primed && !this.bossesSeen.has(id)) {
+      if (primed && !this.bossesSeen.has(id) && !nearOwnKeep(world, c.ownerPlayerId as unknown as number, c.pos.x, c.pos.y)) {
         this.sightings.push({ id, race, owner: c.ownerPlayerId as unknown as number, x: c.pos.x, y: c.pos.y, tick });
       }
     }
@@ -197,7 +231,8 @@ export class BossReleaseTracker {
     for (let i = this.falls.length - 1; i >= 0; i--) {
       const f = this.falls[i]!;
       if (BOSS_RELEASE_DEV.loop && tick >= f.startTick) continue; // DEV seam (see above)
-      if (tick - f.startTick >= BOSS_CRUMBLE_FX_TICKS || tick < f.startTick) {
+      // ⛔ never pruned for `tick < startTick` — that is a joiner's routine clock step-back (audit HIGH-1)
+      if (tick - f.startTick >= BOSS_CRUMBLE_FX_TICKS) {
         this.falls.splice(i, 1);
       }
     }
@@ -211,3 +246,12 @@ export class BossReleaseTracker {
  * is outside this tree's file boundary — S196 merge seam: the merge owner may prefer to pin an inline compare there.
  */
 function releaseKey(race: RaceId, owner: number): string { return `${race}/${owner}`; }
+
+/** LOW-1 — is (x, y) within `BOSS_RELEASE_KEEP_EXCLUDE_PX` of `owner`'s keep (where ENDLESS DYNASTY raises Pharaohs)? */
+function nearOwnKeep(world: World, owner: number, x: number, y: number): boolean {
+  if (world.layout === undefined) return false;
+  const k = castleAnchor(owner, world.layout);
+  const dx = x - k.x;
+  const dy = y - k.y;
+  return dx * dx + dy * dy <= BOSS_RELEASE_KEEP_EXCLUDE_PX * BOSS_RELEASE_KEEP_EXCLUDE_PX;
+}
