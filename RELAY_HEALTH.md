@@ -34,6 +34,15 @@ separately ("Removed S193 for REJECTING WRITES"); `src/net/relayLists.test.ts` k
 ⚠ purplerelay.com kept: intermittent "No space left on device" on some writes. ⚠ No replacement added — pick one with a
 FUNCTIONAL write test (a real published event), never a handshake.
 
+## ⭐ S196 (2026-10-07) — not every CONNECTION LOST is a relay
+
+`npm run probe-relays` from the owner's desktop: **6/6** configured relays answered a WebSocket handshake (exit 0).
+A mid-match drop with healthy relays was reproduced with a SILENT network outage (`scripts/live-mp/live-silent-blip.mjs`):
+an outage that ends between the two players' 5 s Trystero closes left the match split for good — a transport defect, not
+signalling (the relay delivered all 24 of the rejoiner's offers; the host never answered). Fixed in `src/net/transport.ts`
+(`shouldCloseDroppedPeerConnection`). Before rotating relays over a "connection lost" report, read the console for
+`[net] PEER DROPPED … cause=network-died` — that line means the peer link died, and the relays are not the suspect.
+
 ## Current relay set (S44 rotation)
 
 ### Nostr (`STRATEGY_FLAGS.nostr = true`, primary)
