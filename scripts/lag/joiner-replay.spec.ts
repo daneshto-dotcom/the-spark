@@ -25,6 +25,9 @@ import { test, type Page } from '@playwright/test';
 import { readFileSync, existsSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { canvasToCss, hostNewRoom, joinRoom, waitForWorld, CANVAS_WIDTH } from '../../e2e/helpers';
+import { installGfxProbe, readGfxProbe, resetGfxProbe } from './gfxProbe';
+
+const GFXPROBE = process.env.SPARK_LAG_GFXPROBE === '1';
 
 const DIR = process.env.SPARK_LAG_OUT ?? '.tmp-gates/lag';
 const WAVES = (process.env.SPARK_LAG_WAVES ?? '1,5,8,10,15').split(',').map(Number);
@@ -176,6 +179,7 @@ test('S195 N9 — joiner cost of a wave-N board, replayed at 10 Hz', async ({ br
     await host.mouse.click(begin.x, begin.y);
     await waitForWorld(joiner, (w) => w.gameState === 'PLAYING', 'joiner PLAYING', 60_000);
     await installInjector(joiner);
+    if (GFXPROBE) await joiner.evaluate(installGfxProbe);
     await joiner.waitForFunction(() => (window as unknown as { __lag: { live: unknown } }).__lag.live !== null, undefined, { timeout: 20_000 });
     const renderer = await joiner.evaluate(() => {
       const gl = document.createElement('canvas').getContext('webgl');
@@ -220,6 +224,7 @@ test('S195 N9 — joiner cost of a wave-N board, replayed at 10 Hz', async ({ br
             return { ...(m.BOND_CACHE_STATS ?? { frames: 0, buckets: 0, redraws: 0 }), tier: t.graphicsTier(), stored: window.localStorage.getItem('display.graphicsTier'), urls: urls.join(' ') };
           });
           const st0 = await readStats();
+          if (GFXPROBE) await joiner.evaluate(resetGfxProbe);
           if (PROFILE) { await cdp.send('Profiler.enable'); await cdp.send('Profiler.setSamplingInterval', { interval: 500 }); await cdp.send('Profiler.start'); }
           await joiner.waitForTimeout(MEASURE_MS);
           if (PROFILE) {
@@ -237,6 +242,17 @@ ${topSelf(profile, 30)}`);
               counts: { creatures: w.creatures.size, primitives: w.primitives.size, bonds: w.bonds.size }, isHost: (w as unknown as { isHost: boolean }).isHost };
           });
           const st1 = await readStats();
+          if (GFXPROBE) {
+            const gp = await joiner.evaluate(readGfxProbe);
+            const f = Math.max(1, gp.frames);
+            const instr = new Map(gp.instr);
+            const fmt = (xs: [string, number][], extra?: Map<string, number>): string => xs.sort((a, b) => b[1] - a[1]).slice(0, 25)
+              .map(([k, v]) => `    ${(v / f).toFixed(2).padStart(8)} /frame${extra ? `  ${((extra.get(k) ?? 0) / f).toFixed(0).padStart(6)} instr/frame` : ''}  ${k}`).join(String.fromCharCode(10));
+            const tot = gp.rebuilds.reduce((a, x) => a + x[1], 0) / f;
+            const totI = gp.instr.reduce((a, x) => a + x[1], 0) / f;
+            const totT = gp.texts.reduce((a, x) => a + x[1], 0) / f;
+            console.log(`GFXPROBE w${wave} ${fx} ${thr}x frames ${gp.frames}: Graphics rebuilds ${tot.toFixed(1)}/frame (${totI.toFixed(0)} instr/frame), Text re-rasters ${totT.toFixed(2)}/frame` + String.fromCharCode(10) + fmt(gp.rebuilds, instr) + String.fromCharCode(10) + '  TEXT' + String.fromCharCode(10) + fmt(gp.texts));
+          }
           const cacheLine = `tier ${st1.tier} stored ${st1.stored} urls ${st1.urls} cache frames ${st1.frames - st0.frames} buckets ${st1.buckets - st0.buckets} redrawn ${st1.redraws - st0.redraws}`;
           await stopInjection(joiner);
           // Render-only baseline: same board, no snapshots arriving, same throttle.
