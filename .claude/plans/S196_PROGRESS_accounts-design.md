@@ -1,7 +1,7 @@
 # S196 PROGRESS — s196/accounts-design (DESIGN + RESEARCH tree, builds nothing)
 
 ## NEXT STEP (top, always current) — PAUSED for usage limit
-1. Legacy of the Realm + CNC read-only auth surveys were dispatched as 2 background agents just before the pause. If their results did not arrive, RE-RUN both surveys (separate small runs, or by hand: Glob **/auth*, **/*login*, **/*session*, schema/migrations, wrangler.toml, package.json; grep handoffs for auth incidents). Never copy secret values.
+1. RESUMED: surveys re-dispatched as 2 separate agents (Legacy, CNC); Pitch Masters note READ (Godot desktop+web). Payments sources accumulating in .tmp-gates/payments_sources.md (Steam done; next Apple/Google/DMA, Supremacy 1914, Stripe/Paddle MoR).
 2. Read (READ-ONLY, `git show`, never checkout/edit) the Pitch Masters plan: repo `Extension Projects/Pitch Masters`, branch `notes/s196-one-login-network`, file `docs/ONE_LOGIN_GAME_NETWORK.md`.
 3. Payments web research (Valve rev share + in-game purchase/steering rules, Apple/Google + EU DMA/US external links, Supremacy 1914 routing, own-site desktop download, Stripe/Paddle/MoR EU VAT) — cite + date each source.
 4. Write `.claude/plans/S196_ACCOUNTS_DESIGN.md` (one-screen owner summary on top) + HTML copy to `C:\Users\onesh\OneDrive\Desktop\SPARK_Accounts_Design.html`. Commit every 5 min.
