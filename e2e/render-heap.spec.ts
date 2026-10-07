@@ -215,8 +215,14 @@ const TEXTURE_LIMIT = 40;
 const CYCLE_RESIDUAL_TOL = 25;
 /** The second match runs past the backdrop hold (`ZONE_BG_HOLD_TICKS` 180) so the backdrop art loads and is released. */
 const CYCLE_TICKS = 240;
-/** ~67 s at the slowest CI rate seen (3.6 ticks/s); the cycle then simply measures fewer ticks, never fails on speed. */
+/** ~67 s at the slowest CI rate seen (3.6 ticks/s); 75 s × 3.6 = 270 ticks, still past the hold below. */
 const CYCLE_WALL_CAP_MS = 75_000;
+/**
+ * S196 audit LOW-1 — `ZONE_BG_HOLD_TICKS` (`zoneBackgroundRenderer.ts`, 3 × 60): no backdrop loads before this
+ * match tick. A cycle whose second match never got past it never loaded (so never released) a backdrop, and
+ * must not pass as if it had — asserted below, together with the backdrop sprites actually being up.
+ */
+const ZONE_BG_HOLD_TICKS = 180;
 
 interface RenderSample {
   heapMB: number;
@@ -496,6 +502,19 @@ test.describe('S124 P3 — F10 render-side heap/census audit (direct mode) @soak
       () => (window as unknown as { __SPARK__: { world: { tick: number } } }).__SPARK__.world.tick,
     );
     const m2 = await waitForTick(page, m2t0 + CYCLE_TICKS, CYCLE_WALL_CAP_MS);
+    // LOW-1: past the hold, and the backdrop art is actually on the board before we leave (DEV probe; the
+    // renderer's private sprite map, read at runtime — one sprite per painted quadrant).
+    let backdropSprites = 0;
+    for (let i = 0; i < 20 && backdropSprites === 0; i++) {
+      backdropSprites = await page.evaluate(
+        () => (window as unknown as { __SPARK__: { zoneBackgroundRenderer: { sprites: Map<number, unknown> } } })
+          .__SPARK__.zoneBackgroundRenderer.sprites.size,
+      );
+      if (backdropSprites === 0) await page.waitForTimeout(500);
+    }
+    console.log(`[S196 RENDER cycle] second match at tick ${m2.tick} (hold ${ZONE_BG_HOLD_TICKS}); backdrop sprites up: ${backdropSprites}`);
+    expect(m2.tick, 'the second match must pass the backdrop hold, or the cycle never loaded a backdrop').toBeGreaterThanOrEqual(ZONE_BG_HOLD_TICKS);
+    expect(backdropSprites, 'the backdrop art loaded in the second match (so the title had something to release)').toBeGreaterThan(0);
     await returnToTitle(page);
     const c2 = await readCensus(page);
     console.log(
