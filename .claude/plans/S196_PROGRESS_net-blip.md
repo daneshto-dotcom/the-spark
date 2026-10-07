@@ -4,6 +4,14 @@
 - Read S195_PROGRESS_net-mp.md, reconnect-hard-blip.spec.ts, reconnectPolicy.ts, transport.ts, scripts/live-mp/*; npm install running.
 
 ## Log
+- RUN r1 (LIGHT_ON_FIRST_DROP, nostr only; .tmp-gates/blip/r1-30000.log, pre-fix code): ⛔ REPRODUCED, MIRROR DIRECTION.
+  Joiner's 5 s close fired at +12.6 s (LIGHT at that instant); host's had not — host ICE back to connected +12.9/+13.5 on
+  the joiner's ORPHAN pc. Joiner: RECONNECTING from +13.8, reconnect attempts +13.8 / +49.2 / +84.7 / +119.9 / +155.2
+  (35 s retry), never recovered. Host: peers=1, no overlay, never left. RELAY TRACE (.tmp-gates/relay-trace.log, joiner
+  RpqCDT=c14, host lcCznE=c13): after the rejoin the joiner sent 24 OFFERS (6 offerIds) to the host's self topic, every
+  one DELIVERED to c13 — and the host sent ZERO answers (its last answer was the pre-blip handshake). That is the S195
+  suspect (signal-handler.mjs:393-398: connectedPeer health `live` -> return) CONFIRMED — and made permanent by the
+  orphan pc answering consent, so it never reads stale. (Run killed at ~+160 s when the fix edit would HMR into it.)
 - SWEEP (nostr only, local relay; logs .tmp-gates/blip/s-<ms>.log):
   · 12 s  — ⛔ REPRODUCED, PERMANENT SPLIT. host ICE disc +5.9, joiner +6.9; LIGHT +12.0; host's Trystero 5 s close fired
     at +12.5 (`PEER DROPPED cause=network-died`) — the SAME instant its orphan pc's ICE went back to connected (+12.5/+13.1).
