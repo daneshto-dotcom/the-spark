@@ -1,11 +1,11 @@
 # S196 PROGRESS — s196/ci
 
 ## NEXT STEP (top, always current)
-- NEXT: read .tmp-gates/e2e-gating.exit + counts, fill the e2e:gating line below, final commit. (e2e:gating running detached.)
+- DONE. Waiting for the independent audit / merge owner. Nothing in flight.
 
-## FINAL REPORT (draft — e2e:gating line pending)
+## FINAL REPORT
 - merge: master 538476e0 merged clean (489ac387), no conflicts. Bump verdict: NONE (no src runtime/wire change). Entry 1263.3 KiB (+0 from this branch).
-- Gates: typecheck 0 · vitest --maxWorkers=3: run 1 (pre-merge) 0 = 9450 pass/14 skip; run 2 (merged, heavy box) 1 = 8 timeout-only reds in botFix/botPersonality/snapshotCodec.differential/s191Perf.differential → re-run alone 0 (85/85), benign · build 0 · e2e:gating: PENDING.
+- Gates: typecheck 0 · vitest --maxWorkers=3: run 1 (pre-merge) 0 = 9450 pass/14 skip; run 2 (merged, heavy box) 1 = 8 timeout-only reds in botFix/botPersonality/snapshotCodec.differential/s191Perf.differential → re-run alone 0 (85/85), benign · build 0 · e2e:gating (own port 37710, merged tree) exit 0 = 72 passed / 1 skipped / 0 failed in 10.2 min (tickClock 15.0 s).
 - T1 endgameAudit: cause = all time in the real host tick at ~350 live pants (linear sim cost, no hot spot). MED-1 now stops at W/2+600 (10 s after the 2nd fall) with regime anti-vacuity asserts. Mutant matrix old == new (fix-removed RED; each half → direct describe; per-seat/double-release → R194-27). R194-27 deliberately NOT shortened: per-seat breach first at t=3121, double release t=3840. MED-1 alone 8.5–9.3 → 4.9–5.3 s; full-suite load 17–30 → 6.6 s (17.1 s on the heaviest box run, still under the cap).
 - T2 F6: cause = GitHub hosted-pool acquisition failure (annotation "not acquired by Runner…", 0 steps, cancelled at 15 min), not our YAML. New ci-watchdog.yml/.mjs: annotation-gated re-run (≤3 attempts), never re-runs a superseded deploy, deduped issue alert at the cap or on a non-starved cancelled/timed_out deploy, 30-min cron sweep. 12 tests, 3 mutants RED. Live only once on master.
 - T3 tickClock: RED on EVERY master E2E run checked (14/14), not 4. Cause = two SwiftShader game pages → clock page at 1.8 fps → 180-frame budget ≈ 100 s > 90 s cap. Fix: close the live page after the REACH half; the negative runs on stub pages (both production shapes). Local 3/3; with 8× CPU throttle old FAIL, new pass.
