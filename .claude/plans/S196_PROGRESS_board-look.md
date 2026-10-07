@@ -1,8 +1,14 @@
 # S196 PROGRESS — board-look (backlog #13)
 
 ## NEXT STEP
-Review quad4 + team4 PNGs (`.tmp-gates/boardlook/<label>/`), then re-run with the mouse moved off-panel before
-screenshots (game cursor dot sat at 960,940), copy PNGs → C:\Users\onesh\OneDrive\Desktop\SPARK_S196_MatchBoard\ + README.txt.
+Run 2 (fix applied, cursor parked) in flight → `.tmp-gates/boardlook/<label>/`; run 1 kept in `.tmp-gates/boardlook-run1/`.
+Gates running: typecheck → `.tmp-gates/typecheck.exit`, vitest full → `.tmp-gates/vitest.exit`, build → `.tmp-gates/build.exit`.
+Then copy PNGs → C:\Users\onesh\OneDrive\Desktop\SPARK_S196_MatchBoard\ + README.txt; e2e:gating on port 30734; final report.
+
+## FIX 1 (271a6cf5 + tests) — SCORE RACE line-end labels overlapped (live team4 run 1: "BOT 3" over "BOT 4", ends 4 px apart)
+`spreadLabelBottoms` (matchBoardLayout.ts, pure, total order y→index, LINE_LABEL_GAP 16 = measured label height) used in
+`drawChart` 'lines'. Tests `matchBoardLineLabels.test.ts` 7: arithmetic ×4, REACH ×2 through real MatchBoard.render, NEGATIVE
+(clear labels unmoved). Mutation (drawn y back to the raw line end) → 2 RED, restored. Board suites 29 files / 540 passed.
 
 ## Findings so far
 - duo2 (1 bot, REAL points win at wave 2, bar 300), quad4 (3 bots, real win wave 3), team4 ([0,0,1,1], real team win
