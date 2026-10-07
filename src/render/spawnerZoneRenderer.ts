@@ -39,14 +39,19 @@ import { isConcealed } from './concealment.ts';
 import {
   TOWER_COVER_DRAW_EPSILON, coverAlphaForBond, coverAlphaForPrim, forEachTowerCoverGroup, resetTowerCoverGroups, towerFootForPrim,
 } from './towerCover.ts';
-import { hubArcFx } from './fx/hubArcFx.ts';
+// ⭐ S196 (owner R196-T1) — every tower's own living signature; the hub's arcs are one of them.
+import { TOWER_SIGNATURE, TOWER_SIG_BIRTH_PRIME_GAP_TICKS, TOWER_SIG_FLARE_TICKS, TOWER_SIG_NO_ACT, defenderSigAct, towerSignatureFx, type TowerSigSinks } from './fx/towerSignatureFx.ts';
+import { getDefenderConfig } from '../state/defenders/defender.ts';
+import { DEFENDER_FIRE_HOLD_TICKS } from '../constants.ts';
+import { raceForTowerId } from '../state/raceTowerIds.ts';
+import { raceForT9TowerId } from '../state/t9BossIds.ts';
 import { BrokenTowerCache } from './brokenTowers.ts';
 import { towerFixSparkleFx, type FixEdge } from './fx/towerSparkleFx.ts';
 import { fxHighQuality } from './fx/fxRuntime.ts';
 import type { Primitive } from '../game/primitive.ts';
 import type { World } from '../state/world.ts';
 import type { PlayerId } from '../types.ts';
-import { fxActive, fxGround, fxTop } from './fx/fxState.ts';
+import { fxActive, fxGround, fxTop, fxTopShade } from './fx/fxState.ts';
 import {
   TOWER_SPARKLE_EPSILON, towerSparkleFx, towerSparkleStrength, type SparkleBond, type SparklePrim,
 } from './fx/towerSparkleFx.ts';
@@ -107,7 +112,7 @@ export class SpawnerZoneRenderer {
     if (fxActive()) {
       this.syncSparkles(world);
       this.syncFixSparkles(world);
-      this.syncHubArcs(world);
+      this.syncTowerSignatures(world);
       return;
     }
     if (world.creatureSpawners.size === 0) return;
@@ -345,19 +350,89 @@ export class SpawnerZoneRenderer {
     }
   }
 
-  /**
-   * ⭐ S194 (V07 leftover) — the lightning hub's arcs (`fx/hubArcFx.ts`). Only while its building is
-   * actually drawn (a published foot), and fogged with it.
+  /*
+   * ⭐ S196 (audit HIGH-1) — **THE BIRTH IS DERIVED CLIENT-SIDE: the first frame a creature is SEEN.**
+   * `Creature.spawnedAtTick` does NOT cross the wire — the peer deserializer sets it to 0 (`save.ts`
+   * `deserializeCreature`; `chewerRenderer`'s split burst says the same) — so the first cut, which read it,
+   * never flared on a joiner. Each frame records the source-spawner creatures present; one that was absent
+   * last frame was born now (the chewer split-burst idiom). ⚠ NOT PRIMED until one frame has been seen, and
+   * re-primed after a gap (a join, a title return, a stretch in legacy/MINIMAL where this does not run, a new
+   * match), so a mid-match joiner does not watch every tower on the board flare at once.
    */
-  private syncHubArcs(world: World): void {
+  /** Source-spawner creatures present last tracked frame (swapped with `birthNow` each frame). */
+  private birthSeen = new Set<number>();
+  private birthNow = new Set<number>();
+  /** Spawner id → the tick one of its creatures was first seen (pruned once past the flare). */
+  private readonly lastBirth = new Map<number, number>();
+  /** The tick of the last tracked frame; NaN = never (not primed). */
+  private birthTrackTick = Number.NaN;
+
+  /** One tracking pass: fills `lastBirth`. */
+  private trackBirths(world: World): void {
+    const tick = world.tick;
+    const gap = tick - this.birthTrackTick;
+    // primed only by a recent previous frame: never-seen (NaN), a new match (clock back), or a gap → re-prime
+    const primed = gap >= 0 && gap <= TOWER_SIG_BIRTH_PRIME_GAP_TICKS;
+    if (!primed) this.lastBirth.clear();
+    const now = this.birthNow;
+    now.clear();
+    for (const c of world.creatures.values()) {
+      const sid = c.sourceSpawnerId;
+      if (sid === null || sid === undefined) continue;
+      const id = c.id as unknown as number;
+      now.add(id);
+      if (primed && !this.birthSeen.has(id)) this.lastBirth.set(sid as unknown as number, tick);
+    }
+    this.birthNow = this.birthSeen;
+    this.birthSeen = now;
+    this.birthTrackTick = tick;
+    for (const [k, t] of this.lastBirth) if (tick - t >= TOWER_SIG_FLARE_TICKS) this.lastBirth.delete(k);
+  }
+
+  /**
+   * ⭐⭐ S196 `s196/tower-fx` (owner R196-T1) — **EVERY TOWER'S SIGNATURE** (`fx/towerSignatureFx.ts`):
+   * *"what you done for the lightning hub is gorgeous … I want that for all the towers."* The S194 hub arcs
+   * (this method's predecessor, `syncHubArcs`) are now one row of `TOWER_SIGNATURE`.
+   *
+   * Drawn only while the building is actually drawn (its renderer published a foot — no art, fogged, atlas
+   * loading ⇒ no foot ⇒ nothing) and fogged with it (the same `isConcealed` the hub used). The Voltkin TV
+   * is the one tower that is neither a spawner nor a defender; `voltkinTowerRenderer` draws its signature.
+   *
+   * ⛔ THE FLARE IS NEVER A `world.effects` PUSH. A spawner's act is the first frame THIS client saw one of
+   * its creatures (`sourceSpawnerId` is on the wire; `spawnedAtTick` is NOT — see `trackBirths`), so host and
+   * peer each see the flare when the creature reaches their screen, a snapshot apart on a peer. A defender's
+   * act is its FSM (`state`, `ticksInState`, `nextFireTick` — all on the wire).
+   */
+  private syncTowerSignatures(world: World): void {
+    this.trackBirths(world); // every fx frame, towers or not, so a tower built later does not flare old units
+    if (world.creatureSpawners.size === 0 && world.defenders.size === 0) return;
+    const sinks: TowerSigSinks = { ground: fxGround(), top: fxTop(), shade: fxTopShade() };
+    const low = !fxHighQuality();
+    const births = this.lastBirth;
     for (const sp of world.creatureSpawners.values()) {
-      if (sp.recipeId !== 'lightningHub') continue;
+      const kind = TOWER_SIGNATURE[sp.recipeId];
+      if (kind === undefined) continue;
       const anchor = world.primitives.get(sp.anchorPrimitiveId);
       if (anchor === undefined) continue;
       const foot = towerFootForPrim(anchor.id);
       if (foot === null) continue;
       if (isConcealed(foot.x, foot.y, anchor.placedBy)) continue;
-      hubArcFx(fxTop(), anchor.id as unknown as number, foot.x, foot.y, foot.w, foot.h, world.tick, !fxHighQuality());
+      const born = births.get(sp.id as unknown as number);
+      const actAge = born === undefined ? TOWER_SIG_NO_ACT : world.tick - born;
+      const race = raceForTowerId(sp.recipeId) ?? raceForT9TowerId(sp.recipeId);
+      towerSignatureFx(sinks, kind, anchor.id as unknown as number, foot.x, foot.y, foot.w, foot.h, world.tick, low, actAge, 0, race);
+    }
+    for (const d of world.defenders.values()) {
+      const kind = TOWER_SIGNATURE[d.recipeId];
+      if (kind === undefined) continue;
+      const anchor = world.primitives.get(d.anchorPrimitiveId);
+      if (anchor === undefined) continue;
+      const foot = towerFootForPrim(anchor.id);
+      if (foot === null) continue;
+      if (isConcealed(foot.x, foot.y, anchor.placedBy)) continue;
+      const cfg = getDefenderConfig(d.kind);
+      const act = defenderSigAct(d.state, d.ticksInState, d.nextFireTick, world.tick, cfg.fireIntervalTicks, DEFENDER_FIRE_HOLD_TICKS);
+      towerSignatureFx(sinks, kind, anchor.id as unknown as number, foot.x, foot.y, foot.w, foot.h, world.tick, low, act.actAge, act.charge, null);
     }
   }
 
@@ -365,6 +440,8 @@ export class SpawnerZoneRenderer {
   clear(): void {
     // ⭐ S194 audit M1 — the title return clears the shapes; forget every tower group and owner with them.
     this.groupOwner.clear();
+    this.birthTrackTick = Number.NaN; // ⭐ S196 — re-prime: the next match's first frame flares nothing
+    this.lastBirth.clear();
     resetTowerCoverGroups();
     this.graphics.clear();
   }
