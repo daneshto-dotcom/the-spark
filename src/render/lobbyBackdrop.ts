@@ -46,6 +46,7 @@ import type { SeatView } from './lobbyStateMachine.ts';
 // ⚠ READ-ONLY IMPORT. `zoneRect` is the board's rectangle, exported in S170 P6 for exactly this
 // kind of second consumer; nothing here writes to or through the board renderer.
 import { zoneRect } from './zoneBackgroundRenderer.ts';
+import { holdForLobby } from './backdropTextureShare.ts';
 
 /**
  * How strongly the lobby backdrop shows through.
@@ -256,7 +257,8 @@ function backdropTexture(url: string): Texture | null {
   if (!texStarted.has(url)) {
     texStarted.add(url);
     void Assets.load(url)
-      .then((t: Texture) => texCache.set(url, t))
+      // ⭐ S196 (L1) — registered as lobby-held so the board backdrop never `Assets.unload`s it from under us.
+      .then((t: Texture) => { texCache.set(url, t); holdForLobby(t); })
       // A missing backdrop is cosmetic by design: that region stays the black the lobby has always
       // been. Recorded as FAILED so the poll below stops asking.
       .catch(() => texFailed.add(url));

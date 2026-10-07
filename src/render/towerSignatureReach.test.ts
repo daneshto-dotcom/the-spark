@@ -265,4 +265,61 @@ describe('S196 REACH (host → snapshot → peer) — the spawner birth flare fi
     expectSubset([...e.ground.out, ...e.top.out, ...e.shade.out], lit, 'the peer flare (actAge 0)');
     expect(lumOf(lit)).toBeGreaterThan(joinLum * 1.1);
   });
+  it('⛔⭐ S196 boss-release audit HIGH-1 — on a JOINER driven by its REAL clock (it steps BACK when a snapshot lands), a birth still flares, and keeps flaring', async () => {
+    const host = built('goblinTower');
+    const sp = [...host.creatureSpawners.values()].find((s) => s.recipeId === 'goblinTower')!;
+    const anchor = sp.anchorPrimitiveId;
+    const mint = (): void => {
+      const id = host.nextCreatureId++;
+      const a = host.primitives.get(anchor)!;
+      host.creatures.set(id as never, makeCreature(CREATURE_CONFIGS.goblinMelee, {
+        id: id as never, ownerPlayerId: P0, pos: { ...a.pos }, targetPos: { ...a.pos }, spawnedAtTick: host.tick, clock: host, sourceSpawnerId: sp.id,
+      }));
+    };
+    const peer = makeWorld(0x5194);
+    toPeer(host, peer);
+    const pub = new StructureRampRenderer(app(), new Container());
+    const foot = await publishFoot(pub, peer, anchor);
+    expect(foot).not.toBeNull();
+    const r = new SpawnerZoneRenderer({} as never, new Container());
+    const peerFrame = (): FxEmitRecord[] => {
+      beginTowerCoverFrame(peer);
+      pub.sync(peer);
+      beginTowerCoverFrame(peer);
+      install();
+      r.sync(peer);
+      return [...hooks.ground.out, ...hooks.top.out, ...hooks.shade.out];
+    };
+    const flareAt = (age: number): FxEmitRecord[] => {
+      const e = { ground: recordingSink(), top: recordingSink(), shade: recordingSink() };
+      towerSignatureFx(e, 'goblinForge', anchor as unknown as number, foot!.x, foot!.y, foot!.w, foot!.h, peer.tick, false, age, 0, null);
+      return [...e.ground.out, ...e.top.out, ...e.shade.out];
+    };
+    // the joiner's loop: tick++ per local step (7 steps), then the host's snapshot (+6) lands and steps it back 1
+    const localSteps = (): void => { for (let k = 0; k < 7; k++) { peer.tick++; peerFrame(); } };
+    peerFrame();
+    localSteps();
+    // ⭐ the goblin arrives ON a step-back frame
+    host.tick += 6;
+    mint();
+    const before = peer.tick;
+    toPeer(host, peer);
+    expect(peer.tick, 'fixture: the snapshot stepped the joiner clock back').toBeLessThan(before);
+    const born = peer.tick;
+    expectSubset(flareAt(0), peerFrame(), 'the peer flare on the step-back frame (actAge 0)');
+    // … and it keeps flaring through the next step-back (age clamped, never re-primed away)
+    for (let k = 0; k < 7; k++) { peer.tick++; peerFrame(); }
+    host.tick += 6;
+    toPeer(host, peer);
+    expectSubset(flareAt(peer.tick - born), peerFrame(), 'still flaring after the next snapshot');
+    // ⛔⭐ S196 re-audit MED-1 — a LAGGING joiner: the next snapshot is ~1 s late, the client runs 60 steps ahead, and the
+    // snapshot then steps the clock back 55. The tracker must stay primed, so a birth on that frame still flares.
+    for (let k = 0; k < 60; k++) { peer.tick++; peerFrame(); }
+    host.tick += 5;
+    mint();
+    const ahead = peer.tick;
+    toPeer(host, peer);
+    expect(ahead - peer.tick, 'fixture: a 55-tick step back').toBe(55);
+    expectSubset(flareAt(0), peerFrame(), 'a birth on a 55-tick step-back frame still flares');
+  });
 });

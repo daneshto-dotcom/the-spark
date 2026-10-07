@@ -18,6 +18,26 @@ import { FX_TEX_SIZE, softTexture } from './softTextures.ts';
 /** Hard ceiling on live sprites per layer. A pathological board degrades to "fewer motes", never to a stall. */
 export const FX_LAYER_MAX_SPRITES = 2400;
 
+/*
+ * ⭐ S196 render-perf (F1) — **THE POOL IS A HIGH-WATER MARK, AND THE RENDER CENSUS MUST BE ABLE TO SAY SO.**
+ *
+ * A pool sprite is created the first frame a layer needs that many at once and is then kept (hidden) for
+ * good — it never shrinks, and `clear()` only hides. So the first big fight of a match grows the stage by a
+ * few hundred display objects that stay. The S195 soak read exactly that as a leak (F1: 1778 → 2017, +239,
+ * of which the three board fx layers were +216 in the S196 attribution run). It is bounded — at most
+ * `FX_LAYER_MAX_SPRITES` per layer — and reused, so it is not one.
+ *
+ * `fxPoolOf` lets the census (`render/renderCensus.ts`) find a layer by its container while it walks the
+ * stage, and report pooled sprites apart from everything else. A WeakMap: a layer that is dropped is
+ * forgotten with it.
+ */
+const POOL_BY_CONTAINER = new WeakMap<Container, FxLayer>();
+
+/** The pooled-sprite count of the `FxLayer` whose container this is, or `undefined` if it is not one. */
+export function fxPoolOf(container: Container): number | undefined {
+  return POOL_BY_CONTAINER.get(container)?.poolSize;
+}
+
 export class FxLayer implements FxSink {
   readonly container: Container;
   private readonly pool: Sprite[] = [];
@@ -29,6 +49,12 @@ export class FxLayer implements FxSink {
     this.container = new Container();
     this.container.label = label;
     this.container.eventMode = 'none';
+    POOL_BY_CONTAINER.set(this.container, this);
+  }
+
+  /** ⭐ S196 (F1) — sprites this layer has ever needed at once (its high-water mark, ≤ `FX_LAYER_MAX_SPRITES`). */
+  get poolSize(): number {
+    return this.pool.length;
   }
 
   begin(): void {
