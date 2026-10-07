@@ -167,6 +167,7 @@ import { beginTowerHealthHoldFrame } from './render/towerHealthHold.ts'; // ⭐ 
 import { ZoneBackgroundRenderer } from './render/zoneBackgroundRenderer.ts';
 import { isFxHighQuality, isZoneBackgroundEnabled } from './render/displayPrefs.ts';
 import { fxBeginFrame, fxClear, fxEndFrame, installFx } from './render/fx/fxRuntime.ts';
+import { renderCensus, type RenderCensus } from './render/renderCensus.ts';
 import { graphicsTier, syncGraphicsTier } from './render/graphicsTier.ts';
 import { noteFrameForTierHint } from './render/tierAdvisor.ts';
 import { makeFxLab } from './dev/fxLab.ts';
@@ -2418,23 +2419,10 @@ Network routes: ${v.detail}`;
       // display-object count over the whole stage + Pixi-managed texture count. A
       // renderer leak (a Graphics/Sprite not destroyed with its entity) shows as census
       // growth DECOUPLED from entity counts, even when heap noise masks it.
-      get renderCensus(): { displayObjects: number; textures: number } {
-        let n = 0;
-        const walk = (c: { children?: readonly unknown[] }): void => {
-          n++;
-          const kids = c.children;
-          if (kids !== undefined) {
-            for (const ch of kids) walk(ch as { children?: readonly unknown[] });
-          }
-        };
-        walk(app.stage);
-        const texSys = (app.renderer as unknown as {
-          texture?: { managedTextures?: { length: number } };
-        }).texture;
-        return {
-          displayObjects: n,
-          textures: texSys?.managedTextures?.length ?? -1,
-        };
+      // ⭐ S196 render-perf (F1) — now `render/renderCensus.ts`: LIVE textures (Pixi nulls a released one in
+      // place, so `.length` never fell) and the fx pools' high-water marks reported apart from real growth.
+      get renderCensus(): RenderCensus {
+        return renderCensus(app.stage, (app.renderer as unknown as { texture?: { managedTextures?: ArrayLike<unknown> } }).texture);
       },
       // S150 P1 — LIVE HUD rectangles (the S85 P4c geometry-getter convention). The e2e HUD audit
       // reads these and asserts that no two of them intersect, in a REAL browser with REAL font
