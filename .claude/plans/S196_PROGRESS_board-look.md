@@ -1,9 +1,9 @@
 # S196 PROGRESS — board-look (backlog #13)
 
 ## NEXT STEP
-Run 2 (fix applied, cursor parked) in flight → `.tmp-gates/boardlook/<label>/`; run 1 kept in `.tmp-gates/boardlook-run1/`.
-Gates running: typecheck → `.tmp-gates/typecheck.exit`, vitest full → `.tmp-gates/vitest.exit`, build → `.tmp-gates/build.exit`.
-Then copy PNGs → C:\Users\onesh\OneDrive\Desktop\SPARK_S196_MatchBoard\ + README.txt; e2e:gating on port 30734; final report.
+Screenshots DONE → C:\Users\onesh\OneDrive\Desktop\SPARK_S196_MatchBoard\ (18 PNG + README.txt). Run 2 (post-fix): 0 over, 0 overlaps,
+0 outside, portraits on every seat page, 0 page errors, all REAL wins (no forced seam used). Waiting: vitest full
+(.tmp-gates/vitest.exit) → build → e2e:gating on 30734 → final report.
 
 ## FIX 1 (271a6cf5 + tests) — SCORE RACE line-end labels overlapped (live team4 run 1: "BOT 3" over "BOT 4", ends 4 px apart)
 `spreadLabelBottoms` (matchBoardLayout.ts, pure, total order y→index, LINE_LABEL_GAP 16 = measured label height) used in
