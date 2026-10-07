@@ -18,13 +18,10 @@ vi.mock('pixi.js', () => {
   return { Container, Text, TextStyle };
 });
 
-const { PLAYER_COLORS, PRIMITIVE_MAX_HP, SparkType, GOBLIN_MELEE_ATK, GOBLIN_MELEE_PEN } =
+const { PLAYER_COLORS, PRIMITIVE_MAX_HP, SparkType } =
   await import('../constants.ts');
 const { makeIdlePlayer } = await import('../game/player.ts');
 const { makeWorld } = await import('../state/world.ts');
-const { razePrimitives } = await import('../state/razePrimitives.ts');
-const { damageEntity, damageConnector } = await import('../state/damage.ts');
-const { attackFifths } = await import('../state/stats.ts');
 const { asBondId, asPlayerId, asPrimitiveId } = await import('../types.ts');
 const { DamageNumbers } = await import('./damageNumbers.ts');
 
@@ -84,7 +81,7 @@ describe('S196 — structure watch: reused entries, same numbers', () => {
     for (let f = 0; f < 5; f++) { a.pos.x += 1; w.tick++; dn.sync(w); }
     const keys1 = [...watch(dn).keys()];
     expect(keys1).toEqual(keys0);
-    keys1.forEach((k, i) => expect(keys1[i]).toBe(keys0[i]));
+    keys1.forEach((k, i) => expect(k).toBe(keys0[i]));
     // shapes and connectors (the per-entity hot loops); castles are four keys and keep their own path
     [...watch(dn).values()].forEach((e, i) => { if (/^[pb]:/.test(keys1[i]!)) expect(e, `entry ${keys1[i]}`).toBe(entries0[i]); });
     expect(keys1.filter((k) => /^[pb]:/.test(k))).toHaveLength(3);
