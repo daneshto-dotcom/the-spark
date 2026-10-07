@@ -436,10 +436,16 @@ export const JOINER_RING = 64;
  * ⚠ MINE (S196 joiner-desync audit MED-1) — the most frames one sender may have INFLATING at once on a receiver.
  * Inflates start on arrival (concurrently, the lag fix), so without a cap a burst of tiny deflate bombs would all
  * expand at once — up to MAX_INFLATED_BYTES each. Beyond the cap only the NEWEST not-yet-started frame is held;
- * the rest are superseded unread. 4 × 2 MiB bounds the worst case at 8 MiB per sender; a healthy 10 Hz stream on
- * a slow joiner measured ≤ ~2 in flight once arrivals are coalesced, so 4 never throttles a real host.
+ * the rest are superseded unread. Only the latched snapshot AUTHORITY is ever inflated (`onSnapFrame`), so this
+ * bounds what the host itself can cost a joiner: 16 × 2 MiB = 32 MiB worst case (the unbounded 500-frame burst
+ * was ~1 GB).
+ * ⛔ MEASURED, NOT GUESSED — 4 WAS TOO FEW. A throttled joiner (CPU 6×, ~2 fps, `live-joiner-lag.mjs`) needs its
+ * inflates to OVERLAP: each one waits on the main thread for several hops, so throughput is concurrency ÷ latency.
+ * The uncapped run peaked at 14 queued and stayed flat; with a cap of 4 the joiner went seconds without an apply,
+ * tripped HOST SNAPSHOT STARVATION, and in one run took over as host (trace `S196_joiner-desync_lag-FIXROUND-
+ * cap4-RED.jsonl`). 16 sits above the measured 14.
  */
-export const MAX_INFLATING_PER_SENDER = 4;
+export const MAX_INFLATING_PER_SENDER = 16;
 
 /** ⚠ MINE — the fastest a joiner re-asks one sender for a keyframe while it has no usable base. */
 export const KEY_REQUEST_MIN_MS = 500;

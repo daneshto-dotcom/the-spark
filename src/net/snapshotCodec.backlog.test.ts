@@ -313,9 +313,9 @@ describe('S196 joiner-desync audit — inflate is bounded and authority-only; ne
       await settle(p);
       const st = p.joiner.snapRxStats();
       expect(st.maxInflating).toBeLessThanOrEqual(MAX_INFLATING_PER_SENDER);
-      expect(MAX_INFLATING_PER_SENDER).toBe(4);
-      // 4 bombs inflated, 46 superseded unread (45 bombs + nothing else), the held newest = the real keyframe.
-      expect(st.superseded).toBe(46);
+      expect(MAX_INFLATING_PER_SENDER).toBeLessThan(50); // the burst genuinely exceeds the cap
+      // 51 arrivals: MAX inflated, every later one but the newest (the real keyframe, held) superseded unread.
+      expect(st.superseded).toBe(51 - MAX_INFLATING_PER_SENDER - 1);
       expect(got).toEqual([1]);
     } finally {
       quiet.mockRestore();
