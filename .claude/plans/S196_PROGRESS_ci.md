@@ -1,7 +1,7 @@
 # S196 PROGRESS — s196/ci
 
 ## NEXT STEP (top, always current)
-- T2: write .github/workflows/ci-watchdog.yml + ci-watchdog.mjs (annotation-gated rerun, max 3 attempts, issue alert) + src/ci.watchdog.test.ts.
+- T3: tickClock.spec.ts:21 CI starvation — read failing E2E run logs (gh run view --log-failed), then spec.
 
 ## Log
 - boot: merged master; progress file created.
@@ -11,3 +11,4 @@
 - T1 mutant matrix old==new kill set: AB→MED-1(483>360)+both direct; A→TOTAL direct; B→VICTIM direct; C→R194-27+VICTIM; D→R194-27. Timings alone (R194-27 / MED-1): old 3.9/8.5, 4.7/9.3 s; new 4.5/4.9, 5.0/5.3 s.
 - T1 full suite --maxWorkers=3 (new file): exit 0, 9450 passed / 14 skipped, 629 files. R194-27 5.4 s, MED-1 6.6 s (was 17–30 s under load). T1 DONE.
 - T2 cause: run 37368664339 attempt 1 — build job runner_name "", 0 steps, cancelled 20:16:01→20:31:04, annotation "The job was not acquired by Runner of type hosted even after multiple attempts" = GitHub hosted-pool acquisition failure, NOT our YAML (timeout-minutes 30, concurrency started fine). Same minute: all 7 e2e jobs of 37368664346 identical. Only incident in last 200 runs.
+- T2 DONE: .github/workflows/ci-watchdog.yml (+ .mjs beside it) — workflow_run on Deploy+E2E + 30-min cron sweep; re-runs only jobs with the "not acquired by Runner" annotation (cancelled, 0 steps, no runner), max 3 attempts, never re-runs a deploy with a newer deploy run (would publish an older bundle), opens a deduped issue at the cap or on a non-starved cancelled/timed_out deploy. src/ci.watchdog.test.ts 12/12; 3 mutants (no annotation gate / no superseded guard / no POST) each RED. Real run 37368664339 probe: build=starved, deploy(skipped)=not.
