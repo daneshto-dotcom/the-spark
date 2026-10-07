@@ -227,9 +227,9 @@ describe('S196 REACH — `SpawnerZoneRenderer.sync` draws every tower\'s signatu
     });
   }
 
-  it('⛔ NEGATIVE — an ENEMY tower in fog draws nothing; the same tower in the open does', () => {
+  for (const fid of ['t3TowerOrcs', 'laserTurret'] as const) it(`⛔ NEGATIVE — an ENEMY ${fid} in fog draws nothing; the same tower in the open does`, () => {
     const fogged = (): any => {
-      const w = towerWorld('t3TowerOrcs', P1, { x: 1700, y: 950 });
+      const w = towerWorld(fid, P1, { x: 1700, y: 950 });
       w.gameMode = '1v1'; w.gameState = 'PLAYING'; w.matchPhase = 'BUILD'; w.localPlayerId = 0;
       return w;
     };
