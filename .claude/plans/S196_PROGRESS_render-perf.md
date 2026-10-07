@@ -1,7 +1,37 @@
 # S196 PROGRESS — render-perf (branch s196/render-perf)
 
 ## NEXT STEP (top, always current)
-Gates script .tmp-gates/gates.sh in flight (e2e:gating then e2e:render; exit files .tmp-gates/g-e2e.exit / g-render.exit; g-all.done when finished). When done: read exits → write FINAL REPORT at top → commit. If resumed and g-all.done is missing: re-run only `npm run e2e:gating` / `npm run e2e:render` with exit files.
+DONE — awaiting the independent audit. Nothing in flight.
+
+## FINAL REPORT
+- Tip: see `git log -1` on s196/render-perf (this commit). Merges: master 7a596837 → 8b60bdcf → 71cfa975 (merge 5feff1be); no conflicts (master brought plans + two risen test files only).
+- **F1 verdict: NOT a display-object leak — pool high-water + one-time lazy UI + a census that counted dead textures.** One real retention found and fixed (L1 backdrop pictures).
+  | source of growth | measured | verdict |
+  |---|---|---|
+  | FxLayer pools (fxTopLight/fxGround/fxTopShade, + sparkGlow, fogMist, title-embers) reach a new high-water when the first fight starts (~tick 5 600) | +216 of S195's +239 (diag v1: +141/+60/+15) | benign, bounded (cap 2 400/layer); now reported as `pooled` |
+  | lazily-built hidden UI on the first match (bot-setup race picker 59, cards ~120, Text 52 …) | +337 once (title0 → title1) | benign, one-time; never repeats |
+  | match cycle title1 → match 2 → title2 (two 7 000-tick bots matches) | residual 809 → 809 (Δ0), pooled +4 | no leak across matches |
+  | textures: Pixi `managedTextures.length` nulls a released texture IN PLACE (compacts only at 10 000) | `.length` can never fall | census bug → now counts LIVE |
+  | textures: lazy race sheets (S169 design) + filter TexturePool POT buckets (4 per size) | +24 per new race cycle | benign, bounded; GC'd idle |
+  | ⭐ zone backdrop pictures (team-art L1): `ZoneBackgroundRenderer.textures` never released | up to 27 trios × 960×540 ≈ 54 MB/session | **LEAK → fixed** |
+- **Fixes + tests**:
+  - `zoneBackgroundRenderer.ts`: `releaseLoaded` (on bake-signature change: Assets.unload every loaded picture the plan no longer names; keeps plan urls, textures still on a sprite, lobby-held textures) + `releaseAll` on TITLE (sprites, bakes, pictures). New `backdropTextureShare.ts` + `lobbyBackdrop.ts` registers its cache (Assets hands both renderers the SAME Texture; unloading it under a lobby sprite would null-deref `source`). Test `zoneBackdropRelease.test.ts` 7 (REACH via real sync over real START_GAME worlds; 3 negatives; 27-trio arithmetic ≤ 2 held). 4 mutations each caught.
+  - Census: `render/renderCensus.ts` {displayObjects, pooled, poolCap, textures(LIVE), textureSlots}; `FxLayer` registers in a WeakMap (`fxPoolOf`, `poolSize`). `renderCensus.test.ts` 4; 2 mutations caught.
+  - `e2e/render-heap.spec.ts`: asserts the RESIDUAL (displayObjects − pooled), `pooled ≤ poolCap`, and a C1 title → second match (240 ticks, cap 75 s) → C2 title cycle (residual Δ < 25, live textures Δ < 40). Local soak exit 0 (9.0 min): residual Δ1 vs 36; cycle residual 808 → 808. SETUP_AND_SAMPLES_MS 240 → 300 s.
+- **F3 table** (real GPU ANGLE/D3D11 RTX 4070 Ti SUPER; `e2e/render-bench.spec.ts`, opt-in SPARK_PERF=1; board: 19 blueprints = every kind over 4 seats/races, ~130–138 creatures; interleaved round-robin; render CPU = Pixi render + renderer-sync block, sim excluded; ⚠ machine NOT quiet — other trees held CPU at 100%, 28 node procs):
+  | tier | render median ms (run2 / run1) | paired Δ vs same tier + legacy (run2 mean ±95% CI / median) | fx sprites |
+  |---|---|---|---|
+  | HIGH | 5.0 / 5.3 | +0.37 ±0.83 / +0.4 (run1 median +0.5) | ~171–191 |
+  | LOW | 4.9 / 4.7 | +0.71 ±0.35 / +0.55 (run1 +0.4) | ~150–165 |
+  | MINIMAL | 4.4 / 4.5 | +0.04 ±0.12 / 0.0 | 0 |
+  | MINIMAL vs `?fx=legacy` (HIGH+legacy) | — | −0.73 ±0.91 / −0.3 (MINIMAL is CHEAPER: bond cache) | — |
+  Whole-frame median Δ HIGH: +0.1 / +0.6. S195's +1.4–1.5 was whole-frame MEANS on a noisy box (here run1 HIGH mean Δ is +1.7 — tail noise). Verdict: the visual stack costs ~+0.4–0.5 ms render CPU on HIGH (inside +1.0 and the owner's 1.4); MINIMAL ≈ 0 over legacy. No cuts, no candidates needed. ⚠ CPU clocks only — the bloom's GPU time is not measured.
+- **Gates** (exit codes from files): typecheck 0 · vitest 1 → 4 TIMEOUT-only reds (structureRenderer.tiers memory fuzz, bondTargetIndex.differential, endgameAudit ×2 = known flake) on a 100%-CPU box, each file re-run alone exit 0 (19/6/18) → 9 474 pass / 14 skip / 639 files · build 0 · e2e:gating 0 (72 passed, 1 skipped) · e2e:render 0 (10 passed) · soak render-heap 0 (local). After the final master merge (2 new test files only): typecheck 0 + those files + mine + ci.e2eLanes 0.
+- **Entry**: 1264.3 KiB vs master 71cfa975 1263.3 KiB (built side by side) → **+1.0 KiB** mine.
+- **Bump verdict: NONE.** Render/DEV-only: nothing on the wire, in the hash, or in the sim.
+- **MINE**: (1) `CYCLE_RESIDUAL_TOL` 25 (measured Δ0, n=2) — recommend keep. (2) SETUP_AND_SAMPLES_MS 240 → 300 s fills the e2e-soak lane exactly (3 480 s = 58 min): recommend the ci tree adds ~2 min of PW headroom to e2e-soak when it next touches e2e.yml. (3) FxLayer pools never shrink (bounded 2 400/layer, hidden sprites are cheap) — recommend leave. (4) title-embers: a SECOND TitleBackdrop (~476 pooled sprites) appears after the first match — two title backdrops alive; harmless but worth a look by whoever owns titleBackdrop. (5) Bench: GPU cost unmeasured (needs EXT_disjoint_timer_query) — only matters for the brother's weak PC; MINIMAL is the lever and already ≈ legacy.
+- **Merge seams**: `src/main.ts` — the DEV `renderCensus` getter now delegates (5 lines + 1 import). `e2e/render-heap.spec.ts` constants (ci.e2eLanes reads SETUP_AND_SAMPLES_MS; no hunk in `ci.e2eLanes.test.ts` — untouched, s196/ci owns it). `src/render/fx/fxLayer.ts` WeakMap registration (constructor). `zoneBackgroundRenderer.ts` sync() top + prune block (team-art area). `lobbyBackdrop.ts` one line. `towerSignatureFx.ts`/spawnerZoneRenderer birth tracker read: no retention (emit into pooled layers; tracker bounded and cleared).
+- **NOT DONE**: an e2e MUTATION of the cycle assertion (it is arithmetic-tested in renderCensus.test.ts only); a quiet-machine F3 run (none was available tonight); GPU-time measurement.
 
 ## Log
 - boot: merged master 7a596837 (fast-forward of plans/session-state only).
