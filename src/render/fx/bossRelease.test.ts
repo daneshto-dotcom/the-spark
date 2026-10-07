@@ -18,15 +18,23 @@ import {
   BOSS_CRUMBLE_FX_TICKS, BOSS_RELEASE_TICKS, bossCrumbleFx, bossReleaseFx, type BossReleaseSinks,
 } from './bossReleaseFx.ts';
 import {
-  BOSS_RELEASE_DEV, BOSS_RELEASE_MATCH_PX, BOSS_RELEASE_MATCH_TICKS, BOSS_RELEASE_PRIME_GAP_TICKS, BossReleaseTracker,
+  BOSS_RELEASE_DEV, BOSS_RELEASE_KEEP_EXCLUDE_PX, BOSS_RELEASE_MATCH_PX, PEER_CLOCK_STEP_BACK_TICKS, BOSS_RELEASE_MATCH_TICKS, BOSS_RELEASE_PRIME_GAP_TICKS, BossReleaseTracker,
 } from './bossReleaseTrack.ts';
 import { recordingSink, type FxEmitRecord } from './emitter.ts';
+import { castleAnchor } from '../../state/gatherers/gatherer.ts';
 
 /* ── a hand-made world: only what the tracker reads ─────────────────────────────────────────── */
 
 interface T { id: number; race: RaceId; owner: number; anchor: number; x: number; y: number }
 interface B { id: number; race: RaceId; owner: number; x: number; y: number }
-function world(tick: number, towers: readonly T[], bosses: readonly B[]): World {
+/**
+ * ONE world object, reused frame after frame — exactly as a client's `World` is (a snapshot rewrites it in place).
+ * ⛔ S196 audit HIGH-1: a different World object is a NEW MATCH to the tracker, so a fresh object per frame would
+ * re-prime it every frame. `freshWorld()` is the deliberate new-match case.
+ */
+const SHARED = { gameState: 'PLAYING', layout: 'PITCH_2P' } as Record<string, unknown>;
+function freshWorld(): Record<string, unknown> { return { gameState: 'PLAYING', layout: 'PITCH_2P' }; }
+function world(tick: number, towers: readonly T[], bosses: readonly B[], into: Record<string, unknown> = SHARED): World {
   const creatureSpawners = new Map<number, unknown>();
   const primitives = new Map<number, unknown>();
   for (const t of towers) {
@@ -35,7 +43,8 @@ function world(tick: number, towers: readonly T[], bosses: readonly B[]): World 
   }
   const creatures = new Map<number, unknown>();
   for (const b of bosses) creatures.set(b.id, { id: b.id, type: T9_BOSS_TYPE[b.race], ownerPlayerId: b.owner, pos: { x: b.x, y: b.y } });
-  return { tick, creatureSpawners, primitives, creatures } as unknown as World;
+  Object.assign(into, { tick, creatureSpawners, primitives, creatures });
+  return into as unknown as World;
 }
 const FOOT = { x: 400, y: 520, w: 150, h: 150 };
 const footOf = () => FOOT;
@@ -92,14 +101,54 @@ describe('S196 R196-T2 — the release DERIVER', () => {
     expect(tr2.current()[0]!.released, 'primed by one frame, a real release plays').toBe(true);
   });
 
-  it('⛔ a GAP (tab hidden, legacy/MINIMAL stretch) or a clock that went BACKWARDS re-primes: no stale release', () => {
+  it('⛔ a GAP (tab hidden, legacy/MINIMAL stretch) or a LARGE backwards jump re-primes: no stale release', () => {
     const gap = run([[100, [tower], []], [100 + BOSS_RELEASE_PRIME_GAP_TICKS + 1, [], [bossAt()]]]);
     expect(gap.current().length).toBe(0);
     const back = run([[900, [tower], []], [10, [], [bossAt()]]]);
     expect(back.current().length).toBe(0);
+    const pastTolerance = run([[100, [tower], []], [100 - PEER_CLOCK_STEP_BACK_TICKS - 1, [], [bossAt()]]]);
+    expect(pastTolerance.current().length, 'a step back past the tolerance is a new timeline').toBe(0);
     // and a fall in flight is dropped by a gap (it would otherwise jump to a stale age)
     const drop = run([[100, [tower], []], [106, [], [bossAt()]], [106 + BOSS_RELEASE_PRIME_GAP_TICKS + 1, [], [bossAt()]]]);
     expect(drop.current().length).toBe(0);
+  });
+
+  it('⛔⭐ S196 audit HIGH-1 — a JOINER\'s routine clock STEP-BACK keeps the fall alive and primed', () => {
+    // the peer ran 7 local ticks past the release, then the host's next snapshot (+6) set the clock back 1
+    const tr = run([[100, [tower], []], [106, [], [bossAt()]], [113, [], [bossAt()]], [112, [], [bossAt()]]]);
+    expect(tr.current().length, 'the fall survived the step back').toBe(1);
+    expect(tr.current()[0]!.released).toBe(true);
+    // a release that lands ON a step-back frame is still caught (the tracker stays primed)
+    const tr2 = run([[100, [tower], []], [107, [tower], []], [104, [], [bossAt()]]]);
+    expect(tr2.current().length).toBe(1);
+    expect(tr2.current()[0]!.released, 'released on the step-back frame').toBe(true);
+    // ⛔ never pruned for `tick < startTick`: the clock may step back below the tick the fall was seen on
+    const tr3 = run([[100, [tower], []], [109, [], [bossAt()]], [106, [], [bossAt()]]]);
+    expect(tr3.current().length).toBe(1);
+    expect(tr3.current()[0]!.startTick).toBe(109);
+  });
+
+  it('⛔ a NEW MATCH re-primes: a different World object, or the world not PLAYING', () => {
+    const tr = new BossReleaseTracker();
+    tr.observe(world(100, [tower], []), footOf);
+    tr.observe(world(106, [], [bossAt()], freshWorld()), footOf);
+    expect(tr.current().length, 'a new World is a new match').toBe(0);
+    const tr2 = new BossReleaseTracker();
+    tr2.observe(world(100, [tower], []), footOf);
+    SHARED.gameState = 'WIN';
+    try { tr2.observe(world(106, [], [bossAt()]), footOf); } finally { SHARED.gameState = 'PLAYING'; }
+    expect(tr2.current().length, 'not PLAYING re-primes').toBe(0);
+  });
+
+  it('⛔ S196 audit LOW-1 — an ENDLESS DYNASTY Pharaoh rising at its own keep is never a release', () => {
+    const keep = castleAnchor(0, 'PITCH_2P' as never);
+    const near: T = { ...tower, race: 'mummies', x: keep.x + 80, y: keep.y };
+    const pharaoh = (dx: number): B => ({ id: 77, race: 'mummies', owner: 0, x: keep.x + dx, y: keep.y });
+    // the tower is broken (no boss of its own) while a dynasty Pharaoh rises 40 px from the keep, in range of it
+    expect(run([[100, [near], []], [106, [], [pharaoh(40)]]]).current()[0]!.released).toBe(false);
+    // control: the same boss 60 px out (past the exclusion) does read as the release
+    expect(run([[100, [near], []], [106, [], [pharaoh(60)]]]).current()[0]!.released).toBe(true);
+    expect(BOSS_RELEASE_KEEP_EXCLUDE_PX).toBeGreaterThanOrEqual(46); // DYNASTY_PHARAOH_SPREAD
   });
 
   it('⭐ two towers of one seat releasing in one tick each claim their OWN boss (nearest, then smaller id)', () => {
