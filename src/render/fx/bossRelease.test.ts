@@ -139,7 +139,8 @@ describe('S196 R196-T2 — the release DERIVER', () => {
 
 /* ── the drawers ────────────────────────────────────────────────────────────────────────────── */
 
-function sinks(): BossReleaseSinks & { all(): FxEmitRecord[]; shocks: number } {
+type Rec = ReturnType<typeof recordingSink>;
+function sinks(): BossReleaseSinks & { ground: Rec; top: Rec; shade: Rec; all(): FxEmitRecord[]; shocks: number } {
   const g = recordingSink(), t = recordingSink(), s = recordingSink();
   const o = { ground: g, top: t, shade: s, shocks: 0, shock: { shock() { o.shocks++; } }, all: () => [...g.out, ...t.out, ...s.out] };
   return o;
