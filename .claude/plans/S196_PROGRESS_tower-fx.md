@@ -1,9 +1,71 @@
 # S196 PROGRESS — tower-fx (branch s196/tower-fx)
 
 ## NEXT STEP (exact)
-- DONE: everything incl. gates on merge 1 (typecheck 0, vitest 0 9276, build 0 1249.6KiB, e2e:gating 0 67, e2e:render 0 10). Merged master 7e9d241c; NOW re-running all gates on the merged tree (.tmp-gates/final-*.exit), then write the final report.
-  then wire `SpawnerZoneRenderer.syncTowerSignatures` (fx path; replaces syncHubArcs) + the TV idle static in
-  `voltkinTowerRenderer` fx block; then tests `towerSignature.test.ts`.
+- NONE — tree complete, awaiting the independent audit + merge. (Tip = the commit that carries this line.)
+
+## FINAL REPORT
+- Merges: master c8239570 → 9ddf5027 (plans only) → 7e9d241c (board-look: matchBoardLayout + its test). No conflicts.
+- Gates on the merged tree (exit codes from files, `.tmp-gates/final-*.exit`): typecheck **0** · vitest **0**
+  (617 files / 9285 passed, 14 skipped) · build **0** · e2e:gating **0** (67 passed) · e2e:render **0** (10 passed).
+- Entry: **1249.6 KiB / 1350**. Boot was 1235.5 → **+14.1 KiB**, all mine (`towerSignatureFx.ts` measures 13.6 KiB
+  minified on its own with esbuild).
+- Bump verdict: **NONE.** Render-only. No sim, wire, hash or serialize change. Every input it reads is already
+  synced (creature `spawnedAtTick`/`sourceSpawnerId`, defender `state`/`ticksInState`/`nextFireTick`, the cover foot).
+  Two builds that shake hands compute the same sim.
+- Per-tier frame cost, interleaved ON/OFF. Board: 10 towers covering every kind (orc seat), 140 creatures.
+  The OFF state empties `TOWER_SIGNATURE` at runtime, which equals master for the record towers.
+
+  | tier | run 1 Δmean | run 2 Δmean (6 rounds) | sprites ON / OFF |
+  |---|---|---|---|
+  | HIGH | +0.74 ms | +0.38 ms | ~575 / ~262 |
+  | LOW | +1.16 ms (p95 noise) | +0.58 ms | ~277 / ~122 |
+  | MINIMAL | −1.2 (noise) | +0.19 (noise) | 0 / 0 (draws nothing) |
+
+  Inside the owner's 1.4 ms. The machine was shared with 7 trees, so run 2 is the steadier one.
+- Screenshots: `C:/Users/onesh/OneDrive/Desktop/SPARK_S196_TowerFx/` holds a README, 12 boards at 1920×1080
+  (6 races × idle/acting), and per tower (19) a 2× close-up, an ACTING close-up and a 16-frame moving GIF. It also
+  has a BEFORE board (master: no signatures, but the new TV static still draws) and a MINIMAL/legacy board.
+- Tests: `fx/towerSignature.test.ts` (57) covers:
+  - census: every `ALL_BLUEPRINT_IDS` id has a signature; `Record<GodlyId,…>` also makes tsc refuse a new id without one;
+  - per kind: deterministic, alive, LOW lighter, no normal blend on the bloomed layer, flare on act, charge;
+  - REACH through the real `SpawnerZoneRenderer.sync` for all 18 record towers;
+  - negatives: no foot, MINIMAL/legacy, enemy in fog (spawner + defender);
+  - flare read off synced births and the FSM;
+  - charge continuity.
+
+  `towerSignatureReach.test.ts` (8) builds towers through the real reducer, matcher and host tick. The real
+  publisher draws them, and the exact expected sprite set must reach the frame. Covered: laser, helga, stink,
+  goblin, pentagram, hub, a tier-3, and the Voltkin TV (+ its legacy negative).
+- Mutations run by hand, all caught: M1 the spawner flare ignores births · M2 the spawner fog gate is dropped ·
+  M3 the defender fog gate is dropped. The file was restored each time and status was clean.
+- Self-audit fix: the defender charge restarted at 0 at the WINDUP, so the stink fumes thinned abruptly at the
+  throw. It is now continuous, and a test pins it.
+- Merge seams:
+  - `spawnerZoneRenderer.ts`: `syncHubArcs` is replaced by `syncTowerSignatures`, and the hub is one row of the table.
+  - `voltkinTowerRenderer.ts`: one block in its fx branch.
+  - No shared infrastructure touched (no matchBoard*, arcade, sim).
+- ⚠ Local capture caveat: vite ignores `**/.claude/**`, so a worktree dev server serves STALE code after an edit
+  until it restarts (`.tmp-gates/fx/restart-vite.sh`). It cost one capture round here.
+
+### MINE (owner LOOK items, one line each, with a recommendation)
+1. Every look, colour, size and timing in `towerSignatureFx.ts`. Recommend: approve as shipped and overrule per
+   tower from the GIFs.
+2. Laser core glow size (0.5–0.85 × art width): bold, and may wash the gun. Recommend: keep, trim if he says so.
+3. Per-race/tier crown heights (`RACE_CROWN_FRAC`), measured by eye off the art. Recommend: keep.
+4. Flare length 36 ticks (`TOWER_SIG_FLARE_TICKS`). Recommend: keep.
+5. Helga's flare plays at her HALL when she slaps (she may be far away). Recommend: keep, since it reads as the
+   hall cheering.
+6. The pentagram fire is red even on a demon seat, where the building is tinted violet. Recommend: ask whether
+   it should follow the tint.
+7. The size unit `sigUnit` = max(1, artH/90). Recommend: keep.
+
+### NOT DONE
+- The castle keep has no signature: it is not a GodlyId/buildable tower, and its renderer is outside this file
+  boundary. Recommend: a follow-up if he wants it.
+- Bench coverage: one race's motif on the board (orcs, the heaviest). The other five races were not benched.
+  Their counts are equal or lower by construction.
+- The t9 boss towers release and crumble after 300 ticks in a real match. For the capture and the bench I held
+  `nextSpawnTick` via a dev lever.
 
 ## INVENTORY (verified against the tree, S196)
 All 19 `GodlyId`s. "Drawn by" = the renderer that commits the building sprite + publishes the cover foot.
