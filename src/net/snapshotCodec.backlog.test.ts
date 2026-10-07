@@ -143,8 +143,9 @@ describe('S196 joiner-desync — the decision: pickSnapFrame', () => {
   });
 
   it('⛔ NEGATIVE — a newer delta whose base is NOT held never wins over an older rebuildable frame', () => {
-    expect(NetTransport.pickSnapFrame([t(5, 0), t(6, 99)], 4, holds([3]))).toBe(0);
-    expect(NetTransport.pickSnapFrame([t(6, 99)], 4, holds([3]))).toBe(-1);
+    // (a header's base must be < its fid, or it is malformed rather than base-less — hence fids past 99)
+    expect(NetTransport.pickSnapFrame([t(105, 0), t(106, 99)], 104, holds([103]))).toBe(0);
+    expect(NetTransport.pickSnapFrame([t(106, 99)], 104, holds([103]))).toBe(-1);
   });
 });
 
