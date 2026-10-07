@@ -9,6 +9,10 @@
 
 Written 2026-10-07 before an expected limit hit. Plan: `.claude/plans/2026-10-07_S196_BATCH_PDR.md` · rulings `S196_OWNER_RULINGS.md` · log `S196_DISPATCH_LOG.md` · state `.claude/session-state.json`.
 
+
+## ⛔ OVERNIGHT RULE (R196-C1)
+Every 30 min check `real-context-tokens.py`; at ≥ 900,000: pause all trees (commit), run the FULL /handoff (pre-approved), carry everything unfinished. Never continue on a compacted context.
+
 ## LIVE
 - S196-#1 `7e9d241c` board-look · S196-#2 `6907fb22` net-blip (silent-drop split fix) · S196-#3 `b35368c6` tower-fx — each verify-deploy 4/4.
 - ✅ S196-#4 `5055efd5` ui-5 click-offset — verify-deploy 4/4 (UI5 closed).
