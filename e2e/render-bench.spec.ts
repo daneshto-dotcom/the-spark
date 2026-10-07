@@ -63,7 +63,10 @@ test.describe('S196 F3 — visual stack per tier, interleaved @perf-measure', ()
     await page.waitForTimeout(8000); // past the backdrop hold: the race art is on the board
 
     // ── the board: every blueprint each seat can place, through the real reducer ──────────────
-    const built = await page.evaluate(async () => {
+    // BENCH_BOARD=stress: every blueprint for EVERY seat (~66 towers). Default (realistic): each blueprint ONCE,
+    // dealt round-robin over the four seats (~19 towers, every kind, four races).
+    const stress = process.env.BENCH_BOARD === 'stress';
+    const built = await page.evaluate(async (stressBoard: boolean) => {
       const sp = (window as any).__SPARK__;
       const w = sp.world;
       const { ALL_BLUEPRINT_IDS, blueprintBill } = await import('/src/state/blueprints.ts' as string);
@@ -75,7 +78,8 @@ test.describe('S196 F3 — visual stack per tier, interleaved @perf-measure', ()
       for (const [si, pid] of seats.entries()) {
         const zones = [0, 1, 2, 3].map((z) => zoneRect(z, w.layout));
         const r = zones[si] ?? zones[0];
-        for (const id of ALL_BLUEPRINT_IDS) {
+        for (const [bi, id] of (ALL_BLUEPRINT_IDS as string[]).entries()) {
+          if (!stressBoard && bi % seats.length !== si) continue;
           let ok = false;
           for (let gy = 0.2; gy <= 0.8 && !ok; gy += 0.15) {
             for (let gx = 0.15; gx <= 0.85 && !ok; gx += 0.1) {
@@ -91,8 +95,8 @@ test.describe('S196 F3 — visual stack per tier, interleaved @perf-measure', ()
         }
       }
       return out;
-    });
-    console.log(`[bench] built ${built.length} blueprints: ${built.join(' ')}`);
+    }, stress);
+    console.log(`[bench] board=${stress ? 'stress' : 'realistic'} built ${built.length} blueprints: ${built.join(' ')}`);
     await page.waitForTimeout(3000);
 
     // ── the three clocks ───────────────────────────────────────────────────────────────────────
@@ -169,7 +173,7 @@ test.describe('S196 F3 — visual stack per tier, interleaved @perf-measure', ()
         spritesAvg: Math.round(d.sprites.reduce((p, c) => p + c, 0) / d.sprites.length),
         creaturesAvg: Math.round(d.creatures.reduce((p, c) => p + c, 0) / d.creatures.length) };
     }
-    fs.writeFileSync(OUT, JSON.stringify({ rounds: ROUNDS, frames: FRAMES, built, summary }, null, 1));
+    fs.writeFileSync(OUT, JSON.stringify({ board: stress ? 'stress' : 'realistic', rounds: ROUNDS, frames: FRAMES, built, summary }, null, 1));
     console.log(`[bench] ${JSON.stringify(summary)}`);
   });
 });
