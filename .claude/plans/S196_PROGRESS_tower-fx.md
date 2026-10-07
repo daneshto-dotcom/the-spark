@@ -22,6 +22,19 @@ Existing fx for EVERY one: the build/destroy sparkle (`towerSparkleFx`, transien
 | 6× tier-9 boss towers | t9Tower* | spawner | TowerRenderer | sparkle; race backdrop | release ONE boss after 300t, then crumble (creature birth) |
 | castle keep | — (not a GodlyId) | player | castle renderer (outside file boundary) | castleShotFx | gun every 4 s — NOT in scope (not a tower, not in my file set) |
 
+## DESIGN — the signature per tower (`src/render/fx/towerSignatureFx.ts`, every look MINE)
+| tower | idle (always alive) | flare (derived from synced state) |
+|---|---|---|
+| goblin tower | forge mouth glows + flickers, sparks spit up and arc down, embers + smoke off the top | a goblin born (`spawnedAtTick`+`sourceSpawnerId`) → spark burst + flash |
+| laser turret | charging energy core at the gun head: glow + hum speeding up with the charge (`nextFireTick`), charge ring tightening, 3 orbiting motes, energy drawn in past 35 % | FIRE (`state`/`ticksInState`) → white flash + shock ring |
+| pentagram | a five-point star on the ground, turning, rune flames on its points, embers rising | chewer born → pillar of fire |
+| Helga's hall | lanterns + door hearth flicker, golden motes, beer-foam bubbles, chimney smoke | Helga FIRE (slap) → golden horn-call ring + sparkle burst |
+| stink tower | green fumes curling off the vat + toxic sheen, bubbles swelling/popping at the rim | WINDUP thickens the fumes; FIRE → a burp of gas |
+| lightning hub | `hubArcFx` (S194) — unchanged, now dispatched through the same table | — |
+| Voltkin TV | live screen: glow, snow, rolling scanline, a stray arc every 90 ticks (steady rows only) | (emergence/death crackle already existed) |
+| t3 race towers | motif at the crown (per-race/tier crown height): vampires glowing bats + blood mist · nagas fountain + spout + ripples · mummies sand helix + scarab glints · zombies boiling bubbles + drips · orcs brazier flames + embers + smoke · demons hellfire up the walls + soul wisps | unit born → race-coloured burst |
+| t9 boss towers | the same motif ×1.35 over a BOSS SEAL: two ground rings, 8 turning glyphs, a beating pillar, a heartbeat ripple | boss released → burst + seal flare |
+
 ## Log
 - boot: branch from master c8239570; progress file created; npm install exit 0.
 - inventory written.
