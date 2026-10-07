@@ -1,7 +1,7 @@
 # S196 PROGRESS — tower-fx (branch s196/tower-fx)
 
 ## NEXT STEP (exact)
-- FIX ROUND (audit): HIGH-1 client-side birth tracking (first-seen frame, skip first sync) + peer round-trip test; MED-1 drop t9 flare + README; LOW-1 LOW-tier reach test. Then merge master, restart vite, gates.
+- FIX ROUND: code+tests DONE (HIGH-1, MED-1, LOW-1; mutations M4/M5/M6 caught), README fixed, merged master dfbb5cb5. NOW: recapture (.tmp-gates/fx/final2.sh) -> deliver.py into Desktop, then gates (.tmp-gates/finalgates.sh), then fix-round report.
 
 ## FINAL REPORT
 - Merges: master c8239570 → 9ddf5027 (plans only) → 7e9d241c (board-look: matchBoardLayout + its test). No conflicts.
@@ -87,7 +87,7 @@ Existing fx for EVERY one: the build/destroy sparkle (`towerSparkleFx`, transien
 ## DESIGN — the signature per tower (`src/render/fx/towerSignatureFx.ts`, every look MINE)
 | tower | idle (always alive) | flare (derived from synced state) |
 |---|---|---|
-| goblin tower | forge mouth glows + flickers, sparks spit up and arc down, embers + smoke off the top | a goblin born (`spawnedAtTick`+`sourceSpawnerId`) → spark burst + flash |
+| goblin tower | forge mouth glows + flickers, sparks spit up and arc down, embers + smoke off the top | a goblin born (first frame it is SEEN with this `sourceSpawnerId` — HIGH-1) → spark burst + flash |
 | laser turret | charging energy core at the gun head: glow + hum speeding up with the charge (`nextFireTick`), charge ring tightening, 3 orbiting motes, energy drawn in past 35 % | FIRE (`state`/`ticksInState`) → white flash + shock ring |
 | pentagram | a five-point star on the ground, turning, rune flames on its points, embers rising | chewer born → pillar of fire |
 | Helga's hall | lanterns + door hearth flicker, golden motes, beer-foam bubbles, chimney smoke | Helga FIRE (slap) → golden horn-call ring + sparkle burst |
@@ -95,7 +95,7 @@ Existing fx for EVERY one: the build/destroy sparkle (`towerSparkleFx`, transien
 | lightning hub | `hubArcFx` (S194) — unchanged, now dispatched through the same table | — |
 | Voltkin TV | live screen: glow, snow, rolling scanline, a stray arc every 90 ticks (steady rows only) | (emergence/death crackle already existed) |
 | t3 race towers | motif at the crown (per-race/tier crown height): vampires glowing bats + blood mist · nagas fountain + spout + ripples · mummies sand helix + scarab glints · zombies boiling bubbles + drips · orcs brazier flames + embers + smoke · demons hellfire up the walls + soul wisps | unit born → race-coloured burst |
-| t9 boss towers | the same motif ×1.35 over a BOSS SEAL: two ground rings, 8 turning glyphs, a beating pillar, a heartbeat ripple | boss released → burst + seal flare |
+| t9 boss towers | the same motif ×1.35 over a BOSS SEAL: two ground rings, 8 turning glyphs, a beating pillar, a heartbeat ripple | NONE (audit MED-1: no synced release moment) |
 
 ## Log
 - boot: branch from master c8239570; progress file created; npm install exit 0.
