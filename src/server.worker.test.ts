@@ -15,7 +15,7 @@
 
 import { describe, expect, it, vi } from 'vitest';
 
-import worker, { dailyBoardAcceptable, isAllowedOrigin, normaliseName, parseRuns, rankRows } from '../server/leaderboard/worker.js';
+import worker, { dailyBoardAcceptable, selfRegisteringBoard, STAGE_BOARD_RE, isAllowedOrigin, normaliseName, parseRuns, rankRows } from '../server/leaderboard/worker.js';
 
 const ORIGIN = 'https://spark-online.space';
 const SALT = 'x'.repeat(32);
@@ -416,5 +416,23 @@ describe('S196 #16 — the daily NONET board registers itself, only around today
     } finally {
       vi.useRealTimers();
     }
+  });
+});
+
+describe('S196 #16 Option B — the 30 campaign stage boards register themselves; nothing else does', () => {
+  it('nonet:s01 … nonet:s30 yes; s00, s31, s7, s007 and other prefixes no', () => {
+    for (let i = 1; i <= 30; i++) expect(selfRegisteringBoard(`nonet:s${String(i).padStart(2, '0')}`, 0)).toBe(true);
+    for (const b of ['nonet:s00', 'nonet:s31', 'nonet:s7', 'nonet:s007', 'other:s07', 'nonet', 'invented']) {
+      expect(selfRegisteringBoard(b, 0), b).toBe(false);
+    }
+    expect(STAGE_BOARD_RE.test('nonet:s30')).toBe(true);
+  });
+
+  it('a POST to a stage board registers it and folds the run; s31 is 404', async () => {
+    const ok = await call({ origin: ORIGIN, path: '/board/nonet:s07', body: { runs: [{ name: 'DAN', ms: 60_000, id: 's7' }] } });
+    expect(ok.res.status).toBe(200);
+    expect(ok.db._boards.has('nonet:s07')).toBe(true);
+    const bad = await call({ origin: ORIGIN, path: '/board/nonet:s31', body: { runs: [{ name: 'DAN', ms: 60_000 }] } });
+    expect(bad.res.status).toBe(404);
   });
 });

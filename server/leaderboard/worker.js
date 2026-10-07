@@ -113,6 +113,18 @@ const BOARD_RE = /^[a-z0-9]+(?::[a-z0-9]+)?$/;
 export const DAILY_BOARD_RE = /^nonet:d(\d{4})(\d{2})(\d{2})$/;
 const DAY_MS = 86_400_000;
 
+/**
+ * ⭐ S196 #16 Option B — THE 30 CAMPAIGN STAGE BOARDS (`nonet:s01` … `nonet:s30`) register themselves
+ * too. A closed set of exactly thirty ids, so the registry's bound is untouched; `nonet:s31`, `nonet:s7`
+ * and `nonet:s00` stay 404. Pinned against `src/nonet/campaign.ts` `stageBoardId` by a test.
+ */
+export const STAGE_BOARD_RE = /^nonet:s(0[1-9]|[12][0-9]|30)$/;
+
+/** PURE — may this board register itself at `nowMs`? (today's daily ± 1 day, or a campaign stage.) */
+export function selfRegisteringBoard(board, nowMs) {
+  return STAGE_BOARD_RE.test(String(board)) || dailyBoardAcceptable(board, nowMs);
+}
+
 /** PURE — may this daily board be auto-registered at `nowMs`? Exported so it is executably tested. */
 export function dailyBoardAcceptable(board, nowMs) {
   const m = DAILY_BOARD_RE.exec(String(board));
@@ -352,7 +364,7 @@ async function handle(request, env, origin) {
   const known = await env.DB.prepare('SELECT 1 AS ok FROM boards WHERE board = ?1').bind(board).first();
   if (known === null || known === undefined) {
     // ⭐ S196 — the one exception: today's daily board (± one day) registers itself. See DAILY_BOARD_RE.
-    if (!dailyBoardAcceptable(board, Date.now())) return json({ error: 'unknown board' }, 404, origin);
+    if (!selfRegisteringBoard(board, Date.now())) return json({ error: 'unknown board' }, 404, origin);
     await env.DB.prepare('INSERT OR IGNORE INTO boards (board) VALUES (?1)').bind(board).run();
   }
 

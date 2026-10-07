@@ -23,6 +23,12 @@ export function normaliseName(raw: unknown): string;
  */
 export const SEEN_RUN_TTL_MS: number;
 
+/** S196 Option B — `nonet:s01` … `nonet:s30`, the campaign's stage boards. */
+export const STAGE_BOARD_RE: RegExp;
+
+/** S196 — today's daily (± 1 day) or a campaign stage board: may it register itself at `nowMs`? */
+export function selfRegisteringBoard(board: string, nowMs: number): boolean;
+
 /** S196 — `nonet:dYYYYMMDD`, the daily NONET's board-id shape. */
 export const DAILY_BOARD_RE: RegExp;
 
