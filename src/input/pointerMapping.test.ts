@@ -153,7 +153,10 @@ describe('S196 installLetterboxPointerMapping — REACHED by a real Pixi EventSy
  * comments stripped); each file that holds one is listed here with its exact count and the reason. A new
  * site fails until someone routes it through `clientToCanvas` or adds a row here and says why.
  */
-const TOKEN = /\b(?:clientX|clientY|pageX|pageY|screenX|screenY|offsetX|offsetY|layerX|layerY|movementX|movementY)\b|getBoundingClientRect|getClientRects|mapPositionToPoint|devicePixelRatio/g;
+// ⚠ S196 audit LOW-1: `getCoalescedEvents`/`getPredictedEvents` added. KNOWN GAP, stated rather than hidden:
+// `MouseEvent.x`/`.y` alias clientX/clientY and are NOT matched — a generic `.x` pattern would flag every
+// position in the codebase. A listener written as `e.x * W / rect.width` would slip past this census.
+const TOKEN = /\b(?:clientX|clientY|pageX|pageY|screenX|screenY|offsetX|offsetY|layerX|layerY|movementX|movementY)\b|getBoundingClientRect|getClientRects|getCoalescedEvents|getPredictedEvents|mapPositionToPoint|devicePixelRatio/g;
 
 const ALLOWED: Readonly<Record<string, { count: number; why: string }>> = {
   'src/input/pointerMapping.ts': { count: 8, why: 'THE conversion + the Pixi patch' },
@@ -222,5 +225,22 @@ describe('S196 census — no pointer-conversion site bypasses clientToCanvas', (
     expect(install).toBeGreaterThan(mount);
     expect(install).toBeLessThan(controls);
     expect(code.split('installLetterboxPointerMapping(app);').length - 1).toBe(1);
+  });
+
+  // ⭐ S196 audit LOW-2 — the override replaces `mapPositionToPoint` on the instance. That covers every input
+  // path ONLY while Pixi's own callers reach it through `this.`; the unit test above drives the wheel path, the
+  // e2e the pointer path. pixi.js is a caret range, so a minor that inlined the mapping in `_bootstrapEvent`
+  // would keep vitest green — this pins the upstream fact so it goes red instead.
+  it('Pixi still routes pointer AND wheel events through this.mapPositionToPoint (the override covers both)', () => {
+    const ev = readFileSync(join(root, 'node_modules/pixi.js/lib/events/EventSystem.mjs'), 'utf-8').replace(/\r\n/g, '\n');
+    const body = (name: string): string => {
+      const start = ev.indexOf(`  ${name}(`);
+      expect(start, `EventSystem.${name} not found — re-check the letterbox override`).toBeGreaterThan(0);
+      return ev.slice(start, ev.indexOf('\n  }\n', start));
+    };
+    for (const name of ['_bootstrapEvent', 'normalizeWheelEvent']) {
+      expect(body(name), name).toContain('this.mapPositionToPoint(event.screen, nativeEvent.clientX, nativeEvent.clientY);');
+    }
+    expect(ev.match(/this\.mapPositionToPoint\(/g)?.length, 'a NEW internal caller appeared — make sure it goes through this.').toBe(2);
   });
 });
