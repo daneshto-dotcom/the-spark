@@ -5,15 +5,18 @@
   function save(){try{localStorage.setItem(KEY,JSON.stringify(state));}catch(e){}}
   var boxes=document.querySelectorAll('.tick input');
   function paint(){
-    var req=0,done=0;
+    var req={},done={};
     boxes.forEach(function(b){
-      var id=b.dataset.id, on=!!state[id]; b.checked=on;
+      var id=b.dataset.id, g=b.dataset.group||'t3', on=!!state[id]; b.checked=on;
       var card=document.getElementById('card-'+id); if(card) card.classList.toggle('done',on);
       document.querySelectorAll('.chip[data-card="'+id+'"]').forEach(function(c){c.classList.toggle('done',on);});
-      req++; if(on) done++;
+      req[g]=(req[g]||0)+1; if(on) done[g]=(done[g]||0)+1;
     });
-    document.getElementById('pcount').textContent=done+' / '+req+' done';
-    document.getElementById('pbar').style.width=(req?100*done/req:0)+'%';
+    document.querySelectorAll('.progress[data-group]').forEach(function(p){
+      var g=p.dataset.group, r=req[g]||0, d=done[g]||0;
+      p.querySelector('.pcount').textContent=d+' / '+r+' done';
+      p.querySelector('.pbar').style.width=(r?100*d/r:0)+'%';
+    });
   }
   boxes.forEach(function(b){b.addEventListener('change',function(){state[b.dataset.id]=b.checked;save();paint();});});
   paint();

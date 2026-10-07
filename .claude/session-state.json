@@ -20,7 +20,11 @@
     "#s196-board-look: the portrait claim had sat 'unverified live' since S194 because injected screenshots never loaded atlases; driving REAL matches to POSTGAME both proved it and surfaced an unrelated overlap defect a fixture would never have produced (scores 301/298).",
     "#s196-silent-drop: the S195 tree ruled the silent drop 'not reproduced here' because its blip was pc.close() (an SCTP abort the host hears); building a FAITHFUL silent drop (UDP blackhole) is what exposed the permanent split — a reproduction is only as good as its fidelity to the production failure.",
     "#s196-host-only-tests: tower-fx's flare tests were all green and all on a HOST world; the joiner never saw a flare because the field it read is zeroed on the wire. Any render effect that reads sim state needs one host->snapshot->peer round-trip test, or it proves the host only.",
-    "#s196-click-offset: a long-standing 'click way to the left' bug lived for many sessions because every e2e ran at exactly 1920x1080, the one size where Pixi's per-axis mapping and the letterbox math agree; the owner's 'half screen / other monitors' was the whole diagnosis."
+    "#s196-click-offset: a long-standing 'click way to the left' bug lived for many sessions because every e2e ran at exactly 1920x1080, the one size where Pixi's per-axis mapping and the letterbox math agree; the owner's 'half screen / other monitors' was the whole diagnosis.",
+    "#s196-fix-rounds-chain: NONET took three fix rounds and EVERY one introduced a new MED (lost retries -> concurrent double-send -> claim-before-fold loss); only re-auditing each delta caught them. The final shape (one atomic batch) was the fix the auditor sketched, not the builder — when a round adds a defect, hand the next round the auditor's fix shape verbatim.",
+    "#s196-accounts-reuse: the owner's 'reuse what Legacy and CNC already built' turned a from-scratch design into a survey — and the survey surfaced two live security defects in OTHER projects (shared JWT key, open redirect). A read-only look at sibling projects is worth doing for its own sake; route what it finds to those projects, never fix across the boundary.",
+    "#s196-hosting-question: the owner's 'pay for a stronger server' was a reasonable guess from outside; the useful answer separated WHERE the game runs (host browser) from what was slow (a joiner backlog), and a measuring tree found the backlog before the research tree finished — evidence beat speculation by an hour.",
+    "#s196-team-art: a composed-art feature only pays off if the seating matches the art; the builder surfaced that a trio picture shows in ~1 of 6 lobbies — the kind of consequence that must reach the owner as a question, not be buried in a MINE list."
   ],
   "budget_total": 1000000,
   "totals": {
@@ -98,12 +102,24 @@
       "branch": "s196/nonet-home",
       "tier": "Full",
       "plan_file": ".claude/plans/2026-10-07_S196_BATCH_PDR.md",
-      "status": "in_progress",
-      "priority_state": "in_progress",
+      "status": "completed",
+      "priority_state": "completed",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
-      "check_completed": false
+      "check_completed": true,
+      "checkpoint_commit": "5a7e8de7",
+      "deploy": "S196-#5",
+      "real_context_tokens_at_close": 545707,
+      "real_context_pct_at_close": 54.57,
+      "check_method": "Option A home (PLAY/DAILY/ZEN/RANKING) + Option B 30-stage campaign (R196-D2) + number pad + worker self-registering daily/stage boards. Audit FIX FIRST (MED-1 failed submits never retried) -> round 1 re-audit FIX FIRST (MED-A concurrent double-send, worker dedupe not atomic) -> round 2 re-audit FIX FIRST (MED-B claim-before-fold loses runs on failure) -> round 3 (one atomic D1 batch, NOT EXISTS upsert + INSERT OR IGNORE; verified on Python sqlite3 3.50.4) re-audit CLEAN (D1 migration: no; D1 batch docs fetched). Landing gates: typecheck 0, typecheck:server 0, vitest 9450/0, build 1261.5, e2e:gating 72. Worker deployed FIRST via npx wrangler deploy (owner R196-D3; already signed in) version a762da58; live smoke: nonet board reads 2 real rows, new boards respond, GET never creates. Pushed 5a7e8de7; verify-deploy --sha full 4/4 after fresh build.",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "server/leaderboard/worker.js",
+          "needle": "WHERE NOT EXISTS (SELECT 1 FROM seen_runs WHERE id = ?5)"
+        }
+      ]
     },
     {
       "id": "TOWERFX",
@@ -126,7 +142,12 @@
         {
           "type": "file_contains",
           "path": "src/render/fx/towerSignatureFx.ts",
-          "needle": "spawnedAtTick"
+          "needle": "export const TOWER_SIG_BIRTH_PRIME_GAP_TICKS = 30;"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/spawnerZoneRenderer.ts",
+          "needle": "private syncTowerSignatures(world: World): void {"
         }
       ]
     },
@@ -149,8 +170,8 @@
       "branch": "s196/net-cpu",
       "tier": "Full",
       "plan_file": ".claude/plans/2026-10-07_S196_BATCH_PDR.md",
-      "status": "approved",
-      "priority_state": "approved",
+      "status": "in_progress",
+      "priority_state": "in_progress",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
@@ -162,8 +183,8 @@
       "branch": "s196/render-perf",
       "tier": "Full",
       "plan_file": ".claude/plans/2026-10-07_S196_BATCH_PDR.md",
-      "status": "approved",
-      "priority_state": "approved",
+      "status": "in_progress",
+      "priority_state": "in_progress",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
@@ -200,12 +221,24 @@
       "branch": "s196/team-art",
       "tier": "Full",
       "plan_file": ".claude/plans/2026-10-07_S196_BATCH_PDR.md",
-      "status": "in_progress",
-      "priority_state": "in_progress",
+      "status": "completed",
+      "priority_state": "completed",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
-      "check_completed": false
+      "check_completed": true,
+      "checkpoint_commit": "c78f5c58",
+      "deploy": "S196-#6",
+      "real_context_tokens_at_close": 601995,
+      "real_context_pct_at_close": 60.2,
+      "check_method": "12 single-race prompts appended (Desktop SPARK_Team3_Backdrop_Prompts.html, regenerated from the generator); 27 owner Grok trio images identified by eye and wired into 3v1 (960x540 webp, NW quarter masked in crop + file), fallback single-race + seam blend; TEAM_SEAM_BLEND_LEGACY_ART true (R196-A1). Independent audit CLEAN (8/8 webps spot-checked against the prompt sheet; resolver uses world.layout corners; mutations red). Landing gates typecheck 0, vitest 9467/0, build 1263.3, e2e:gating 72. Pushed c78f5c58; verify-deploy --sha full 4/4 after fresh build.",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/render/zoneBackgroundRenderer.ts",
+          "needle": "TEAM_TRIO_ART"
+        }
+      ]
     },
     {
       "id": "BOSSREL",
@@ -226,13 +259,87 @@
       "branch": "s196/accounts-design",
       "tier": "Full",
       "plan_file": ".claude/plans/2026-10-07_S196_BATCH_PDR.md",
-      "status": "approved",
-      "priority_state": "approved",
+      "status": "completed",
+      "priority_state": "completed",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "check_completed": true,
+      "checkpoint_commit": "71027622",
+      "deploy": "docs only",
+      "real_context_tokens_at_close": 545707,
+      "real_context_pct_at_close": 54.57,
+      "check_method": "Design-only tree: read-only surveys of Legacy of the Realm + CNC auth (2nd run after the limit killed the first; key claims checked against source), cross-domain one-login design on his Cloudflare account, payments research with dated sources; deliverables S196_ACCOUNTS_DESIGN.md + Desktop SPARK_Accounts_Design.html; 9 owner questions. Cross-project security findings spawned as owner task chips. No code, no gates owed.",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": ".claude/plans/S196_ACCOUNTS_DESIGN.md",
+          "needle": "# One login across the game network: design and payments research (S196"
+        }
+      ]
+    },
+    {
+      "id": "DESYNC",
+      "title": "P1 CRITICAL joiner sees state ~45 s late / can't see own builds / stale score+bank",
+      "branch": "s196/joiner-desync",
+      "tier": "Full",
+      "plan_file": ".claude/plans/2026-10-07_S196_BATCH_PDR.md",
+      "status": "in_progress",
+      "priority_state": "in_progress",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
       "check_completed": false
+    },
+    {
+      "id": "JLAG",
+      "title": "P1 joiner lag even on MINIMAL — profile the joiner client",
+      "branch": "s196/joiner-lag",
+      "tier": "Full",
+      "plan_file": ".claude/plans/2026-10-07_S196_BATCH_PDR.md",
+      "status": "in_progress",
+      "priority_state": "in_progress",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "check_completed": false
+    },
+    {
+      "id": "RISEN",
+      "title": "P1 zombie kills not raising zombies (THE RISEN) — verify host vs joiner",
+      "branch": "s196/risen-check",
+      "tier": "Full",
+      "plan_file": ".claude/plans/2026-10-07_S196_BATCH_PDR.md",
+      "status": "in_progress",
+      "priority_state": "in_progress",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "check_completed": false
+    },
+    {
+      "id": "DEDHOST",
+      "title": "P1 dedicated host on workstation 2 — feasibility + security research",
+      "branch": "s196/dedicated-host",
+      "tier": "Full",
+      "plan_file": ".claude/plans/2026-10-07_S196_BATCH_PDR.md",
+      "status": "completed",
+      "priority_state": "completed",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "check_completed": true,
+      "deploy": "docs only",
+      "check_method": "Research tree: where the game runs (GitHub Pages serves files only; the match runs in the host player's browser), why the joiner lagged with a strong host, workstation-2 house-mode design (headless real page, no inbound port, signed beacon, isolated Windows user, kill switch, P2P fallback), rented-server comparison; recommendation: build nothing until the three lag trees land and a ?debug=1 match is read. Deliverables S196_DEDICATED_HOST_DESIGN.md + Desktop SPARK_Dedicated_Host.html.",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": ".claude/plans/S196_DEDICATED_HOST_DESIGN.md",
+          "needle": "S196"
+        }
+      ]
     }
   ],
-  "owner_approval_wave2_verbatim": "so far everything I read until, until the decisions, I approve. Including what I just said."
+  "owner_approval_wave2_verbatim": "so far everything I read until, until the decisions, I approve. Including what I just said.",
+  "owner_approval_playtest_verbatim": "let's open all those four priorities or five priorities that I just mentioned in their own tree while we're at it, okay? Get to work."
 }

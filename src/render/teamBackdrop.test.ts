@@ -79,7 +79,7 @@ describe('S195 — zoneBackdropPlan per team shape', () => {
     ]);
   });
 
-  it('⭐ 3v1 (R195-T5, for now): every player his own single-quadrant race art; the trio seam returns null', () => {
+  it('⭐ 3v1 (R195-T5) with no trio picture for these corners: every player his own single-quadrant race art', () => {
     const w = start([0, 0, 0, U], ['orcs', 'zombies', 'nagas', 'vampires']);
     expect(brief(w)).toEqual([
       '0:zone-vampires-4p.png|full', // the solo, NW
@@ -87,7 +87,7 @@ describe('S195 — zoneBackdropPlan per team shape', () => {
       '2:zone-zombies-4p.png|full',
       '3:zone-nagas-4p.png|full',
     ]);
-    expect(trioBackdropUrl('orcs', 'zombies', 'nagas')).toBeNull();
+    expect(trioBackdropUrl('orcs', 'zombies', 'nagas')).toBeNull(); // S196: not a card he generated (teamTrioArt.test.ts)
   });
 
   it('⛔ NEGATIVE — FFA: each seat its race 4p art on its home zone; a 3-seat FFA paints no SW', () => {
@@ -150,7 +150,8 @@ describe('S195 — REACH through the real renderer sync', () => {
     const body = src.slice(src.indexOf('function cropHalfTexture'), src.indexOf('function cropHalfTexture') + 1800);
     expect(body).toMatch(/ctx\.translate\(w, 0\);\s*ctx\.scale\(-1, 1\);/);
     expect(body).not.toMatch(/rotate|scale\(-1, -1\)|scale\(1, -1\)/);
-    expect(src).toMatch(/const src = piece\.part === 'full' \? raw : cropHalfTexture\(raw, piece\.part, piece\.mirror\);/);
+    // ⭐ S196 — a trio quarter (`ne`/`se`/`sw`) crops through `cropQuarterTexture`; the halves still mirror here.
+    expect(src).toMatch(/piece\.part === 'top' \|\| piece\.part === 'bottom' \? cropHalfTexture\(raw, piece\.part, piece\.mirror\)/);
   });
 });
 
