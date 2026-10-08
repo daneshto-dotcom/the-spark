@@ -1,9 +1,9 @@
 {
- "commit": "a4acbcc9905835ef4604cab40c80ad3e8dbe56aa",
- "label": "a4acbcc990",
+ "commit": "063319aec902be228ea4d5c8a96ea15e2529c7fd",
+ "label": "063319aec9",
  "dirty": false,
  "debug": false,
- "built_at": "2026-10-08T09:31:41Z",
+ "built_at": "2026-10-08T12:07:00Z",
  "godot": "4.3.stable",
  "config": {
   "args": [],
@@ -12,7 +12,7 @@
   "executable": "index",
   "experimentalVK": false,
   "fileSizes": {
-   "index.pck": 6654272,
+   "index.pck": 6661744,
    "index.wasm": 35376909
   },
   "focusCanvas": true,
@@ -23,7 +23,7 @@
   "index.audio.worklet.js": 7298,
   "index.icon.png": 4372,
   "index.js": 331441,
-  "index.pck": 6654272,
+  "index.pck": 6661744,
   "index.png": 21443,
   "index.wasm": 35376909,
   "music.mp3": 4822404,
