@@ -823,7 +823,20 @@ describe('PM-S5 net-reconnect: the match record, a rejoin on a NEW peer id with 
     b.suspend();
     run(bus, [a], SILENCE_MS + 1000);
     expect(a.status().state).toBe('closed');
+    // PM-S4 reconnect-live: the game says "did not come back" for this one, not "left the match".
+    expect(a.status().closedWhy).toBe('silence');
     expect(sa.value).toBeNull();
+  });
+
+  it('PM-S4 reconnect-live: closedWhy tells a leave on purpose (bye) from the silence limit; empty while matched', () => {
+    const bus = new Bus();
+    const { a, b } = pairWithStores(bus);
+    expect(a.status().closedWhy).toBe('');
+    expect(b.status().closedWhy).toBe('');
+    b.cancel();
+    run(bus, [a, b], 1000);
+    expect(a.status()).toMatchObject({ state: 'closed', closedWhy: 'bye' });
+    expect(b.status().closedWhy).toBe(''); // the leaver itself is idle, not closed
   });
 
   it('the window is the game\'s: SILENCE_MS is 30 s (Net.RECONNECT_GRACE_S) and the slack 6 s (NetResume.SLACK_S)', () => {

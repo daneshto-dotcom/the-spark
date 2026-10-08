@@ -13,7 +13,7 @@ import {
   QM3_DISCOVERY_ROOM,
   QM3_OPEN_MS,
 } from './lobby3.ts';
-import { DISCOVERY_ROOM, Matchmaker, SILENCE_MS, type Channel, type RoomHandlers } from './matchmaker.ts';
+import { DISCOVERY_ROOM, Matchmaker, SILENCE_MS, type Channel, type ResumeStore, type RoomHandlers } from './matchmaker.ts';
 
 /** Every room of a fake relay; messages are queued and delivered by `flush()`, in order. */
 class Bus {
@@ -375,5 +375,68 @@ describe('quick match three-sided (qm3)', () => {
     expect(a.active()).toBe(false);
     // b's host left before kick-off: b is told.
     expect(b.status().state).toBe('closed');
+  });
+});
+
+// PM-S4 reconnect-live. Live root cause of "rejoin() returns false": bridge.ts runs Lobby3.cancel() before every
+// 1v1 call (rejoin, quick match, friend host), and Lobby3's qm3 pairer is a Matchmaker built from the SAME deps,
+// store included, so its cancel() cleared the 1v1 record (`pm.resume`) right before Matchmaker.rejoin() read it.
+describe('PM-S4 reconnect-live: the three-sided room never touches the 1v1 match record', () => {
+  function memStore(): ResumeStore & { value: string | null } {
+    const st = {
+      value: null as string | null,
+      get: () => st.value,
+      set: (v: string | null) => {
+        st.value = v;
+      },
+    };
+    return st;
+  }
+
+  it('Lobby3.cancel() / suspend() / a qm3 search leave a stored 1v1 record alone', () => {
+    const bus = new Bus();
+    const store = memStore();
+    store.value = '{"room":"pitchmasters-f-ABCDE","role":"client","token":"0123456789abcdef"}';
+    const l = new Lobby3({ ...deps(bus, 'amy'), store });
+    l.build = 'b1';
+    l.cancel();
+    l.suspend();
+    l.quickMatch();
+    run(bus, [l], 3000);
+    l.cancel();
+    expect(store.value).toBe('{"room":"pitchmasters-f-ABCDE","role":"client","token":"0123456789abcdef"}');
+  });
+
+  it('the bridge rejoin (Lobby3.cancel, then Matchmaker.rejoin on one store) brings a closed client tab back', () => {
+    const bus = new Bus();
+    const sh = memStore();
+    const sc = memStore();
+    const mm = (id: string, store: ResumeStore): Matchmaker => {
+      const m = new Matchmaker({ ...deps(bus, id), store });
+      m.build = 'b1';
+      return m;
+    };
+    const h = mm('host', sh);
+    const c = mm('bob', sc);
+    const code = h.friendHost();
+    run(bus, [h], 500);
+    c.friendJoin(code);
+    run(bus, [h, c], 3000);
+    expect(c.status().state).toBe('matched');
+    c.suspend(); // the tab closes (pagehide): no bye, the record stays
+    run(bus, [h], 5000);
+    expect(h.status()).toMatchObject({ state: 'matched', partnerGone: true });
+    // A fresh tab of the same browser: the page builds BOTH rooms on the one store, as bridge.ts does.
+    const c2deps = { ...deps(bus, 'bob2'), store: sc };
+    const c2 = new Matchmaker(c2deps);
+    c2.build = 'b1';
+    const l2 = new Lobby3(c2deps);
+    l2.build = 'b1';
+    expect(c2.resumeInfo()).not.toBe('');
+    l2.cancel(); // bridge.ts: rejoin: () => { m3.cancel(); return mm.rejoin(); }
+    expect(c2.rejoin()).toBe(true);
+    run(bus, [h, c2, l2], 3000);
+    expect(c2.status().state).toBe('matched');
+    expect(h.status()).toMatchObject({ state: 'matched', partnerGone: false, partnerEpoch: 1 });
   });
 });

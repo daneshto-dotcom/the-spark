@@ -163,6 +163,10 @@ export class Lobby3 {
   constructor(private readonly deps: MatchmakerDeps) {
     this.pairer = new Matchmaker({
       ...deps,
+      // PM-S4 reconnect-live: the pairer only finds a lobby; it must never own the 1v1 match record. With the
+      // page's store here, every Lobby3.cancel() (bridge.ts runs one before rejoin / quick match / friend host)
+      // went through Matchmaker.cancel -> clearRecord and wiped `pm.resume`: live, rejoin() always failed.
+      store: undefined,
       discoveryRoom: QM3_DISCOVERY_ROOM,
       onPaired: (room, role, partner) => {
         this.qmPaired(room, role, partner);
@@ -286,6 +290,7 @@ export class Lobby3 {
       partnerHidden: matched && partners.some((p) => p.hidden),
       partnerGone: matched && partners.some((p) => !p.present),
       partnerEpoch: 0, // PM-S5: a three-sided seat is not rejoined by a new id yet (lobby3 has no record)
+      closedWhy: '', // PM-S4 reconnect-live: a three-sided seat that goes is final here (the game seats a bot)
       seekers: ps !== null ? ps.seekers : 0,
       seats: 3,
       slot: this.role === 'host' ? HOST_SLOT : this.mySlot,

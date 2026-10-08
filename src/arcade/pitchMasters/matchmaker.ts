@@ -273,7 +273,15 @@ export interface PitchNetStatus {
   partnerGone: boolean;
   /** PM-S5: bumps when the partner came back on a NEW peer id (a browser restart that rejoined with its token). */
   partnerEpoch: number;
+  /**
+   * PM-S4 reconnect-live: why a `closed` match closed: 'bye' (the partner left on purpose), 'silence' (the partner
+   * was silent for SILENCE_MS: it never came back), '' otherwise. The game tells "X left the match." from
+   * "X did not come back." with it (the page's silence limit can close the match before the game's own window).
+   */
+  closedWhy: CloseWhy;
 }
+
+export type CloseWhy = '' | 'bye' | 'silence';
 
 interface Seeker {
   since: number;
@@ -364,6 +372,7 @@ export class Matchmaker {
   private partnerEpoch = 0;
   private lastTouch = -Infinity;
   private game = '';
+  private closedWhy: CloseWhy = '';
 
   constructor(private readonly deps: MatchmakerDeps) {}
 
@@ -516,6 +525,7 @@ export class Matchmaker {
     return {
       partnerGone: matched && !this.partnerPresent,
       partnerEpoch: this.partnerEpoch,
+      closedWhy: this.state === 'closed' ? this.closedWhy : '',
       state: this.state,
       role: this.role,
       mode: this.mode,
@@ -784,7 +794,7 @@ export class Matchmaker {
           this.log('partner dropped: waiting for a reconnect');
           this.scheduleRejoin(this.deps.now());
         } else {
-          this.lost('Your opponent left the match.');
+          this.lost('Your opponent left the match.', 'bye');
         }
       },
       onPeerError: (peer, error) => {
@@ -966,7 +976,7 @@ export class Matchmaker {
         }
         return;
       case 'bye':
-        if (from === this.partner) this.lost('Your opponent left the match.');
+        if (from === this.partner) this.lost('Your opponent left the match.', 'bye');
         return;
       case 'ping':
         if (from !== this.partner) return;
@@ -1017,10 +1027,11 @@ export class Matchmaker {
       this.room?.send('ctl', JSON.stringify({ t: 'ping', ack: this.recvSeq, ts: now, h: this.selfHidden }), this.partner);
     }
     if (this.state === 'matched' && now - this.lastTouch >= HEARTBEAT_MS) this.saveRecord(); // PM-S5: `alive`
-    if (now - this.lastHeard > SILENCE_MS) this.lost('Connection to your opponent was lost.');
+    if (now - this.lastHeard > SILENCE_MS) this.lost('Connection to your opponent was lost.', 'silence');
   }
 
-  private lost(msg: string): void {
+  private lost(msg: string, why: CloseWhy): void {
+    this.closedWhy = why;
     this.clearRecord(); // PM-S5 net-reconnect: the match is over (a bye, or the partner's silence ran out)
     if (this.state !== 'matched' && this.state !== 'connecting') {
       this.leaveMatchRoom(false);
