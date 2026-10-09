@@ -916,3 +916,43 @@ describe('PM-S5 lag-research: the fast lane for snapshots', () => {
     expect(a.status().fastSent).toBe(0);
   });
 });
+
+describe('PM-S5 lag-research: our own freeze is not the partner silence', () => {
+  it('status() asked right after this page was frozen (before its tick) does not read the partner as stalled', () => {
+    const bus = new Bus();
+    const a = player(bus, 'peerA');
+    a.quickMatch();
+    run(bus, [a], 3000);
+    const b = player(bus, 'peerB');
+    b.quickMatch();
+    run(bus, [a, b], 6000);
+    run(bus, [a, b], 2000);
+    expect(a.status().stalled).toBe(false);
+    // A is frozen 6 s: no tick runs on A and nothing reaches it, B keeps going (its packets wait in A's queue).
+    bus.hold('peerA');
+    for (let t = 0; t < 6000; t += 250) {
+      bus.now += 250;
+      bus.wall += 250;
+      b.tick();
+      bus.flush();
+    }
+    expect(a.status().stalled).toBe(false); // the game's first frame after the freeze asks before A's tick
+    bus.release('peerA');
+    bus.flush();
+    a.tick();
+    expect(a.status().stalled).toBe(false);
+  });
+
+  it('a partner who really went silent still reads as stalled', () => {
+    const bus = new Bus();
+    const a = player(bus, 'peerA');
+    a.quickMatch();
+    run(bus, [a], 3000);
+    const b = player(bus, 'peerB');
+    b.quickMatch();
+    run(bus, [a, b], 6000);
+    bus.hold('peerB');
+    run(bus, [a], 6000); // B frozen: A ticks and hears nothing
+    expect(a.status()).toMatchObject({ state: 'matched', stalled: true });
+  });
+});

@@ -85,6 +85,8 @@ export const SILENCE_MS = 30000;
  * still fire about once a second while WebRTC is open, well under this).
  */
 export const SELF_FREEZE_MS = 3000;
+/** PM-S5 lag-research: `status()` asked this long after our last tick = asked from inside our own freeze. */
+export const SELF_FREEZE_STATUS_MS = 1000;
 /** Silence after which the status says `stalled` (the game shows "reconnecting"). */
 export const STALL_MS = 3000;
 /**
@@ -537,7 +539,11 @@ export class Matchmaker {
     const running = this.state !== 'idle';
     const now = this.deps.now();
     const matched = this.state === 'matched';
-    const stalled = matched && (!this.partnerPresent || now - this.lastHeard > STALL_MS);
+    // PM-S5 lag-research (land 803e911): asked right after THIS page was frozen (the game's first frame runs before
+    // our tick and before the partner's queued packets are read), the silence is ours, not the partner's.
+    const frozenFor = this.lastTickAt < 0 ? 0 : now - this.lastTickAt;
+    const heard = frozenFor > SELF_FREEZE_STATUS_MS ? Math.min(now, this.lastHeard + frozenFor) : this.lastHeard;
+    const stalled = matched && (!this.partnerPresent || now - heard > STALL_MS);
     return {
       partnerGone: matched && !this.partnerPresent,
       partnerEpoch: this.partnerEpoch,
@@ -550,7 +556,7 @@ export class Matchmaker {
       elapsed: running ? Math.max(0, (now - this.startedAt) / 1000) : 0,
       rtt: matched ? Math.round(this.rtt) : -1,
       stalled,
-      stalledFor: stalled ? Math.max(0, (now - this.lastHeard) / 1000) : 0,
+      stalledFor: stalled ? Math.max(0, (now - heard) / 1000) : 0,
       partnerHidden: matched && this.partnerHidden,
       seekers: this.disco !== null ? this.seekerCount : 0,
       fastSent: this.fastSent,
