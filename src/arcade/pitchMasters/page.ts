@@ -78,6 +78,9 @@ function gameArgs(p: URLSearchParams): string[] {
   flag('quickmatch', '--quickmatch');
   flag('host', '--friend-host');
   flag('three', '--three'); // PM-S4
+  flag('lagprobe', '--lagprobe=console'); // PM-S5 lag-research: per-frame timeline rows in the console
+  flag('nointerp', '--no-interp'); // PM-S5 lag-research: the old client smoothing (A/B measurements)
+  flag('noanimlod', '--no-anim-lod'); // PM-S5 lag-research: every body animated every frame (A/B)
   const tw = p.get('threewait');
   if (tw !== null && /^\d{1,3}$/.test(tw)) args.push(`--three-wait=${tw}`);
   const join = p.get('join');

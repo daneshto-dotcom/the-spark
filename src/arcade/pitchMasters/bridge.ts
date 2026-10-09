@@ -15,8 +15,10 @@
  *   cancel()                      leave everything, back to idle
  *   status() -> string            JSON {state: idle|seeking|connecting|matched|closed|error,
  *                                       role: host|client|'', mode: quick|friend|'', code, detail, elapsed}
- *   send(b64, reliable) -> bool   one packet to the partner (every packet rides the ordered,
- *                                 reliable data channel; `reliable` is accepted for the contract)
+ *   send(b64, reliable) -> bool   one packet to the partner: reliable = the ordered, reliable lane (sequenced,
+ *                                 re-sent after a blip); reliable === false (PM-S5 lag-research: the game's
+ *                                 snapshots) = the 1v1 fast lane (unordered, no retransmits; may be lost or
+ *                                 overtaken), the reliable lane when it is not open. `?nofast=1`: always reliable.
  *   poll() -> string              JSON array of base64 packets received since the last poll, in order
  *   goArcade()                    back to the SPARK arcade
  *   setBuild(id)                  the game build id; only identical builds are paired
@@ -73,6 +75,12 @@ declare global {
 }
 
 const TICK_MS = 250;
+/** PM-S5 lag-research: the fast lane's SCTP stream id (Trystero's in-band channel takes 0 / 1). */
+const FAST_LANE_ID = 517;
+/** Past this many bytes queued on the fast lane a snapshot goes the reliable way (a congested link). */
+const FAST_LANE_MAX_BUFFER = 64 * 1024;
+/** The fast lane of each live connection (see `fast` in trysteroRoom). */
+const FAST_BY_PC = new WeakMap<RTCPeerConnection, RTCDataChannel>();
 
 /**
  * PM-S3: relays from SPARK's pinned list that are dead for us. `relay.mostr.pub` answered EVERY WebSocket
@@ -116,9 +124,50 @@ function trysteroRoom(roomId: string, h: RoomHandlers): RoomLike {
   room.onPeerJoin = (peer) => h.onPeerJoin(peer);
   room.onPeerLeave = (peer) => h.onPeerLeave(peer);
   const actions: Record<Channel, typeof ctl> = { ctl, pk };
+  // PM-S5 lag-research: the fast lane, one unordered no-retransmit data channel per partner connection, next to
+  // Trystero's own (ordered, reliable) channel on the same RTCPeerConnection. Negotiated (both sides create it with
+  // the same id, no extra signalling), so it opens as soon as both pages have bound each other.
+  const fast = new Map<string, { pc: RTCPeerConnection; ch: RTCDataChannel }>();
+  const fastWarned = new WeakSet<RTCPeerConnection>();
   return {
     send: (channel, data, to) => {
       void actions[channel].send(data, to === undefined ? undefined : { target: to }).catch(() => undefined);
+    },
+    fast: (to, onData) => {
+      const pc = room.getPeers()[to];
+      // a connection on its way out (a blip: Trystero replaces it) cannot take a channel; the next hi retries
+      if (pc === undefined || pc.signalingState === 'closed' || pc.connectionState === 'closed' || pc.connectionState === 'failed') return false;
+      const had = fast.get(to);
+      if (had !== undefined && had.pc === pc && had.ch.readyState !== 'closed' && had.ch.readyState !== 'closing') return true;
+      // Trystero keeps a partner's RTCPeerConnection across rooms (a blip re-joins the room on the same connection):
+      // its lane already exists there (a second channel with the same id is refused), so take it over.
+      const old = FAST_BY_PC.get(pc);
+      if (old !== undefined && old.readyState !== 'closed' && old.readyState !== 'closing') {
+        old.onmessage = (e) => onData(String(e.data));
+        fast.set(to, { pc, ch: old });
+        return true;
+      }
+      try {
+        const ch = pc.createDataChannel('pm-fast', { negotiated: true, id: FAST_LANE_ID, ordered: false, maxRetransmits: 0 });
+        ch.onmessage = (e) => onData(String(e.data));
+        FAST_BY_PC.set(pc, ch);
+        fast.set(to, { pc, ch });
+        return true;
+      } catch (e) {
+        if (!fastWarned.has(pc)) console.warn('[pitchnet] fast lane unavailable on this connection (snapshots go the reliable way)', e);
+        fastWarned.add(pc);
+        return false;
+      }
+    },
+    sendFast: (to, data) => {
+      const f = fast.get(to);
+      if (f === undefined || f.ch.readyState !== 'open' || f.ch.bufferedAmount > FAST_LANE_MAX_BUFFER) return false;
+      try {
+        f.ch.send(data);
+        return true;
+      } catch {
+        return false;
+      }
     },
     leave: () => room.leave().catch(() => undefined),
   };
@@ -166,6 +215,7 @@ export function installPitchNet(): PitchNetApi {
     },
   };
   const mm = new Matchmaker(deps);
+  mm.fastLane = !new URLSearchParams(location.search).has('nofast'); // PM-S5 lag-research: A/B
   // PM-S4: the three-sided room. Exactly one of the two is active; starting one cancels the other.
   const m3 = new Lobby3(deps);
   const three = (): boolean => m3.active();
@@ -204,7 +254,9 @@ export function installPitchNet(): PitchNetApi {
       m3.cancel();
     },
     status: () => JSON.stringify(three() ? m3.status() : mm.status()),
-    send: (b64, _reliable, to) => (three() ? m3.send(String(b64), Number(to) || 0) : mm.send(String(b64))),
+    // PM-S5 lag-research: an unreliable packet (the game's snapshots) takes the 1v1 fast lane
+    send: (b64, reliable, to) =>
+      three() ? m3.send(String(b64), Number(to) || 0) : reliable === false ? mm.sendUnreliable(String(b64)) : mm.send(String(b64)),
     poll: () => JSON.stringify(three() ? m3.poll() : mm.poll()),
     goArcade: () => {
       mm.cancel();

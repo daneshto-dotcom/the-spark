@@ -19,7 +19,6 @@ import {
   type ResumeStore,
   serialRooms,
   SILENCE_MS,
-  type Channel,
   type RoomHandlers,
   type RoomLike,
 } from './matchmaker.ts';
@@ -33,6 +32,11 @@ class Bus {
   /** Frozen tabs: what is sent to them waits here, in order, until release(). */
   private readonly held = new Map<string, (() => void)[]>();
   readonly joins: string[] = [];
+  /** PM-S5 lag-research: rooms offer a fast lane (unordered, lossy) when set; `dropFast` loses a packet on it. */
+  fastLanes = false;
+  dropFast: (data: string) => boolean = () => false;
+  /** `room:peer->to` -> the receiver for the fast lane that `peer` opened toward `to`. */
+  private readonly fastRx = new Map<string, (d: string) => void>();
   /** Failed signaling: the next N joins of a peer never see (or get seen by) anyone. */
   private readonly deafJoins = new Map<string, number>();
 
@@ -65,7 +69,7 @@ class Bus {
     this.queue.push(...q);
   }
 
-  join(roomId: string, peer: string, h: RoomHandlers): { send: (c: Channel, d: string, to?: string) => void; leave: () => void } {
+  join(roomId: string, peer: string, h: RoomHandlers): RoomLike {
     this.joins.push(`${peer}:${roomId}`);
     let room = this.rooms.get(roomId);
     if (room === undefined) {
@@ -102,7 +106,23 @@ class Bus {
       }
     }
     r.set(peer, h);
+    const fastApi: Pick<RoomLike, 'fast' | 'sendFast'> = !this.fastLanes
+      ? {}
+      : {
+          fast: (to, onData) => {
+            if (!r.has(to)) return false;
+            this.fastRx.set(`${roomId}:${to}->${peer}`, onData); // what `to` sends us arrives here
+            return true;
+          },
+          sendFast: (to, data) => {
+            const rx = this.fastRx.get(`${roomId}:${peer}->${to}`);
+            if (rx === undefined || r.get(peer) !== h) return false; // the other side has not opened its end
+            if (!this.dropFast(data)) this.queue.push(() => rx(data));
+            return true;
+          },
+        };
     return {
+      ...fastApi,
       send: (c, d, to) => {
         if (this.stuck.has(`${roomId}:${peer}`)) return; // not live on our side: the transport refuses to send
         for (const [other, oh] of r) {
@@ -842,5 +862,57 @@ describe('PM-S5 net-reconnect: the match record, a rejoin on a NEW peer id with 
   it('the window is the game\'s: SILENCE_MS is 30 s (Net.RECONNECT_GRACE_S) and the slack 6 s (NetResume.SLACK_S)', () => {
     expect(SILENCE_MS).toBe(30000);
     expect(REJOIN_SLACK_MS).toBe(6000);
+  });
+});
+
+describe('PM-S5 lag-research: the fast lane for snapshots', () => {
+  function pair(fast: boolean): { bus: Bus; a: Matchmaker; b: Matchmaker } {
+    const bus = new Bus();
+    bus.fastLanes = fast;
+    const a = player(bus, 'peerA');
+    a.quickMatch();
+    run(bus, [a], 3000);
+    const b = player(bus, 'peerB');
+    b.quickMatch();
+    run(bus, [a, b], 6000);
+    expect(a.status().state).toBe('matched');
+    expect(b.status().state).toBe('matched');
+    return { bus, a, b };
+  }
+
+  it('unreliable packets ride the fast lane, outside the sequence: a lost one holds nothing back and is not re-sent', () => {
+    const { bus, a, b } = pair(true);
+    bus.dropFast = (d) => d === 'U2';
+    for (let i = 0; i < 5; i++) {
+      expect(a.send(`R${i}`)).toBe(true);
+      expect(a.sendUnreliable(`U${i}`)).toBe(true);
+    }
+    bus.flush();
+    const got = b.poll();
+    expect(got.filter((x) => x.startsWith('R'))).toEqual(['R0', 'R1', 'R2', 'R3', 'R4']);
+    expect(got.filter((x) => x.startsWith('U'))).toEqual(['U0', 'U1', 'U3', 'U4']);
+    expect(a.status().fastSent).toBe(5);
+    expect(b.status().fastRecv).toBe(4);
+    run(bus, [a, b], 3000); // pings / acks / nacks: the lost snapshot never comes back
+    expect(b.poll().filter((x) => x === 'U2')).toEqual([]);
+  });
+
+  it('without a fast lane an unreliable packet is a normal, sequenced send (the old behaviour)', () => {
+    const { bus, a, b } = pair(false);
+    a.sendUnreliable('U0');
+    a.send('R0');
+    a.sendUnreliable('U1');
+    bus.flush();
+    expect(b.poll()).toEqual(['U0', 'R0', 'U1']);
+    expect(a.status().fastSent).toBe(0);
+  });
+
+  it('?nofast=1 (fastLane = false) keeps every packet on the reliable lane', () => {
+    const { bus, a, b } = pair(true);
+    a.fastLane = false;
+    a.sendUnreliable('U0');
+    bus.flush();
+    expect(b.poll()).toEqual(['U0']);
+    expect(a.status().fastSent).toBe(0);
   });
 });

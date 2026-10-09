@@ -139,6 +139,13 @@ export type Channel = 'ctl' | 'pk';
 export interface RoomLike {
   send(channel: Channel, data: string, to?: string): void;
   leave(): void | Promise<void>;
+  /**
+   * PM-S5 lag-research: the FAST lane to `to` (unordered, no retransmits): opened on both sides when the
+   * partner is bound; `onData` gets what the partner sends on it. False when the transport has none (tests).
+   */
+  fast?(to: string, onData: (data: string) => void): boolean;
+  /** PM-S5 lag-research: one packet on the fast lane; false when the lane is not open (the caller falls back). */
+  sendFast?(to: string, data: string): boolean;
 }
 
 export interface RoomHandlers {
@@ -201,6 +208,8 @@ export function serialRooms(join: RoomFactory): RoomFactory {
       send: (channel, data, to) => {
         if (!left) real?.send(channel, data, to);
       },
+      fast: (to, onData) => !left && real?.fast !== undefined && real.fast(to, onData),
+      sendFast: (to, data) => !left && real?.sendFast !== undefined && real.sendFast(to, data),
       leave: () => {
         if (done !== null) return done;
         left = true;
@@ -279,6 +288,9 @@ export interface PitchNetStatus {
    * "X did not come back." with it (the page's silence limit can close the match before the game's own window).
    */
   closedWhy: CloseWhy;
+  /** PM-S5 lag-research: packets sent / received on the fast lane (snapshots), this match. */
+  fastSent?: number;
+  fastRecv?: number;
 }
 
 export type CloseWhy = '' | 'bye' | 'silence';
@@ -348,6 +360,10 @@ export class Matchmaker {
   private lastTickAt = -1;
   private lastPing = 0;
   private inbox: string[] = [];
+  /** PM-S5 lag-research: snapshots on the fast lane (`?nofast=1` turns it off for A/B), and its counters. */
+  fastLane = true;
+  fastSent = 0;
+  fastRecv = 0;
   private epoch = 0;
   // PM-S2 online2: reliable resume, round trip, visibility, discovery head count
   private roomId = '';
@@ -537,7 +553,37 @@ export class Matchmaker {
       stalledFor: stalled ? Math.max(0, (now - this.lastHeard) / 1000) : 0,
       partnerHidden: matched && this.partnerHidden,
       seekers: this.disco !== null ? this.seekerCount : 0,
+      fastSent: this.fastSent,
+      fastRecv: this.fastRecv,
     };
+  }
+
+  /**
+   * PM-S5 lag-research: a packet that may be lost or overtaken (the game's 20 Hz snapshots: the next one replaces
+   * it). It rides the FAST lane (an unordered data channel with no retransmits), outside the sequence / outbox, so
+   * one lost or late packet no longer holds back the ones after it (on the reliable lane a lost snapshot stalled
+   * every later snapshot AND event until it was re-sent: head-of-line blocking), and a blip no longer re-sends a
+   * backlog of stale snapshots. Without a fast lane it is a normal `send` (the old behaviour).
+   */
+  sendUnreliable(b64: string): boolean {
+    if (this.state !== 'matched' || this.room === null || this.partner === null) return false;
+    if (this.fastLane && this.partnerPresent && this.room.sendFast?.(this.partner, b64) === true) {
+      this.fastSent++;
+      return true;
+    }
+    return this.send(b64);
+  }
+
+  /** PM-S5 lag-research: open the fast lane to the partner (both sides, when it is bound or back). */
+  private openFast(): void {
+    if (!this.fastLane || this.room === null || this.partner === null) return;
+    const partner = this.partner;
+    this.room.fast?.(partner, (data) => {
+      if (this.state !== 'matched' || this.partner !== partner) return;
+      this.lastHeard = this.deps.now();
+      this.fastRecv++;
+      this.inbox.push(data);
+    });
   }
 
   /** Queue one packet for the partner; it is re-sent after a blip until acknowledged. */
@@ -859,6 +905,7 @@ export class Matchmaker {
   private sayHi(peer: string): void {
     if (this.room === null || this.hiSent.has(peer)) return;
     this.hiSent.add(peer);
+    if (peer === this.partner) this.openFast(); // PM-S5 lag-research
     const hi: Record<string, unknown> = { t: 'hi', v: PM_PROTO, build: this.build, role: this.role, ack: this.recvSeq };
     if (this.seatToken !== '') hi.token = this.seatToken; // PM-S5 net-reconnect: the seat token (resume proof)
     this.room.send('ctl', JSON.stringify(hi), peer);
@@ -872,6 +919,7 @@ export class Matchmaker {
     this.log(`partner back on a new id ${from.slice(0, 6)}: resumed (epoch ${this.partnerEpoch + 1})`);
     this.partner = from;
     this.partnerPresent = true;
+    this.openFast(); // PM-S5 lag-research
     this.lastHeard = this.deps.now();
     this.lastPing = 0;
     this.sendSeq = 0;
@@ -932,6 +980,7 @@ export class Matchmaker {
             // Resume after a blip.
             const back = !this.partnerPresent;
             this.partnerPresent = true;
+            this.openFast(); // PM-S5 lag-research
             this.sayHi(from);
             this.trim(m.ack);
             this.resend();
@@ -961,6 +1010,7 @@ export class Matchmaker {
         if (this.seatToken === '' && theirToken !== '') this.seatToken = theirToken;
         this.partner = from;
         this.partnerPresent = true;
+        this.openFast(); // PM-S5 lag-research
         this.lastHeard = this.deps.now();
         this.lastPing = 0;
         this.sayHi(from);
@@ -981,6 +1031,7 @@ export class Matchmaker {
       case 'ping':
         if (from !== this.partner) return;
         this.partnerPresent = true;
+        this.openFast(); // PM-S5 lag-research
         if (this.rejoinAt !== 0) this.resetRejoin();
         this.trim(m.ack);
         this.partnerHidden = m.h === true;
